@@ -12,16 +12,6 @@ enum Resource {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let bytes = wlm::encode::to_vec(&(1u32, 2i32, "asdf"))?;
-	println!("{bytes:#?}");
-
-	let parsed: (u32, i32, String) = wlm::decode::from_slice(&bytes)?;
-	println!("{parsed:#?}");
-
-	if 1 + 1 == 2 {
-		return Ok(());
-	}
-
 	let mut resources = std::collections::HashMap::<u32, Resource>::new();
 	let mut names = std::collections::HashMap::<u32, u32>::new();
 	let mut current_name: u32 = 1;
@@ -97,10 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			match object {
 				Resource::Display => match op {
 					0 => {
-						assert!(params.len() == 4);
-						let mut param = [0u8; 4];
-						params.take(4).read_exact(&mut param)?;
-						let param = u32::from_ne_bytes(param);
+						let param = wlm::decode::from_slice(&params)?;
 						resources.insert(param, Resource::Callback);
 
 						let mut buf = Vec::new();
@@ -113,33 +100,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 						stream.write_all(&buf)?;
 					}
 					1 => {
-						assert!(params.len() == 4);
-						let mut param = [0u8; 4];
-						params.take(4).read_exact(&mut param)?;
-						let param = u32::from_ne_bytes(param);
+						let param = wlm::decode::from_slice(&params)?;
 						resources.insert(param, Resource::Registry);
 
 						let mut buf = Vec::new();
 
 						buf.write_all(&param.to_ne_bytes())?;
 						buf.write_all(&0u16.to_ne_bytes())?;
-						let interface = "wl_compositor";
-						buf.write_all(&(8u16 + 4 + 4 + 16 + 4).to_ne_bytes())?;
 
 						let name = current_name;
 						current_name += 1;
 						names.insert(name, param);
 
-						buf.write_all(&name.to_ne_bytes())?;
+						let args = wlm::encode::to_vec(&(name, "wl_compositor", 4))?;
+						buf.write_all(&(8u16 + args.len() as u16).to_ne_bytes())?;
 
-						buf.write_all(&(interface.len() as u32 + 1).to_ne_bytes())?;
-
-						buf.write_all(interface.as_bytes())?;
-						buf.write_all(&0u8.to_ne_bytes())?;
-						buf.write_all(&0u8.to_ne_bytes())?;
-						buf.write_all(&0u8.to_ne_bytes())?;
-
-						buf.write_all(&4u32.to_ne_bytes())?;
+						buf.extend(args);
 
 						println!("{}", buf.len());
 
@@ -150,47 +126,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				Resource::Callback => todo!(),
 				Resource::Registry => match op {
 					0 => {
-						let mut name = [0u8; 4];
-						params.take(4).read_exact(&mut name)?;
-						let mut params = &params[4..];
-						let name = u32::from_ne_bytes(name);
+						let (name, interface, _version, client_object): (u32, String, u32, u32) =
+							wlm::decode::from_slice(&params)?;
 
-						let mut interface_len = [0u8; 4];
-						params.take(4).read_exact(&mut interface_len)?;
-						params = &params[4..];
-						let interface_len = u32::from_ne_bytes(interface_len);
-
-						let mut interface = Vec::new();
-						interface.resize(interface_len as _, 0);
-
-						params.take(interface_len as _).read_exact(&mut interface)?;
-						params = &params[interface_len as _..];
-
-						if interface_len % 4 != 0 {
-							let amount = 3 - interface_len % 4;
-
-							let mut asdf = Vec::new();
-							asdf.resize(amount as _, 0);
-
-							params
-								.take(3 - interface_len as u64 % 4)
-								.read_exact(&mut asdf)?;
-							params = &params[amount as _..];
-						}
-
-						params = &params[1..];
-						println!("{}", params.len());
-
-						let mut version = [0u8; 4];
-						params.take(4).read_exact(&mut version)?;
-						params = &params[4..];
-						let version = u32::from_ne_bytes(version);
-
-						let mut object = [0u8; 4];
-						params.take(4).read_exact(&mut object)?;
-						let client_object = u32::from_ne_bytes(object);
-
-						println!(" {client_object}, {name}, {interface:?} {version}");
+						println!(" {client_object}, {name}, {interface:?} {_version}");
 
 						let object = names.get(&name).unwrap();
 						let object = resources.get(object).unwrap();
