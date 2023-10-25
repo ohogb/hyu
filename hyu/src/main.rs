@@ -11,6 +11,7 @@ enum Resource {
 	SubCompositor,
 	SHM,
 	DataDeviceManager,
+	DataDevice,
 	Seat,
 	XdgWmBase,
 }
@@ -25,6 +26,7 @@ impl Resource {
 			Resource::SubCompositor => "wl_subcompositor",
 			Resource::SHM => "wl_shm",
 			Resource::DataDeviceManager => "wl_data_device_manager",
+			Resource::DataDevice => "wl_data_device",
 			Resource::Seat => "wl_seat",
 			Resource::XdgWmBase => "xdg_wm_base",
 		}
@@ -39,6 +41,7 @@ impl Resource {
 			Resource::SubCompositor => 1,
 			Resource::SHM => 1,
 			Resource::DataDeviceManager => 3,
+			Resource::DataDevice => 3,
 			Resource::Seat => 9,
 			Resource::XdgWmBase => 6,
 		}
@@ -186,7 +189,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				Resource::Compositor => todo!(),
 				Resource::SubCompositor => todo!(),
 				Resource::SHM => todo!(),
-				Resource::DataDeviceManager => todo!(),
+				Resource::DataDeviceManager => match op {
+					1 => {
+						let (id, seat): (u32, u32) = wlm::decode::from_slice(&params)?;
+						resources.insert(id, Resource::DataDevice);
+					}
+					_ => return Err(format!("unknown op '{op}' on Registry"))?,
+				},
+				Resource::DataDevice => todo!(),
 				Resource::Seat => todo!(),
 				Resource::XdgWmBase => todo!(),
 			}
