@@ -13,6 +13,7 @@ enum Resource {
 	DataDeviceManager,
 	DataDevice,
 	Seat,
+	Output,
 	XdgWmBase,
 }
 
@@ -28,6 +29,7 @@ impl Resource {
 			Resource::DataDeviceManager => "wl_data_device_manager",
 			Resource::DataDevice => "wl_data_device",
 			Resource::Seat => "wl_seat",
+			Resource::Output => "wl_output",
 			Resource::XdgWmBase => "xdg_wm_base",
 		}
 	}
@@ -43,6 +45,7 @@ impl Resource {
 			Resource::DataDeviceManager => 3,
 			Resource::DataDevice => 3,
 			Resource::Seat => 9,
+			Resource::Output => 4,
 			Resource::XdgWmBase => 6,
 		}
 	}
@@ -58,7 +61,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	resources.insert(0xFF000002, Resource::SHM);
 	resources.insert(0xFF000003, Resource::DataDeviceManager);
 	resources.insert(0xFF000004, Resource::Seat);
-	resources.insert(0xFF000005, Resource::XdgWmBase);
+	resources.insert(0xFF000005, Resource::Output);
+	resources.insert(0xFF000006, Resource::XdgWmBase);
 
 	resources.insert(1, Resource::Display);
 
@@ -198,6 +202,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				},
 				Resource::DataDevice => todo!(),
 				Resource::Seat => todo!(),
+				Resource::Output => todo!(),
 				Resource::XdgWmBase => todo!(),
 			}
 		}
