@@ -144,6 +144,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 						buf.write_all(&(0u32).to_ne_bytes())?;
 
 						stream.write_all(&buf)?;
+
+						buf.clear();
+
+						let (id, _) = resources
+							.iter()
+							.find(|(_, x)| matches!(x, Resource::SHM))
+							.take()
+							.unwrap();
+
+						buf.write_all(&(id).to_ne_bytes())?;
+						buf.write_all(&0u16.to_ne_bytes())?;
+						buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
+						buf.write_all(&(0u32).to_ne_bytes())?;
+
+						stream.write_all(&buf)?;
 					}
 					1 => {
 						let param = wlm::decode::from_slice(&params)?;
