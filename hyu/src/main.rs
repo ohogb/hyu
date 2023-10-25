@@ -2,13 +2,35 @@
 
 use std::io::{Read, Write};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 enum Resource {
 	Display,
 	Callback,
 	Registry,
 	Compositor,
 	SubCompositor,
+}
+
+impl Resource {
+	pub fn get_name(&self) -> &'static str {
+		match self {
+			Resource::Display => "wl_display",
+			Resource::Callback => "wl_callback",
+			Resource::Registry => "wl_registry",
+			Resource::Compositor => "wl_compositor",
+			Resource::SubCompositor => "wl_subcompositor",
+		}
+	}
+
+	pub fn get_version(&self) -> u32 {
+		match self {
+			Resource::Display => 1,
+			Resource::Callback => 1,
+			Resource::Registry => 1,
+			Resource::Compositor => 4,
+			Resource::SubCompositor => 1,
+		}
+	}
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -103,23 +125,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 						let param = wlm::decode::from_slice(&params)?;
 						resources.insert(param, Resource::Registry);
 
-						let mut buf = Vec::new();
+						for (i, object) in &resources {
+							let mut buf = Vec::new();
 
-						buf.write_all(&param.to_ne_bytes())?;
-						buf.write_all(&0u16.to_ne_bytes())?;
+							buf.write_all(&param.to_ne_bytes())?;
+							buf.write_all(&0u16.to_ne_bytes())?;
 
-						let name = current_name;
-						current_name += 1;
-						names.insert(name, param);
+							let name = current_name;
+							current_name += 1;
+							names.insert(name, *i);
 
-						let args = wlm::encode::to_vec(&(name, "wl_compositor", 4))?;
-						buf.write_all(&(8u16 + args.len() as u16).to_ne_bytes())?;
+							let args = wlm::encode::to_vec(&(
+								name,
+								object.get_name(),
+								object.get_version(),
+							))?;
+							buf.write_all(&(8u16 + args.len() as u16).to_ne_bytes())?;
 
-						buf.extend(args);
+							buf.extend(args);
 
-						println!("{}", buf.len());
+							println!("{}", buf.len());
 
-						stream.write_all(&buf)?;
+							stream.write_all(&buf)?;
+						}
 					}
 					_ => return Err(format!("unknown op '{op}' on Display"))?,
 				},
