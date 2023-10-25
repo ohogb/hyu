@@ -9,6 +9,7 @@ enum Resource {
 	Registry,
 	Compositor,
 	SubCompositor,
+	SHM,
 }
 
 impl Resource {
@@ -19,6 +20,7 @@ impl Resource {
 			Resource::Registry => "wl_registry",
 			Resource::Compositor => "wl_compositor",
 			Resource::SubCompositor => "wl_subcompositor",
+			Resource::SHM => "wl_shm",
 		}
 	}
 
@@ -29,6 +31,7 @@ impl Resource {
 			Resource::Registry => 1,
 			Resource::Compositor => 4,
 			Resource::SubCompositor => 1,
+			Resource::SHM => 1,
 		}
 	}
 }
@@ -40,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	resources.insert(0xFF000000, Resource::Compositor);
 	resources.insert(0xFF000001, Resource::SubCompositor);
+	resources.insert(0xFF000002, Resource::SHM);
 	resources.insert(1, Resource::Display);
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
@@ -168,6 +172,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				},
 				Resource::Compositor => todo!(),
 				Resource::SubCompositor => todo!(),
+				Resource::SHM => todo!(),
 			}
 		}
 	}
