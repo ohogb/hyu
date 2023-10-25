@@ -2,16 +2,22 @@
 
 use std::io::{Read, Write};
 
+#[derive(Clone)]
 enum Resource {
 	Display,
 	Callback,
 	Registry,
 	Compositor,
+	SubCompositor,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut resources = std::collections::HashMap::<u32, Resource>::new();
+	let mut names = std::collections::HashMap::<u32, u32>::new();
+	let mut current_name: u32 = 1;
+
 	resources.insert(0xFF000000, Resource::Compositor);
+	resources.insert(0xFF000001, Resource::SubCompositor);
 	resources.insert(1, Resource::Display);
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
@@ -69,6 +75,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				.read_to_end(&mut params)
 				.unwrap();
 
+			println!("params {params:#?}");
+
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
 
@@ -108,7 +116,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 						let interface = "wl_compositor";
 						buf.write_all(&(8u16 + 4 + 4 + 16 + 4).to_ne_bytes())?;
 
-						buf.write_all(&1u32.to_ne_bytes())?;
+						let name = current_name;
+						current_name += 1;
+						names.insert(name, param);
+
+						buf.write_all(&name.to_ne_bytes())?;
 
 						buf.write_all(&(interface.len() as u32 + 1).to_ne_bytes())?;
 
@@ -126,8 +138,59 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 					_ => return Err(format!("unknown op '{op}' on Display"))?,
 				},
 				Resource::Callback => todo!(),
-				Resource::Registry => todo!(),
+				Resource::Registry => match op {
+					0 => {
+						let mut name = [0u8; 4];
+						params.take(4).read_exact(&mut name)?;
+						let mut params = &params[4..];
+						let name = u32::from_ne_bytes(name);
+
+						let mut interface_len = [0u8; 4];
+						params.take(4).read_exact(&mut interface_len)?;
+						params = &params[4..];
+						let interface_len = u32::from_ne_bytes(interface_len);
+
+						let mut interface = Vec::new();
+						interface.resize(interface_len as _, 0);
+
+						params.take(interface_len as _).read_exact(&mut interface)?;
+						params = &params[interface_len as _..];
+
+						if interface_len % 4 != 0 {
+							let amount = 3 - interface_len % 4;
+
+							let mut asdf = Vec::new();
+							asdf.resize(amount as _, 0);
+
+							params
+								.take(3 - interface_len as u64 % 4)
+								.read_exact(&mut asdf)?;
+							params = &params[amount as _..];
+						}
+
+						params = &params[1..];
+						println!("{}", params.len());
+
+						let mut version = [0u8; 4];
+						params.take(4).read_exact(&mut version)?;
+						params = &params[4..];
+						let version = u32::from_ne_bytes(version);
+
+						let mut object = [0u8; 4];
+						params.take(4).read_exact(&mut object)?;
+						let client_object = u32::from_ne_bytes(object);
+
+						println!(" {client_object}, {name}, {interface:?} {version}");
+
+						let object = names.get(&name).unwrap();
+						let object = resources.get(object).unwrap();
+
+						resources.insert(client_object, object.clone());
+					}
+					_ => return Err(format!("unknown op '{op}' on Registry"))?,
+				},
 				Resource::Compositor => todo!(),
+				Resource::SubCompositor => todo!(),
 			}
 		}
 	}
