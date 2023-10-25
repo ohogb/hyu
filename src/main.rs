@@ -3,6 +3,7 @@
 use std::io::{Read, Write};
 
 enum Resource {
+	Display,
 	Callback,
 	Registry,
 	Compositor,
@@ -11,8 +12,7 @@ enum Resource {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let mut resources = std::collections::HashMap::<u32, Resource>::new();
 	resources.insert(0xFF000000, Resource::Compositor);
-
-	let mut current_resource = 2;
+	resources.insert(1, Resource::Display);
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
@@ -69,58 +69,66 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 				.read_to_end(&mut params)
 				.unwrap();
 
-			match (u32::from_ne_bytes(obj), u16::from_ne_bytes(op)) {
-				(1, 0) => {
-					assert!(params.len() == 4);
-					let mut param = [0u8; 4];
-					params.take(4).read_exact(&mut param)?;
-					let param = u32::from_ne_bytes(param);
-					resources.insert(param, Resource::Callback);
+			let object = u32::from_ne_bytes(obj);
+			let op = u16::from_ne_bytes(op);
 
-					let mut buf = Vec::new();
+			let Some(object) = resources.get(&object) else {
+				return Err(format!("unknown object '{object}'"))?;
+			};
 
-					buf.write_all(&param.to_ne_bytes())?;
-					buf.write_all(&0u16.to_ne_bytes())?;
-					buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
-					buf.write_all(&(0u32).to_ne_bytes())?;
+			match object {
+				Resource::Display => match op {
+					0 => {
+						assert!(params.len() == 4);
+						let mut param = [0u8; 4];
+						params.take(4).read_exact(&mut param)?;
+						let param = u32::from_ne_bytes(param);
+						resources.insert(param, Resource::Callback);
 
-					stream.write_all(&buf)?;
-				}
-				(1, 1) => {
-					assert!(params.len() == 4);
-					let mut param = [0u8; 4];
-					params.take(4).read_exact(&mut param)?;
-					let param = u32::from_ne_bytes(param);
-					resources.insert(param, Resource::Registry);
+						let mut buf = Vec::new();
 
-					let mut buf = Vec::new();
+						buf.write_all(&param.to_ne_bytes())?;
+						buf.write_all(&0u16.to_ne_bytes())?;
+						buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
+						buf.write_all(&(0u32).to_ne_bytes())?;
 
-					buf.write_all(&param.to_ne_bytes())?;
-					buf.write_all(&0u16.to_ne_bytes())?;
-					let interface = "wl_compositor";
-					buf.write_all(&(8u16 + 4 + 4 + 16 + 4).to_ne_bytes())?;
+						stream.write_all(&buf)?;
+					}
+					1 => {
+						assert!(params.len() == 4);
+						let mut param = [0u8; 4];
+						params.take(4).read_exact(&mut param)?;
+						let param = u32::from_ne_bytes(param);
+						resources.insert(param, Resource::Registry);
 
-					buf.write_all(&1u32.to_ne_bytes())?;
+						let mut buf = Vec::new();
 
-					buf.write_all(&(interface.len() as u32 + 1).to_ne_bytes())?;
+						buf.write_all(&param.to_ne_bytes())?;
+						buf.write_all(&0u16.to_ne_bytes())?;
+						let interface = "wl_compositor";
+						buf.write_all(&(8u16 + 4 + 4 + 16 + 4).to_ne_bytes())?;
 
-					buf.write_all(interface.as_bytes())?;
-					buf.write_all(&0u8.to_ne_bytes())?;
-					buf.write_all(&0u8.to_ne_bytes())?;
-					buf.write_all(&0u8.to_ne_bytes())?;
+						buf.write_all(&1u32.to_ne_bytes())?;
 
-					buf.write_all(&4u32.to_ne_bytes())?;
+						buf.write_all(&(interface.len() as u32 + 1).to_ne_bytes())?;
 
-					println!("{}", buf.len());
+						buf.write_all(interface.as_bytes())?;
+						buf.write_all(&0u8.to_ne_bytes())?;
+						buf.write_all(&0u8.to_ne_bytes())?;
+						buf.write_all(&0u8.to_ne_bytes())?;
 
-					stream.write_all(&buf)?;
-				}
-				(x, y) => {
-					panic!("not handled {x}, {y}");
-				}
+						buf.write_all(&4u32.to_ne_bytes())?;
+
+						println!("{}", buf.len());
+
+						stream.write_all(&buf)?;
+					}
+					_ => return Err(format!("unknown op '{op}' on Display"))?,
+				},
+				Resource::Callback => todo!(),
+				Resource::Registry => todo!(),
+				Resource::Compositor => todo!(),
 			}
-
-			println!("params {params:#?}");
 		}
 	}
 
