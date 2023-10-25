@@ -12,6 +12,13 @@ enum Resource {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+	let bytes = wlm::encode::to_vec(&(1u32, 2i32, "asdf"));
+	println!("{bytes:#?}");
+
+	if 1 + 1 == 2 {
+		return Ok(());
+	}
+
 	let mut resources = std::collections::HashMap::<u32, Resource>::new();
 	let mut names = std::collections::HashMap::<u32, u32>::new();
 	let mut current_name: u32 = 1;
