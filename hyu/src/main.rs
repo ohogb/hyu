@@ -12,8 +12,11 @@ enum Resource {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let bytes = wlm::encode::to_vec(&(1u32, 2i32, "asdf"));
+	let bytes = wlm::encode::to_vec(&(1u32, 2i32, "asdf"))?;
 	println!("{bytes:#?}");
+
+	let parsed: (u32, i32, String) = wlm::decode::from_slice(&bytes)?;
+	println!("{parsed:#?}");
 
 	if 1 + 1 == 2 {
 		return Ok(());

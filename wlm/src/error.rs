@@ -30,3 +30,9 @@ impl std::fmt::Display for Error {
 }
 
 impl std::error::Error for Error {}
+
+impl From<std::array::TryFromSliceError> for Error {
+	fn from(value: std::array::TryFromSliceError) -> Self {
+		Self::Message(value.to_string())
+	}
+}
