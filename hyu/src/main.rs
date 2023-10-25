@@ -14,6 +14,7 @@ enum Resource {
 	DataDevice,
 	Seat,
 	Output,
+	Surface,
 	XdgWmBase,
 }
 
@@ -30,6 +31,7 @@ impl Resource {
 			Resource::DataDevice => "wl_data_device",
 			Resource::Seat => "wl_seat",
 			Resource::Output => "wl_output",
+			Resource::Surface => "wl_surface",
 			Resource::XdgWmBase => "xdg_wm_base",
 		}
 	}
@@ -46,6 +48,7 @@ impl Resource {
 			Resource::DataDevice => 3,
 			Resource::Seat => 9,
 			Resource::Output => 4,
+			Resource::Surface => 6,
 			Resource::XdgWmBase => 6,
 		}
 	}
@@ -205,7 +208,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 					}
 					_ => return Err(format!("unknown op '{op}' on Registry"))?,
 				},
-				Resource::Compositor => todo!(),
+				Resource::Compositor => match op {
+					0 => {
+						let id: u32 = wlm::decode::from_slice(&params)?;
+						resources.insert(id, Resource::Surface);
+					}
+					_ => return Err(format!("unknown op '{op}' on Compositor"))?,
+				},
 				Resource::SubCompositor => todo!(),
 				Resource::SHM => todo!(),
 				Resource::DataDeviceManager => match op {
@@ -213,11 +222,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 						let (id, seat): (u32, u32) = wlm::decode::from_slice(&params)?;
 						resources.insert(id, Resource::DataDevice);
 					}
-					_ => return Err(format!("unknown op '{op}' on Registry"))?,
+					_ => return Err(format!("unknown op '{op}' on DataDeviceManager"))?,
 				},
 				Resource::DataDevice => todo!(),
 				Resource::Seat => todo!(),
 				Resource::Output => todo!(),
+				Resource::Surface => todo!(),
 				Resource::XdgWmBase => todo!(),
 			}
 		}
