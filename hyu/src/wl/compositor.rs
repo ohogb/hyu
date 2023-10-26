@@ -11,7 +11,15 @@ impl Compositor {
 
 impl wl::Object for Compositor {
 	fn handle(&self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
-		todo!()
+		match op {
+			0 => {
+				let id: u32 = wlm::decode::from_slice(&params)?;
+				client.push_client_object(id, std::rc::Rc::new(wl::Surface::new()));
+			}
+			_ => Err(format!("unknown op '{op}' in Compositor"))?,
+		}
+
+		Ok(())
 	}
 }
 
