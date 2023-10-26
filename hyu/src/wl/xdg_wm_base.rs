@@ -11,7 +11,15 @@ impl XdgWmBase {
 
 impl wl::Object for XdgWmBase {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
-		todo!()
+		match op {
+			2 => {
+				let (id, surface): (u32, u32) = wlm::decode::from_slice(&params)?;
+				client.push_client_object(id, wl::XdgSurface::new());
+			}
+			_ => Err(format!("unknown op '{op}' in XdgWmBase"))?,
+		}
+
+		Ok(())
 	}
 }
 

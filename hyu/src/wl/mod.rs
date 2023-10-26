@@ -10,6 +10,7 @@ mod seat;
 mod shm;
 mod sub_compositor;
 mod surface;
+mod xdg_surface;
 mod xdg_wm_base;
 
 pub use client::*;
@@ -24,6 +25,7 @@ pub use seat::*;
 pub use shm::*;
 pub use sub_compositor::*;
 pub use surface::*;
+pub use xdg_surface::*;
 pub use xdg_wm_base::*;
 
 use crate::{wl, Result};
