@@ -3,12 +3,14 @@ mod compositor;
 mod display;
 mod registry;
 mod shm;
+mod sub_compositor;
 
 pub use client::*;
 pub use compositor::*;
 pub use display::*;
 pub use registry::*;
 pub use shm::*;
+pub use sub_compositor::*;
 
 use crate::{wl, Result};
 

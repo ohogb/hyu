@@ -32,6 +32,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
 		display.push_global(wl::Shm::new());
 		display.push_global(wl::Compositor::new());
+		display.push_global(wl::SubCompositor::new());
 
 		client.push_client_object(1, std::rc::Rc::new(display));
 
