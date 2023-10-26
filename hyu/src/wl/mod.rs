@@ -1,5 +1,6 @@
 mod client;
 mod compositor;
+mod data_device_manager;
 mod display;
 mod registry;
 mod shm;
@@ -8,6 +9,7 @@ mod xdg_wm_base;
 
 pub use client::*;
 pub use compositor::*;
+pub use data_device_manager::*;
 pub use display::*;
 pub use registry::*;
 pub use shm::*;
