@@ -1,87 +1,16 @@
 #![feature(fs_try_exists, unix_socket_peek)]
 
+mod state;
+pub mod wl;
+
+pub use state::*;
+
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone)]
-enum Resource {
-	Display,
-	Callback,
-	Registry,
-	Compositor,
-	SubCompositor,
-	SHM,
-	DataDeviceManager,
-	DataDevice,
-	Seat,
-	Output,
-	Surface,
-	XdgWmBase,
-}
+pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-impl Resource {
-	pub fn get_name(&self) -> &'static str {
-		match self {
-			Resource::Display => "wl_display",
-			Resource::Callback => "wl_callback",
-			Resource::Registry => "wl_registry",
-			Resource::Compositor => "wl_compositor",
-			Resource::SubCompositor => "wl_subcompositor",
-			Resource::SHM => "wl_shm",
-			Resource::DataDeviceManager => "wl_data_device_manager",
-			Resource::DataDevice => "wl_data_device",
-			Resource::Seat => "wl_seat",
-			Resource::Output => "wl_output",
-			Resource::Surface => "wl_surface",
-			Resource::XdgWmBase => "xdg_wm_base",
-		}
-	}
-
-	pub fn get_version(&self) -> u32 {
-		match self {
-			Resource::Display => 1,
-			Resource::Callback => 1,
-			Resource::Registry => 1,
-			Resource::Compositor => 4,
-			Resource::SubCompositor => 1,
-			Resource::SHM => 1,
-			Resource::DataDeviceManager => 3,
-			Resource::DataDevice => 3,
-			Resource::Seat => 9,
-			Resource::Output => 4,
-			Resource::Surface => 6,
-			Resource::XdgWmBase => 6,
-		}
-	}
-}
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let mut resources = std::collections::HashMap::<u32, Resource>::new();
-	let mut names = std::collections::HashMap::<u32, u32>::new();
-	let mut current_name: u32 = 1;
-
-	resources.insert(0xFF000000, Resource::Compositor);
-	resources.insert(0xFF000001, Resource::SubCompositor);
-	resources.insert(0xFF000002, Resource::SHM);
-	resources.insert(0xFF000003, Resource::DataDeviceManager);
-	resources.insert(0xFF000004, Resource::Seat);
-	resources.insert(0xFF000005, Resource::Output);
-	resources.insert(0xFF000006, Resource::XdgWmBase);
-
-	resources.insert(1, Resource::Display);
-
+fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
-
-	/*let index = std::fs::read_dir(&runtime_dir)?
-	.filter_map(|x| {
-		let name = x.ok()?.file_name().into_string().ok()?;
-
-		if name.starts_with("wayland-") && !name.ends_with(".lock") {
-			Some(())
-		} else {
-			None
-		}
-	})
-	.count();*/
 
 	let index = 1;
 	let path = std::path::PathBuf::from_iter([runtime_dir, format!("wayland-{index}")]);
@@ -94,6 +23,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	for i in socket.incoming() {
 		let mut stream = i?;
+
+		let mut client = wl::Client::new(State {
+			buffer: Buffer(Vec::new()),
+		});
+
+		let mut display = wl::Display::new();
+
+		display.push_global(wl::Shm::new());
+		display.push_global(wl::Compositor::new());
+
+		client.push_client_object(1, std::rc::Rc::new(display));
+
 		loop {
 			stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
 
@@ -129,107 +70,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
 
-			let Some(object) = resources.get(&object) else {
+			let Some(object) = client.get_object(object).cloned() else {
 				return Err(format!("unknown object '{object}'"))?;
 			};
 
-			match object {
-				Resource::Display => match op {
-					0 => {
-						let param = wlm::decode::from_slice(&params)?;
-						resources.insert(param, Resource::Callback);
+			object.handle(&mut client, op, params)?;
 
-						let mut buf = Vec::new();
-
-						buf.write_all(&param.to_ne_bytes())?;
-						buf.write_all(&0u16.to_ne_bytes())?;
-						buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
-						buf.write_all(&(0u32).to_ne_bytes())?;
-
-						stream.write_all(&buf)?;
-
-						buf.clear();
-
-						let (id, _) = resources
-							.iter()
-							.find(|(_, x)| matches!(x, Resource::SHM))
-							.take()
-							.unwrap();
-
-						buf.write_all(&(id).to_ne_bytes())?;
-						buf.write_all(&0u16.to_ne_bytes())?;
-						buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
-						buf.write_all(&(0u32).to_ne_bytes())?;
-
-						stream.write_all(&buf)?;
-					}
-					1 => {
-						let param = wlm::decode::from_slice(&params)?;
-						resources.insert(param, Resource::Registry);
-
-						for (i, object) in &resources {
-							let mut buf = Vec::new();
-
-							buf.write_all(&param.to_ne_bytes())?;
-							buf.write_all(&0u16.to_ne_bytes())?;
-
-							let name = current_name;
-							current_name += 1;
-							names.insert(name, *i);
-
-							let args = wlm::encode::to_vec(&(
-								name,
-								object.get_name(),
-								object.get_version(),
-							))?;
-							buf.write_all(&(8u16 + args.len() as u16).to_ne_bytes())?;
-
-							buf.extend(args);
-
-							println!("{}", buf.len());
-
-							stream.write_all(&buf)?;
-						}
-					}
-					_ => return Err(format!("unknown op '{op}' on Display"))?,
-				},
-				Resource::Callback => todo!(),
-				Resource::Registry => match op {
-					0 => {
-						let (name, interface, _version, client_object): (u32, String, u32, u32) =
-							wlm::decode::from_slice(&params)?;
-
-						println!(" {client_object}, {name}, {interface:?} {_version}");
-
-						let object = names.get(&name).unwrap();
-						let object = resources.get(object).unwrap();
-
-						resources.insert(client_object, object.clone());
-					}
-					_ => return Err(format!("unknown op '{op}' on Registry"))?,
-				},
-				Resource::Compositor => match op {
-					0 => {
-						let id: u32 = wlm::decode::from_slice(&params)?;
-						resources.insert(id, Resource::Surface);
-					}
-					_ => return Err(format!("unknown op '{op}' on Compositor"))?,
-				},
-				Resource::SubCompositor => todo!(),
-				Resource::SHM => todo!(),
-				Resource::DataDeviceManager => match op {
-					1 => {
-						let (id, seat): (u32, u32) = wlm::decode::from_slice(&params)?;
-						resources.insert(id, Resource::DataDevice);
-					}
-					_ => return Err(format!("unknown op '{op}' on DataDeviceManager"))?,
-				},
-				Resource::DataDevice => todo!(),
-				Resource::Seat => todo!(),
-				Resource::Output => todo!(),
-				Resource::Surface => todo!(),
-				Resource::XdgWmBase => todo!(),
-			}
+			stream.write_all(&client.get_state().buffer.0)?;
+			client.get_state().buffer.0.clear();
 		}
 	}
 
