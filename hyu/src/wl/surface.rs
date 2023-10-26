@@ -15,6 +15,10 @@ impl wl::Object for Surface {
 				// wl_surface.set_opaque_region()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1518
 			}
+			5 => {
+				// wl_surface.set_input_region()
+				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1549
+			}
 			6 => {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
