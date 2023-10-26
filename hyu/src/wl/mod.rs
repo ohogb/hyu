@@ -4,6 +4,7 @@ mod display;
 mod registry;
 mod shm;
 mod sub_compositor;
+mod xdg_wm_base;
 
 pub use client::*;
 pub use compositor::*;
@@ -11,6 +12,7 @@ pub use display::*;
 pub use registry::*;
 pub use shm::*;
 pub use sub_compositor::*;
+pub use xdg_wm_base::*;
 
 use crate::{wl, Result};
 
