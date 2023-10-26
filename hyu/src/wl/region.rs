@@ -1,15 +1,25 @@
 use crate::{wl, Result};
 
-pub struct Region {}
+pub struct Region {
+	areas: Vec<(u32, u32, u32, u32)>,
+}
 
 impl Region {
 	pub fn new() -> Self {
-		Self {}
+		Self { areas: Vec::new() }
 	}
 }
 
 impl wl::Object for Region {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
-		todo!()
+		match op {
+			1 => {
+				let (x, y, w, h): (u32, u32, u32, u32) = wlm::decode::from_slice(&params)?;
+				self.areas.push((x, y, w, h));
+			}
+			_ => Err(format!("unknown op '{op}' in Region"))?,
+		}
+
+		Ok(())
 	}
 }
