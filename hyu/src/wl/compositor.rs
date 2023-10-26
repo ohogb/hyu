@@ -16,6 +16,10 @@ impl wl::Object for Compositor {
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, std::rc::Rc::new(wl::Surface::new()));
 			}
+			1 => {
+				let id: u32 = wlm::decode::from_slice(&params)?;
+				client.push_client_object(id, std::rc::Rc::new(wl::Region::new()));
+			}
 			_ => Err(format!("unknown op '{op}' in Compositor"))?,
 		}
 
