@@ -15,6 +15,10 @@ impl wl::Object for Surface {
 				// wl_surface.set_opaque_region()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1518
 			}
+			6 => {
+				// wl_surface.commit()
+				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
+			}
 			_ => Err(format!("unknown op '{op}' in Surface"))?,
 		}
 
