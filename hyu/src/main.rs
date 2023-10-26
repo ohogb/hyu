@@ -38,7 +38,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 		display.push_global(wl::Output::new());
 		display.push_global(wl::XdgWmBase::new());
 
-		client.push_client_object(1, std::rc::Rc::new(display));
+		client.push_client_object(1, display);
 
 		loop {
 			stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
@@ -75,11 +75,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
 
-			let Some(object) = client.get_object(object).cloned() else {
+			let Some(object) = client.get_object_mut(object) else {
 				return Err(format!("unknown object '{object}'"))?;
 			};
 
-			object.handle(&mut client, op, params)?;
+			let object = (&mut **object) as *mut dyn wl::Object;
+			unsafe { (*object).handle(&mut client, op, params)? };
 
 			stream.write_all(&client.get_state().buffer.0)?;
 			client.get_state().buffer.0.clear();

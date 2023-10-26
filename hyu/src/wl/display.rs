@@ -24,7 +24,7 @@ impl Display {
 }
 
 impl wl::Object for Display {
-	fn handle(&self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				let callback: u32 = wlm::decode::from_slice(&params)?;
@@ -40,9 +40,7 @@ impl wl::Object for Display {
 			}
 			1 => {
 				let registry_index: u32 = wlm::decode::from_slice(&params)?;
-				let registry = std::rc::Rc::new(wl::Registry::new(registry_index, &self));
-
-				client.push_client_object(registry_index, registry.clone());
+				let registry = wl::Registry::new(registry_index, &self);
 
 				for (index, global) in self.globals.iter().enumerate() {
 					let message = registry.global(
@@ -53,6 +51,8 @@ impl wl::Object for Display {
 
 					client.get_state().buffer.0.extend(message);
 				}
+
+				client.push_client_object(registry_index, registry);
 			}
 			_ => Err(format!("unknown op '{op}' in Display"))?,
 		}

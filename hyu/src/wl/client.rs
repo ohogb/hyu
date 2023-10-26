@@ -1,7 +1,7 @@
 use crate::{wl, State};
 
 pub struct Client {
-	objects: std::collections::HashMap<u32, std::rc::Rc<dyn wl::Object>>,
+	objects: std::collections::HashMap<u32, Box<dyn wl::Object>>,
 	state: State,
 }
 
@@ -13,12 +13,12 @@ impl Client {
 		}
 	}
 
-	pub fn push_client_object(&mut self, id: u32, object: std::rc::Rc<dyn wl::Object>) {
-		self.objects.insert(id, object);
+	pub fn push_client_object(&mut self, id: u32, object: impl wl::Object + 'static) {
+		self.objects.insert(id, Box::new(object));
 	}
 
-	pub fn get_object(&self, id: u32) -> Option<&std::rc::Rc<dyn wl::Object>> {
-		self.objects.get(&id)
+	pub fn get_object_mut(&mut self, id: u32) -> Option<&mut Box<dyn wl::Object>> {
+		self.objects.get_mut(&id)
 	}
 
 	pub fn get_state(&mut self) -> &mut State {

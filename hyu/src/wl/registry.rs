@@ -32,7 +32,7 @@ impl Registry {
 }
 
 impl wl::Object for Registry {
-	fn handle(&self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				let (name, interface, _version, client_object): (u32, String, u32, u32) =
