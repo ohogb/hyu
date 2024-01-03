@@ -111,7 +111,7 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 	}
 
 	fn serialize_unit(self) -> Result<()> {
-		todo!()
+		Ok(())
 	}
 
 	fn serialize_unit_struct(self, name: &'static str) -> Result<()> {
