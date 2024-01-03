@@ -26,5 +26,55 @@ impl wl::Global for Output {
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) {
 		client.push_client_object(object_id, Self::new());
+
+		let mut buf = Vec::new();
+
+		buf.extend(object_id.to_ne_bytes());
+		buf.extend(0u16.to_ne_bytes());
+
+		let arg =
+			wlm::encode::to_vec(&(0u32, 0u32, 600u32, 340u32, 0u32, "AUS", "ROG XG27AQM", 0u32))
+				.unwrap();
+
+		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
+		buf.extend(arg);
+
+		client.get_state().buffer.0.extend(buf);
+
+		let mut buf = Vec::new();
+
+		buf.extend(object_id.to_ne_bytes());
+		buf.extend(1u16.to_ne_bytes());
+
+		let arg = wlm::encode::to_vec(&(3u32, 2560u32, 1440u32, 270000u32)).unwrap();
+
+		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
+		buf.extend(arg);
+
+		client.get_state().buffer.0.extend(buf);
+
+		let mut buf = Vec::new();
+
+		buf.extend(object_id.to_ne_bytes());
+		buf.extend(3u16.to_ne_bytes());
+
+		let arg = wlm::encode::to_vec(&(1u32)).unwrap();
+
+		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
+		buf.extend(arg);
+
+		client.get_state().buffer.0.extend(buf);
+
+		let mut buf = Vec::new();
+
+		buf.extend(object_id.to_ne_bytes());
+		buf.extend(2u16.to_ne_bytes());
+
+		let arg = wlm::encode::to_vec(&()).unwrap();
+
+		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
+		buf.extend(arg);
+
+		client.get_state().buffer.0.extend(buf);
 	}
 }
