@@ -9,7 +9,7 @@ impl Surface {
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
@@ -17,7 +17,12 @@ impl wl::Object for Surface {
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
-				let _callback: u32 = wlm::decode::from_slice(&params)?;
+				let callback: u32 = wlm::decode::from_slice(&params)?;
+				client.send_message(wlm::Message {
+					object_id: callback,
+					op: 0,
+					args: 0u32,
+				})?;
 			}
 			4 => {
 				// wl_surface.set_opaque_region()
