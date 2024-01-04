@@ -10,6 +10,13 @@ impl Buffer {
 
 impl wl::Object for Buffer {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
-		todo!()
+		match op {
+			0 => {
+				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy
+			}
+			_ => Err(format!("unknown op '{op}' in Buffer"))?,
+		}
+
+		Ok(())
 	}
 }
