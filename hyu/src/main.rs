@@ -5,7 +5,10 @@ pub mod wl;
 
 pub use state::*;
 
-use std::io::{Read, Write};
+use std::{
+	io::{Read, Write},
+	os::fd::AsRawFd,
+};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -41,36 +44,46 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 		client.push_client_object(1, display);
 
 		loop {
-			stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
+			let fd = stream.as_raw_fd();
 
-			let mut obj = [0u8; 4];
-			let len = stream.read(&mut obj).unwrap();
+			let mut events = nix::libc::epoll_event { events: 0, u64: 0 };
 
-			if len != 4 {
-				continue;
+			unsafe {
+				nix::libc::epoll_wait(fd, &mut events as _, 1, -1);
 			}
 
-			println!("obj {obj:#?}");
+			let mut cmsg = nix::cmsg_space!([std::os::fd::RawFd; 10]);
+
+			let msgs = nix::sys::socket::recvmsg::<()>(
+				fd,
+				&mut [],
+				Some(&mut cmsg),
+				nix::sys::socket::MsgFlags::empty(),
+			)?;
+
+			for i in msgs.cmsgs() {
+				match i {
+					nix::sys::socket::ControlMessageOwned::ScmRights(x) => client.push_fds(x),
+					_ => panic!(),
+				}
+			}
+
+			let mut obj = [0u8; 4];
+			stream.read_exact(&mut obj).unwrap();
 
 			let mut op = [0u8; 2];
 			stream.read_exact(&mut op).unwrap();
-
-			println!("op {op:#?}");
 
 			let mut size = [0u8; 2];
 			stream.read_exact(&mut size).unwrap();
 
 			let size = u16::from_ne_bytes(size) - 0x8;
 
-			println!("params size {:#?}", size);
-
 			let mut params = Vec::new();
 			let _ = (&mut stream)
 				.take(size as _)
 				.read_to_end(&mut params)
 				.unwrap();
-
-			println!("params {params:#?}");
 
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
