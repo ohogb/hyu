@@ -1,10 +1,12 @@
 use crate::{wl, Result};
 
-pub struct Surface {}
+pub struct Surface {
+	buffer: Option<(u32, u32, u32)>,
+}
 
 impl Surface {
 	pub fn new() -> Self {
-		Self {}
+		Self { buffer: None }
 	}
 }
 
@@ -13,7 +15,13 @@ impl wl::Object for Surface {
 		match op {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
-				let (_buffer, _x, _y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+				let (buffer, x, y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+
+				self.buffer = if buffer != 0 {
+					Some((buffer, x, y))
+				} else {
+					None
+				};
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
@@ -35,6 +43,13 @@ impl wl::Object for Surface {
 			6 => {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
+				if let Some((buffer, _x, _y)) = &self.buffer {
+					client.send_message(wlm::Message {
+						object_id: *buffer,
+						op: 0,
+						args: (),
+					})?;
+				}
 			}
 			8 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
