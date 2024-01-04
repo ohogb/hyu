@@ -1,3 +1,4 @@
+mod buffer;
 mod client;
 mod compositor;
 mod data_device;
@@ -18,6 +19,7 @@ mod xdg_surface;
 mod xdg_toplevel;
 mod xdg_wm_base;
 
+pub use buffer::*;
 pub use client::*;
 pub use compositor::*;
 pub use data_device::*;
