@@ -31,6 +31,15 @@ impl wl::Object for XdgSurface {
 
 				client.push_client_object(id, xdg_toplevel);
 			}
+			3 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry
+				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
+					wlm::decode::from_slice(&params)?;
+			}
+			4 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:ack_configure
+				let _serial: u32 = wlm::decode::from_slice(&params)?;
+			}
 			_ => Err(format!("unknown op '{op}' in XdgSurface"))?,
 		}
 
