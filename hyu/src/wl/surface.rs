@@ -9,7 +9,7 @@ impl Surface {
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			4 => {
 				// wl_surface.set_opaque_region()
@@ -22,6 +22,10 @@ impl wl::Object for Surface {
 			6 => {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
+			}
+			8 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
+				let _scale: u32 = wlm::decode::from_slice(&params)?;
 			}
 			_ => Err(format!("unknown op '{op}' in Surface"))?,
 		}
