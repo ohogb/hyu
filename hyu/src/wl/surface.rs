@@ -31,6 +31,11 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
 				let _scale: u32 = wlm::decode::from_slice(&params)?;
 			}
+			9 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:damage_buffer
+				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
+					wlm::decode::from_slice(&params)?;
+			}
 			_ => Err(format!("unknown op '{op}' in Surface"))?,
 		}
 
