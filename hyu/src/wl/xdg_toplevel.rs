@@ -43,6 +43,10 @@ impl wl::Object for XdgToplevel {
 				let app_id: String = wlm::decode::from_slice(&params)?;
 				self.app_id = app_id;
 			}
+			8 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_min_size
+				let (_width, _height): (u32, u32) = wlm::decode::from_slice(&params)?;
+			}
 			_ => Err(format!("unknown op '{op}' in XdgToplevel"))?,
 		}
 
