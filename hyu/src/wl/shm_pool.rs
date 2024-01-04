@@ -23,6 +23,9 @@ impl wl::Object for ShmPool {
 
 				client.push_client_object(id, wl::Buffer::new());
 			}
+			1 => {
+				// https://wayland.app/protocols/wayland#wl_shm_pool:request:destroy
+			}
 			_ => Err(format!("unknown op '{op}' in ShmPool"))?,
 		}
 
