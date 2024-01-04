@@ -1,4 +1,4 @@
-use crate::{wl, State};
+use crate::{wl, Result, State};
 
 pub struct Client {
 	objects: std::collections::HashMap<u32, Box<dyn wl::Object>>,
@@ -23,5 +23,10 @@ impl Client {
 
 	pub fn get_state(&mut self) -> &mut State {
 		&mut self.state
+	}
+
+	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
+		self.get_state().buffer.0.extend(message.to_vec()?);
+		Ok(())
 	}
 }
