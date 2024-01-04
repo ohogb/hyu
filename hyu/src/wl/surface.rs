@@ -15,6 +15,10 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
 				let (_buffer, _x, _y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
 			}
+			3 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:frame
+				let _callback: u32 = wlm::decode::from_slice(&params)?;
+			}
 			4 => {
 				// wl_surface.set_opaque_region()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1518
