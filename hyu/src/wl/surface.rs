@@ -11,6 +11,10 @@ impl Surface {
 impl wl::Object for Surface {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
+			1 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:attach
+				let (_buffer, _x, _y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+			}
 			4 => {
 				// wl_surface.set_opaque_region()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1518
