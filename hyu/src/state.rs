@@ -1,5 +1,3 @@
-use crate::wl;
-
 pub struct State {
 	pub buffer: Buffer,
 }

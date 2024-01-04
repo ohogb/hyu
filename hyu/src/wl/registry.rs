@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use crate::{wl, Result};
 
 #[derive(Debug, Clone)]
@@ -23,7 +21,7 @@ impl Registry {
 			args: (name, interface.as_ref(), version),
 		};
 
-		Ok(message.to_vec()?)
+		message.to_vec()
 	}
 }
 

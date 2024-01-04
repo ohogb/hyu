@@ -12,8 +12,8 @@ impl Display {
 		}
 	}
 
-	pub fn get_global(&self, key: u32) -> Option<&Box<dyn wl::Global>> {
-		self.globals.get(key as usize - 1)
+	pub fn get_global(&self, key: u32) -> Option<&dyn wl::Global> {
+		self.globals.get(key as usize - 1).map(|x| &**x)
 	}
 
 	pub fn push_global(&mut self, global: impl wl::Global + 'static) {
@@ -35,7 +35,7 @@ impl wl::Object for Display {
 			}
 			1 => {
 				let registry_index: u32 = wlm::decode::from_slice(&params)?;
-				let registry = wl::Registry::new(registry_index, &self);
+				let registry = wl::Registry::new(registry_index, self);
 
 				for (index, global) in self.globals.iter().enumerate() {
 					let message = registry.global(

@@ -33,7 +33,7 @@ impl XdgToplevel {
 }
 
 impl wl::Object for XdgToplevel {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			2 => {
 				let title: String = wlm::decode::from_slice(&params)?;

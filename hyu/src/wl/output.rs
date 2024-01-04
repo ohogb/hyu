@@ -10,7 +10,7 @@ impl Output {
 }
 
 impl wl::Object for Output {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, _op: u16, _params: Vec<u8>) -> Result<()> {
 		todo!()
 	}
 }
