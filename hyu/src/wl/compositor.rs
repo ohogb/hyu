@@ -36,7 +36,8 @@ impl wl::Global for Compositor {
 		4
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) {
+	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		client.push_client_object(object_id, Self::new());
+		Ok(())
 	}
 }

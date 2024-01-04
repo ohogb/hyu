@@ -24,7 +24,7 @@ impl wl::Global for Output {
 		3
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) {
+	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		client.push_client_object(object_id, Self::new());
 
 		let mut buf = Vec::new();
@@ -76,5 +76,7 @@ impl wl::Global for Output {
 		buf.extend(arg);
 
 		client.get_state().buffer.0.extend(buf);
+
+		Ok(())
 	}
 }

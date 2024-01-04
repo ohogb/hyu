@@ -41,7 +41,7 @@ use crate::{wl, Result};
 pub trait Global: std::fmt::Debug {
 	fn get_name(&self) -> &'static str;
 	fn get_version(&self) -> u32;
-	fn bind(&self, client: &mut wl::Client, object_id: u32);
+	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()>;
 }
 
 pub trait Object {

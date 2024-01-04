@@ -42,7 +42,7 @@ impl wl::Object for Registry {
 
 				// hmm
 				let global = unsafe { &*self.display }.get_global(name).unwrap();
-				global.bind(client, client_object);
+				global.bind(client, client_object)?;
 			}
 			_ => Err(format!("unknown op '{op}' in Registry"))?,
 		}
