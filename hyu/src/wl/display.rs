@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use crate::{wl, Result};
 
 #[derive(Debug)]
@@ -29,14 +27,11 @@ impl wl::Object for Display {
 			0 => {
 				let callback: u32 = wlm::decode::from_slice(&params)?;
 
-				let mut buf = Vec::new();
-
-				buf.write_all(&callback.to_ne_bytes())?;
-				buf.write_all(&0u16.to_ne_bytes())?;
-				buf.write_all(&(8u16 + 4u16).to_ne_bytes())?;
-				buf.write_all(&(0u32).to_ne_bytes())?;
-
-				client.get_state().buffer.0.extend(buf);
+				client.send_message(wlm::Message {
+					object_id: callback,
+					op: 0,
+					args: 0u32,
+				})?;
 			}
 			1 => {
 				let registry_index: u32 = wlm::decode::from_slice(&params)?;

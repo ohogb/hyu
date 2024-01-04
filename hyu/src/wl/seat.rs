@@ -39,17 +39,11 @@ impl wl::Global for Seat {
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		client.push_client_object(object_id, Self::new());
 
-		let mut buf = Vec::new();
-
-		buf.extend(object_id.to_ne_bytes());
-		buf.extend(0u16.to_ne_bytes());
-
-		let arg = wlm::encode::to_vec(&3u32).unwrap();
-
-		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
-		buf.extend(arg);
-
-		client.get_state().buffer.0.extend(buf);
+		client.send_message(wlm::Message {
+			object_id,
+			op: 0,
+			args: 3u32,
+		})?;
 
 		Ok(())
 	}

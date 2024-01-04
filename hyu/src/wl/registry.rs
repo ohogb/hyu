@@ -17,17 +17,13 @@ impl Registry {
 	}
 
 	pub fn global(&self, name: u32, interface: impl AsRef<str>, version: u32) -> Result<Vec<u8>> {
-		let mut buf = Vec::new();
+		let message = wlm::Message {
+			object_id: self.object_id,
+			op: 0,
+			args: (name, interface.as_ref(), version),
+		};
 
-		buf.write_all(&self.object_id.to_ne_bytes())?;
-		buf.write_all(&0u16.to_ne_bytes())?;
-
-		let args = wlm::encode::to_vec(&(name, interface.as_ref(), version))?;
-
-		buf.write_all(&(8u16 + args.len() as u16).to_ne_bytes())?;
-		buf.extend(args);
-
-		Ok(buf)
+		Ok(message.to_vec()?)
 	}
 }
 

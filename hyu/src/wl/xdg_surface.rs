@@ -10,17 +10,11 @@ impl XdgSurface {
 	}
 
 	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
-		let mut buf = Vec::new();
-
-		buf.extend(self.object_id.to_ne_bytes());
-		buf.extend(0u16.to_ne_bytes());
-
-		let arg = wlm::encode::to_vec(&123).unwrap();
-
-		buf.extend((8u16 + arg.len() as u16).to_ne_bytes());
-		buf.extend(arg);
-
-		client.get_state().buffer.0.extend(buf);
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 0,
+			args: 123u32,
+		})?;
 
 		Ok(())
 	}
