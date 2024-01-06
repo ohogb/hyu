@@ -2,19 +2,19 @@ use crate::{wl, Result};
 
 pub struct Surface {
 	buffer: Option<(u32, u32, u32)>,
-	front_buffer: (i32, i32, i32, Vec<u8>),
+	front_buffer: Option<(i32, i32, i32, Vec<u8>)>,
 }
 
 impl Surface {
 	pub fn new() -> Self {
 		Self {
 			buffer: None,
-			front_buffer: Default::default(),
+			front_buffer: None,
 		}
 	}
 
-	pub fn get_front_buffer(&self) -> &(i32, i32, i32, Vec<u8>) {
-		&self.front_buffer
+	pub fn get_front_buffer(&self) -> Option<&(i32, i32, i32, Vec<u8>)> {
+		self.front_buffer.as_ref()
 	}
 }
 
@@ -54,12 +54,12 @@ impl wl::Object for Surface {
 				if let Some((buffer, _x, _y)) = &self.buffer {
 					let asdf = client.get_object_mut(*buffer).unwrap();
 					let asdf = unsafe { &mut *(asdf.as_mut() as *mut _ as *mut wl::Buffer) };
-					self.front_buffer = (
+					self.front_buffer = Some((
 						asdf.width,
 						asdf.height,
 						asdf.stride / asdf.width,
 						asdf.get_pixels(),
-					);
+					));
 
 					/*client.send_message(wlm::Message {
 						object_id: *buffer,

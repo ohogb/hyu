@@ -107,7 +107,28 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 						.unwrap()
 						.as_mut() as *mut _ as *mut wl::Surface;
 
-					let (width, height, bytes_per_pixel, pixels) = (*surface).get_front_buffer();
+					let Some((width, height, bytes_per_pixel, pixels)) =
+						(*surface).get_front_buffer().cloned()
+					else {
+						continue;
+					};
+
+					let mut image = bmp::Image::new(width as _, height as _);
+
+					for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
+						let index = index as i32;
+
+						let x = index % width;
+						let y = index / width;
+
+						image.set_pixel(
+							x as _,
+							y as _,
+							bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
+						);
+					}
+
+					image.save("image.bmp").unwrap();
 				}
 			}
 		}
