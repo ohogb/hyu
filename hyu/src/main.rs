@@ -98,9 +98,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 			stream.write_all(&client.get_state().buffer.0)?;
 			client.get_state().buffer.0.clear();
 
+			let mut image = bmp::Image::new(2560, 1440);
+
 			for window in client.get_windows() {
 				unsafe {
 					let xdg_surface = (*window).get_surface();
+					let pos = (*xdg_surface).position;
 
 					let surface = client
 						.get_object_mut((*xdg_surface).get_surface())
@@ -113,13 +116,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 						continue;
 					};
 
-					let mut image = bmp::Image::new(width as _, height as _);
-
 					for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
 						let index = index as i32;
+						let position = (*window).position;
 
-						let x = index % width;
-						let y = index / width;
+						let x = (index % width) + position.0 - pos.0;
+						let y = (index / width) + position.1 - pos.1;
 
 						image.set_pixel(
 							x as _,
@@ -127,10 +129,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 							bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
 						);
 					}
-
-					image.save("image.bmp").unwrap();
 				}
 			}
+
+			image.save("image.bmp").unwrap();
 		}
 	}
 

@@ -5,6 +5,7 @@ pub struct XdgToplevel {
 	surface: *const wl::XdgSurface,
 	app_id: String,
 	title: String,
+	pub position: (i32, i32),
 }
 
 impl XdgToplevel {
@@ -16,6 +17,7 @@ impl XdgToplevel {
 			surface: surface as _,
 			app_id: String::new(),
 			title: String::new(),
+			position: (0, 0),
 		}
 	}
 
