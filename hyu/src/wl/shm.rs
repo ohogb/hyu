@@ -13,10 +13,10 @@ impl wl::Object for Shm {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
-				let (id, _size): (u32, u32) = wlm::decode::from_slice(&params)?;
-				let _fd = client.pop_fd();
+				let (id, size): (u32, u32) = wlm::decode::from_slice(&params)?;
+				let fd = client.pop_fd();
 
-				client.push_client_object(id, wl::ShmPool::new());
+				client.push_client_object(id, wl::ShmPool::new(id, fd, size));
 			}
 			_ => Err(format!("unknown op '{op}' in Shm"))?,
 		}

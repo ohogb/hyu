@@ -8,7 +8,9 @@ pub struct XdgToplevel {
 }
 
 impl XdgToplevel {
-	pub fn new(object_id: u32, surface: &wl::XdgSurface) -> Self {
+	pub fn new(client: &mut wl::Client, object_id: u32, surface: &wl::XdgSurface) -> Self {
+		client.add_window(object_id);
+
 		Self {
 			object_id,
 			surface: surface as _,
@@ -29,6 +31,10 @@ impl XdgToplevel {
 		}
 
 		Ok(())
+	}
+
+	pub fn get_surface(&self) -> *const wl::XdgSurface {
+		self.surface
 	}
 }
 

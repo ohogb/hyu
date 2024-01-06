@@ -2,11 +2,12 @@ use crate::{wl, Result};
 
 pub struct XdgSurface {
 	object_id: u32,
+	surface: u32,
 }
 
 impl XdgSurface {
-	pub fn new(object_id: u32) -> Self {
-		Self { object_id }
+	pub fn new(object_id: u32, surface: u32) -> Self {
+		Self { object_id, surface }
 	}
 
 	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
@@ -18,6 +19,10 @@ impl XdgSurface {
 
 		Ok(())
 	}
+
+	pub fn get_surface(&self) -> u32 {
+		self.surface
+	}
 }
 
 impl wl::Object for XdgSurface {
@@ -26,7 +31,7 @@ impl wl::Object for XdgSurface {
 			1 => {
 				let id: u32 = wlm::decode::from_slice(&params)?;
 
-				let xdg_toplevel = wl::XdgToplevel::new(id, self);
+				let xdg_toplevel = wl::XdgToplevel::new(client, id, self);
 				xdg_toplevel.configure(client)?;
 
 				client.push_client_object(id, xdg_toplevel);

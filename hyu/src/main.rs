@@ -97,6 +97,19 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
 			stream.write_all(&client.get_state().buffer.0)?;
 			client.get_state().buffer.0.clear();
+
+			for window in client.get_windows() {
+				unsafe {
+					let xdg_surface = (*window).get_surface();
+
+					let surface = client
+						.get_object_mut((*xdg_surface).get_surface())
+						.unwrap()
+						.as_mut() as *mut _ as *mut wl::Surface;
+
+					let (width, height, bytes_per_pixel, pixels) = (*surface).get_front_buffer();
+				}
+			}
 		}
 	}
 

@@ -4,6 +4,7 @@ pub struct Client {
 	objects: std::collections::HashMap<u32, Box<dyn wl::Object>>,
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
+	windows: Vec<u32>,
 }
 
 impl Client {
@@ -12,6 +13,7 @@ impl Client {
 			objects: std::collections::HashMap::new(),
 			state,
 			fds: Default::default(),
+			windows: Vec::new(),
 		}
 	}
 
@@ -38,5 +40,17 @@ impl Client {
 
 	pub fn pop_fd(&mut self) -> std::os::fd::RawFd {
 		self.fds.pop_front().unwrap()
+	}
+
+	pub fn add_window(&mut self, toplevel: u32) {
+		self.windows.push(toplevel);
+	}
+
+	pub fn get_windows(&mut self) -> Vec<*mut wl::XdgToplevel> {
+		self.windows
+			.clone()
+			.iter()
+			.map(|x| self.get_object_mut(*x).unwrap().as_mut() as *mut _ as *mut wl::XdgToplevel)
+			.collect()
 	}
 }
