@@ -1,6 +1,7 @@
 use crate::{wl, Result};
 
 pub struct Surface {
+	children: Vec<u32>,
 	buffer: Option<(u32, u32, u32)>,
 	front_buffer: Option<(i32, i32, i32, Vec<u8>)>,
 }
@@ -8,13 +9,56 @@ pub struct Surface {
 impl Surface {
 	pub fn new() -> Self {
 		Self {
+			children: Vec::new(),
 			buffer: None,
 			front_buffer: None,
 		}
 	}
 
-	pub fn get_front_buffer(&self) -> Option<&(i32, i32, i32, Vec<u8>)> {
-		self.front_buffer.as_ref()
+	pub fn push(&mut self, child: u32) {
+		self.children.push(child);
+	}
+
+	pub fn get_front_buffers(
+		&self,
+		client: &mut wl::Client,
+	) -> Vec<(i32, i32, i32, i32, i32, Vec<u8>)> {
+		let Some(front_buffer) = self.front_buffer.as_ref() else {
+			return Vec::new();
+		};
+
+		let mut ret = Vec::new();
+		ret.push((
+			0,
+			0,
+			front_buffer.0,
+			front_buffer.1,
+			front_buffer.2,
+			front_buffer.3.clone(),
+		));
+
+		for i in &self.children {
+			unsafe {
+				let sub_surface =
+					client.get_object_mut(*i).unwrap().as_mut() as *mut _ as *mut wl::SubSurface;
+
+				let surface = client
+					.get_object_mut((*sub_surface).surface)
+					.unwrap()
+					.as_mut() as *mut _ as *mut wl::Surface;
+
+				let position = (*sub_surface).position;
+
+				ret.extend(
+					(*surface)
+						.get_front_buffers(client)
+						.into_iter()
+						.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4, x.5)),
+				);
+			}
+		}
+
+		ret
 	}
 }
 

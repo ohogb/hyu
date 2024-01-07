@@ -17,7 +17,7 @@ impl XdgToplevel {
 			surface: surface as _,
 			app_id: String::new(),
 			title: String::new(),
-			position: (0, 0),
+			position: (10, 10),
 		}
 	}
 

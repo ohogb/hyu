@@ -1,10 +1,18 @@
 use crate::{wl, Result};
 
-pub struct SubSurface {}
+pub struct SubSurface {
+	object_id: u32,
+	pub surface: u32,
+	pub position: (i32, i32),
+}
 
 impl SubSurface {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: u32, surface: u32) -> Self {
+		Self {
+			object_id,
+			surface,
+			position: (0, 0),
+		}
 	}
 }
 
@@ -13,7 +21,8 @@ impl wl::Object for SubSurface {
 		match op {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position
-				let (_x, _y): (u32, u32) = wlm::decode::from_slice(&params)?;
+				let (x, y): (i32, i32) = wlm::decode::from_slice(&params)?;
+				self.position = (x, y);
 			}
 			4 => {
 				// wl_subsurface.set_sync()

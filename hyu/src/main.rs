@@ -110,24 +110,22 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 						.unwrap()
 						.as_mut() as *mut _ as *mut wl::Surface;
 
-					let Some((width, height, bytes_per_pixel, pixels)) =
-						(*surface).get_front_buffer().cloned()
-					else {
-						continue;
-					};
+					for (x, y, width, height, bytes_per_pixel, pixels) in
+						(*surface).get_front_buffers(&mut client)
+					{
+						for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
+							let index = index as i32;
+							let position = (*window).position;
 
-					for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
-						let index = index as i32;
-						let position = (*window).position;
+							let x = (index % width) + position.0 - pos.0 + x;
+							let y = (index / width) + position.1 - pos.1 + y;
 
-						let x = (index % width) + position.0 - pos.0;
-						let y = (index / width) + position.1 - pos.1;
-
-						image.set_pixel(
-							x as _,
-							y as _,
-							bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
-						);
+							image.set_pixel(
+								x as _,
+								y as _,
+								bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
+							);
+						}
 					}
 				}
 			}

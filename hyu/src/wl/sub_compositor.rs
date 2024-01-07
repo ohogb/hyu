@@ -13,8 +13,16 @@ impl wl::Object for SubCompositor {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			1 => {
-				let (id, _surface, _parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
-				client.push_client_object(id, wl::SubSurface::new());
+				let (id, surface, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+
+				unsafe {
+					let surface = client.get_object_mut(parent).unwrap().as_mut() as *mut _
+						as *mut wl::Surface;
+
+					(*surface).push(id);
+				}
+
+				client.push_client_object(id, wl::SubSurface::new(id, surface));
 			}
 			_ => Err(format!("unknown op '{op}' in SubCompositor"))?,
 		}
