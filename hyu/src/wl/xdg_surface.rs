@@ -37,8 +37,9 @@ impl wl::Object for XdgSurface {
 		match op {
 			1 => {
 				let id: u32 = wlm::decode::from_slice(&params)?;
+				let start_position = client.get_state().start_position.clone();
 
-				let xdg_toplevel = wl::XdgToplevel::new(client, id, self);
+				let xdg_toplevel = wl::XdgToplevel::new(client, id, self, start_position);
 				xdg_toplevel.configure(client)?;
 
 				client.push_client_object(id, xdg_toplevel);

@@ -24,114 +24,138 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 
-	for i in socket.incoming() {
-		let mut stream = i?;
+	let clients = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::<
+		std::os::fd::RawFd,
+		wl::Client,
+	>::new()));
 
-		let mut client = wl::Client::new(State {
-			buffer: Buffer(Vec::new()),
-		});
+	let ptr = clients.as_ref() as *const _ as u64;
 
-		let mut display = wl::Display::new();
+	for (index, stream) in socket.incoming().enumerate() {
+		let mut stream = stream?;
 
-		display.push_global(wl::Shm::new());
-		display.push_global(wl::Compositor::new());
-		display.push_global(wl::SubCompositor::new());
-		display.push_global(wl::DataDeviceManager::new());
-		display.push_global(wl::Seat::new());
-		display.push_global(wl::Output::new());
-		display.push_global(wl::XdgWmBase::new());
+		std::thread::spawn(move || {
+			|| -> Result<()> {
+				let ptr = ptr as *const std::sync::Mutex<
+					std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
+				>;
 
-		client.push_client_object(1, display);
+				let mut client = wl::Client::new(State {
+					buffer: Buffer(Vec::new()),
+					start_position: (100 * (index + 1) as i32, 100 * (index + 1) as i32),
+				});
 
-		loop {
-			let fd = stream.as_raw_fd();
+				let mut display = wl::Display::new();
 
-			let mut events = nix::libc::epoll_event { events: 0, u64: 0 };
+				display.push_global(wl::Shm::new());
+				display.push_global(wl::Compositor::new());
+				display.push_global(wl::SubCompositor::new());
+				display.push_global(wl::DataDeviceManager::new());
+				display.push_global(wl::Seat::new());
+				display.push_global(wl::Output::new());
+				display.push_global(wl::XdgWmBase::new());
 
-			unsafe {
-				nix::libc::epoll_wait(fd, &mut events as _, 1, -1);
-			}
+				client.push_client_object(1, display);
 
-			let mut cmsg = nix::cmsg_space!([std::os::fd::RawFd; 10]);
-
-			let msgs = nix::sys::socket::recvmsg::<()>(
-				fd,
-				&mut [],
-				Some(&mut cmsg),
-				nix::sys::socket::MsgFlags::empty(),
-			)?;
-
-			for i in msgs.cmsgs() {
-				match i {
-					nix::sys::socket::ControlMessageOwned::ScmRights(x) => client.push_fds(x),
-					_ => panic!(),
-				}
-			}
-
-			let mut obj = [0u8; 4];
-			stream.read_exact(&mut obj).unwrap();
-
-			let mut op = [0u8; 2];
-			stream.read_exact(&mut op).unwrap();
-
-			let mut size = [0u8; 2];
-			stream.read_exact(&mut size).unwrap();
-
-			let size = u16::from_ne_bytes(size) - 0x8;
-
-			let mut params = Vec::new();
-			let _ = (&mut stream)
-				.take(size as _)
-				.read_to_end(&mut params)
-				.unwrap();
-
-			let object = u32::from_ne_bytes(obj);
-			let op = u16::from_ne_bytes(op);
-
-			let Some(object) = client.get_object_mut(object) else {
-				return Err(format!("unknown object '{object}'"))?;
-			};
-
-			let object = (&mut **object) as *mut dyn wl::Object;
-			unsafe { (*object).handle(&mut client, op, params)? };
-
-			stream.write_all(&client.get_state().buffer.0)?;
-			client.get_state().buffer.0.clear();
-
-			let mut image = bmp::Image::new(2560, 1440);
-
-			for window in client.get_windows() {
 				unsafe {
-					let xdg_surface = (*window).get_surface();
-					let pos = (*xdg_surface).position;
+					let mut lock = (*ptr).lock().unwrap();
+					lock.insert(stream.as_raw_fd(), client);
+				}
 
-					let surface = client
-						.get_object_mut((*xdg_surface).get_surface())
-						.unwrap()
-						.as_mut() as *mut _ as *mut wl::Surface;
+				loop {
+					let fd = stream.as_raw_fd();
 
-					for (x, y, width, height, bytes_per_pixel, pixels) in
-						(*surface).get_front_buffers(&mut client)
-					{
-						for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
-							let index = index as i32;
-							let position = (*window).position;
+					let mut cmsg = nix::cmsg_space!([std::os::fd::RawFd; 10]);
 
-							let x = (index % width) + position.0 - pos.0 + x;
-							let y = (index / width) + position.1 - pos.1 + y;
+					let msgs = nix::sys::socket::recvmsg::<()>(
+						fd,
+						&mut [],
+						Some(&mut cmsg),
+						nix::sys::socket::MsgFlags::empty(),
+					)?;
 
-							image.set_pixel(
-								x as _,
-								y as _,
-								bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
-							);
+					let mut lock = unsafe { (*ptr).lock().unwrap() };
+					let client = lock.get_mut(&stream.as_raw_fd()).unwrap();
+
+					for i in msgs.cmsgs() {
+						match i {
+							nix::sys::socket::ControlMessageOwned::ScmRights(x) => {
+								client.push_fds(x)
+							}
+							_ => panic!(),
 						}
 					}
-				}
-			}
 
-			image.save("image.bmp").unwrap();
-		}
+					let mut obj = [0u8; 4];
+					stream.read_exact(&mut obj).unwrap();
+
+					let mut op = [0u8; 2];
+					stream.read_exact(&mut op).unwrap();
+
+					let mut size = [0u8; 2];
+					stream.read_exact(&mut size).unwrap();
+
+					let size = u16::from_ne_bytes(size) - 0x8;
+
+					let mut params = Vec::new();
+					let _ = (&mut stream)
+						.take(size as _)
+						.read_to_end(&mut params)
+						.unwrap();
+
+					let object = u32::from_ne_bytes(obj);
+					let op = u16::from_ne_bytes(op);
+
+					let Some(object) = client.get_object_mut(object) else {
+						return Err(format!("unknown object '{object}'"))?;
+					};
+
+					let object = (&mut **object) as *mut dyn wl::Object;
+					unsafe { (*object).handle(client, op, params)? };
+
+					stream.write_all(&client.get_state().buffer.0)?;
+					client.get_state().buffer.0.clear();
+
+					let mut image = bmp::Image::new(2560, 1440);
+
+					for client in lock.values_mut() {
+						for window in client.get_windows() {
+							unsafe {
+								let xdg_surface = (*window).get_surface();
+								let pos = (*xdg_surface).position;
+
+								let surface = client
+									.get_object_mut((*xdg_surface).get_surface())
+									.unwrap()
+									.as_mut() as *mut _ as *mut wl::Surface;
+
+								for (x, y, width, height, bytes_per_pixel, pixels) in
+									(*surface).get_front_buffers(client)
+								{
+									for (index, pixel) in
+										pixels.chunks(bytes_per_pixel as _).enumerate()
+									{
+										let index = index as i32;
+										let position = (*window).position;
+
+										let x = (index % width) + position.0 - pos.0 + x;
+										let y = (index / width) + position.1 - pos.1 + y;
+
+										image.set_pixel(
+											x as _,
+											y as _,
+											bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
+										);
+									}
+								}
+							}
+						}
+					}
+					image.save("image.bmp").unwrap();
+				}
+			}()
+			.unwrap();
+		});
 	}
 
 	drop(socket);

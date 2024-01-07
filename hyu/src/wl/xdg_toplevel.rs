@@ -9,7 +9,12 @@ pub struct XdgToplevel {
 }
 
 impl XdgToplevel {
-	pub fn new(client: &mut wl::Client, object_id: u32, surface: &wl::XdgSurface) -> Self {
+	pub fn new(
+		client: &mut wl::Client,
+		object_id: u32,
+		surface: &wl::XdgSurface,
+		position: (i32, i32),
+	) -> Self {
 		client.add_window(object_id);
 
 		Self {
@@ -17,7 +22,7 @@ impl XdgToplevel {
 			surface: surface as _,
 			app_id: String::new(),
 			title: String::new(),
-			position: (10, 10),
+			position,
 		}
 	}
 
