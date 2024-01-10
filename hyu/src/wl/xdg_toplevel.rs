@@ -48,6 +48,10 @@ impl XdgToplevel {
 impl wl::Object for XdgToplevel {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
+			1 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent
+				let _parent: u32 = wlm::decode::from_slice(&params)?;
+			}
 			2 => {
 				let title: String = wlm::decode::from_slice(&params)?;
 				self.title = title;
@@ -56,9 +60,19 @@ impl wl::Object for XdgToplevel {
 				let app_id: String = wlm::decode::from_slice(&params)?;
 				self.app_id = app_id;
 			}
+			7 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_max_size
+				let (_width, _height): (i32, i32) = wlm::decode::from_slice(&params)?;
+			}
 			8 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_min_size
 				let (_width, _height): (u32, u32) = wlm::decode::from_slice(&params)?;
+			}
+			10 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_maximized
+			}
+			12 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_fullscreen
 			}
 			_ => Err(format!("unknown op '{op}' in XdgToplevel"))?,
 		}
