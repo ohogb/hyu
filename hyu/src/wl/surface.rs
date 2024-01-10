@@ -21,7 +21,7 @@ impl Surface {
 
 	pub fn get_front_buffers(
 		&self,
-		client: &mut wl::Client,
+		client: &wl::Client,
 	) -> Vec<(i32, i32, i32, i32, i32, Vec<u8>)> {
 		let Some(front_buffer) = self.front_buffer.as_ref() else {
 			return Vec::new();
@@ -38,24 +38,23 @@ impl Surface {
 		));
 
 		for i in &self.children {
-			unsafe {
-				let sub_surface =
-					client.get_object_mut(*i).unwrap().as_mut() as *mut _ as *mut wl::SubSurface;
+			let Some(wl::Resource::SubSurface(sub_surface)) = client.get_object(*i) else {
+				panic!();
+			};
 
-				let surface = client
-					.get_object_mut((*sub_surface).surface)
-					.unwrap()
-					.as_mut() as *mut _ as *mut wl::Surface;
+			let Some(wl::Resource::Surface(surface)) = client.get_object(sub_surface.surface)
+			else {
+				panic!();
+			};
 
-				let position = (*sub_surface).position;
+			let position = sub_surface.position;
 
-				ret.extend(
-					(*surface)
-						.get_front_buffers(client)
-						.into_iter()
-						.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4, x.5)),
-				);
-			}
+			ret.extend(
+				surface
+					.get_front_buffers(client)
+					.into_iter()
+					.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4, x.5)),
+			);
 		}
 
 		ret
@@ -96,13 +95,15 @@ impl wl::Object for Surface {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
 				if let Some((buffer, _x, _y)) = &self.buffer {
-					let asdf = client.get_object_mut(*buffer).unwrap();
-					let asdf = unsafe { &mut *(asdf.as_mut() as *mut _ as *mut wl::Buffer) };
+					let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(*buffer) else {
+						panic!();
+					};
+
 					self.front_buffer = Some((
-						asdf.width,
-						asdf.height,
-						asdf.stride / asdf.width,
-						asdf.get_pixels(),
+						buffer.width,
+						buffer.height,
+						buffer.stride / buffer.width,
+						buffer.get_pixels(),
 					));
 
 					/*client.send_message(wlm::Message {

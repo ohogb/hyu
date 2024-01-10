@@ -1,7 +1,7 @@
 use crate::{wl, Result, State};
 
 pub struct Client {
-	objects: std::collections::HashMap<u32, Box<dyn wl::Object>>,
+	objects: std::collections::HashMap<u32, wl::Resource>,
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	windows: Vec<u32>,
@@ -17,11 +17,15 @@ impl Client {
 		}
 	}
 
-	pub fn push_client_object(&mut self, id: u32, object: impl wl::Object + 'static) {
-		self.objects.insert(id, Box::new(object));
+	pub fn push_client_object(&mut self, id: u32, object: impl Into<wl::Resource>) {
+		self.objects.insert(id, object.into());
 	}
 
-	pub fn get_object_mut(&mut self, id: u32) -> Option<&mut Box<dyn wl::Object>> {
+	pub fn get_object(&self, id: u32) -> Option<&wl::Resource> {
+		self.objects.get(&id)
+	}
+
+	pub fn get_object_mut(&mut self, id: u32) -> Option<&mut wl::Resource> {
 		self.objects.get_mut(&id)
 	}
 
@@ -46,11 +50,10 @@ impl Client {
 		self.windows.push(toplevel);
 	}
 
-	pub fn get_windows(&mut self) -> Vec<*mut wl::XdgToplevel> {
+	pub fn get_windows(&self) -> Vec<&wl::Resource> {
 		self.windows
-			.clone()
 			.iter()
-			.map(|x| self.get_object_mut(*x).unwrap().as_mut() as *mut _ as *mut wl::XdgToplevel)
+			.map(|x| self.get_object(*x).unwrap())
 			.collect()
 	}
 }

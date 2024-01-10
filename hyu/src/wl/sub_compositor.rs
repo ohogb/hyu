@@ -15,11 +15,10 @@ impl wl::Object for SubCompositor {
 			1 => {
 				let (id, surface, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
 
-				unsafe {
-					let surface = client.get_object_mut(parent).unwrap().as_mut() as *mut _
-						as *mut wl::Surface;
-
-					(*surface).push(id);
+				if let Some(wl::Resource::Surface(surface)) = client.get_object_mut(parent) {
+					surface.push(id);
+				} else {
+					panic!();
 				}
 
 				client.push_client_object(id, wl::SubSurface::new(id, surface));

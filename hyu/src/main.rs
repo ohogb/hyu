@@ -4,6 +4,7 @@ mod state;
 pub mod wl;
 
 pub use state::*;
+use wl::Object;
 
 use std::{
 	io::{Read, Write},
@@ -110,7 +111,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 						return Err(format!("unknown object '{object}'"))?;
 					};
 
-					let object = (&mut **object) as *mut dyn wl::Object;
+					// TODO: think how to do this the safe way
+					let object = object as *mut wl::Resource;
 					unsafe { (*object).handle(client, op, params)? };
 
 					stream.write_all(&client.get_state().buffer.0)?;
@@ -120,37 +122,46 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
 					for client in lock.values_mut() {
 						for window in client.get_windows() {
-							unsafe {
-								let xdg_surface = (*window).get_surface();
-								let pos = (*xdg_surface).position;
+							let wl::Resource::XdgToplevel(window) = window else {
+								panic!();
+							};
 
-								let surface = client
-									.get_object_mut((*xdg_surface).get_surface())
-									.unwrap()
-									.as_mut() as *mut _ as *mut wl::Surface;
+							let Some(wl::Resource::XdgSurface(xdg_surface)) =
+								client.get_object(window.surface)
+							else {
+								panic!();
+							};
 
-								for (x, y, width, height, bytes_per_pixel, pixels) in
-									(*surface).get_front_buffers(client)
+							let pos = xdg_surface.position;
+
+							let Some(wl::Resource::Surface(surface)) =
+								client.get_object(xdg_surface.get_surface())
+							else {
+								panic!();
+							};
+
+							for (x, y, width, height, bytes_per_pixel, pixels) in
+								surface.get_front_buffers(client)
+							{
+								for (index, pixel) in
+									pixels.chunks(bytes_per_pixel as _).enumerate()
 								{
-									for (index, pixel) in
-										pixels.chunks(bytes_per_pixel as _).enumerate()
-									{
-										let index = index as i32;
-										let position = (*window).position;
+									let index = index as i32;
+									let position = window.position;
 
-										let x = (index % width) + position.0 - pos.0 + x;
-										let y = (index / width) + position.1 - pos.1 + y;
+									let x = (index % width) + position.0 - pos.0 + x;
+									let y = (index / width) + position.1 - pos.1 + y;
 
-										image.set_pixel(
-											x as _,
-											y as _,
-											bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
-										);
-									}
+									image.set_pixel(
+										x as _,
+										y as _,
+										bmp::Pixel::new(pixel[2], pixel[1], pixel[0]),
+									);
 								}
 							}
 						}
 					}
+
 					image.save("image.bmp").unwrap();
 				}
 			}()

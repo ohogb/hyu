@@ -2,7 +2,7 @@ use crate::{wl, Result};
 
 pub struct XdgToplevel {
 	object_id: u32,
-	surface: *const wl::XdgSurface,
+	pub surface: u32,
 	app_id: String,
 	title: String,
 	pub position: (i32, i32),
@@ -12,14 +12,14 @@ impl XdgToplevel {
 	pub fn new(
 		client: &mut wl::Client,
 		object_id: u32,
-		surface: &wl::XdgSurface,
+		surface: u32,
 		position: (i32, i32),
 	) -> Self {
 		client.add_window(object_id);
 
 		Self {
 			object_id,
-			surface: surface as _,
+			surface,
 			app_id: String::new(),
 			title: String::new(),
 			position,
@@ -33,15 +33,15 @@ impl XdgToplevel {
 			args: (0u32, 0u32, [0u32]),
 		})?;
 
-		unsafe {
-			(*self.surface).configure(client)?;
-		}
+		let Some(wl::Resource::XdgSurface(surface)) = client.get_object(self.surface) else {
+			panic!();
+		};
+
+		// TODO: think how to do this the safe way
+		let surface = unsafe { &*(surface as *const wl::XdgSurface) };
+		surface.configure(client)?;
 
 		Ok(())
-	}
-
-	pub fn get_surface(&self) -> *const wl::XdgSurface {
-		self.surface
 	}
 }
 
