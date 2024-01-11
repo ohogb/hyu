@@ -119,6 +119,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 					client.get_state().buffer.0.clear();
 
 					let mut image = bmp::Image::new(2560, 1440);
+					for (x, y) in image.coordinates() {
+						image.set_pixel(x, y, bmp::consts::GREY);
+					}
 
 					for client in lock.values_mut() {
 						for window in client.get_windows() {
