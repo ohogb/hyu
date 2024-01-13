@@ -333,7 +333,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 								panic!();
 							};
 
-							for (x, y, width, height, bytes_per_pixel, pixels) in
+							for (x, y, width, _height, bytes_per_pixel, pixels) in
 								surface.get_front_buffers(client)
 							{
 								for (index, pixel) in

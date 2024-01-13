@@ -50,9 +50,7 @@ impl Buffer {
 				(map as *const u8).offset(self.offset as _),
 				(self.stride * self.height) as _,
 			)
-			.iter()
-			.cloned()
-			.collect::<Vec<_>>();
+			.to_vec();
 
 			nix::sys::mman::munmap(map, self.size as _).unwrap();
 			ret
@@ -61,7 +59,7 @@ impl Buffer {
 }
 
 impl wl::Object for Buffer {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy
