@@ -19,6 +19,9 @@ impl SubSurface {
 impl wl::Object for SubSurface {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy
+			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position
 				let (x, y): (i32, i32) = wlm::decode::from_slice(&params)?;
