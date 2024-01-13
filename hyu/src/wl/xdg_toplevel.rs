@@ -48,6 +48,9 @@ impl XdgToplevel {
 impl wl::Object for XdgToplevel {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
+			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent
 				let _parent: u32 = wlm::decode::from_slice(&params)?;
