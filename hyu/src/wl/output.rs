@@ -10,8 +10,15 @@ impl Output {
 }
 
 impl wl::Object for Output {
-	fn handle(&mut self, _client: &mut wl::Client, _op: u16, _params: Vec<u8>) -> Result<()> {
-		todo!()
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
+		match op {
+			0 => {
+				// https://wayland.app/protocols/wayland#wl_output:request:release
+			}
+			_ => Err(format!("unknown op '{op}' in Output"))?,
+		}
+
+		Ok(())
 	}
 }
 
