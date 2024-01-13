@@ -12,7 +12,14 @@ impl DataDevice {
 }
 
 impl wl::Object for DataDevice {
-	fn handle(&mut self, _client: &mut wl::Client, _op: u16, _params: Vec<u8>) -> Result<()> {
-		todo!()
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
+		match op {
+			2 => {
+				// https://wayland.app/protocols/wayland#wl_data_device:request:release
+			}
+			_ => Err(format!("unknown op '{op}' in DataDevice"))?,
+		}
+
+		Ok(())
 	}
 }
