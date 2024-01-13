@@ -20,6 +20,9 @@ impl wl::Object for Seat {
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::Keyboard::new());
 			}
+			3 => {
+				// https://wayland.app/protocols/wayland#wl_seat:request:release
+			}
 			_ => Err(format!("unknown op '{op}' in Seat"))?,
 		}
 
