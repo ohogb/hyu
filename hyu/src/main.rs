@@ -107,7 +107,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 					format: caps.formats[0],
 					width: window.inner_size().width,
 					height: window.inner_size().height,
-					present_mode: wgpu::PresentMode::Mailbox,
+					present_mode: wgpu::PresentMode::AutoVsync,
 					alpha_mode: caps.alpha_modes[0],
 					view_formats: Vec::new(),
 				},
