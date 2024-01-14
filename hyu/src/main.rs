@@ -1,4 +1,4 @@
-#![feature(fs_try_exists, unix_socket_ancillary_data)]
+#![feature(unix_socket_ancillary_data)]
 
 mod state;
 pub mod wl;
@@ -30,7 +30,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 	let index = 1;
 	let path = std::path::PathBuf::from_iter([runtime_dir, format!("wayland-{index}")]);
 
-	if std::fs::try_exists(&path)? {
+	if path.exists() {
 		std::fs::remove_file(&path)?;
 	}
 
