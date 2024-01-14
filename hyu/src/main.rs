@@ -1,4 +1,4 @@
-#![feature(fs_try_exists, unix_socket_peek)]
+#![feature(fs_try_exists, unix_socket_ancillary_data)]
 
 mod state;
 pub mod wl;
@@ -252,31 +252,32 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 				}
 
 				loop {
-					let fd = stream.as_raw_fd();
+					let mut cmsg_buffer = [0u8; 0x20];
+					let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
 
-					let mut cmsg = nix::cmsg_space!([std::os::fd::RawFd; 10]);
+					let mut obj = [0u8; 4];
 
-					let msgs = nix::sys::socket::recvmsg::<()>(
-						fd,
-						&mut [],
-						Some(&mut cmsg),
-						nix::sys::socket::MsgFlags::empty(),
+					let len = stream.recv_vectored_with_ancillary(
+						&mut [std::io::IoSliceMut::new(&mut obj)],
+						&mut cmsg,
 					)?;
+
+					if len == 0 {
+						clients.lock().unwrap().remove(&stream.as_raw_fd());
+						return Ok(());
+					}
 
 					let mut clients = clients.lock().unwrap();
 					let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
-					for i in msgs.cmsgs() {
-						match i {
-							nix::sys::socket::ControlMessageOwned::ScmRights(x) => {
-								client.push_fds(x)
-							}
-							_ => panic!(),
-						}
-					}
+					for i in cmsg.messages() {
+						let std::os::unix::net::AncillaryData::ScmRights(scm_rights) = i.unwrap()
+						else {
+							continue;
+						};
 
-					let mut obj = [0u8; 4];
-					stream.read_exact(&mut obj).unwrap();
+						client.push_fds(scm_rights.into_iter().collect());
+					}
 
 					let mut op = [0u8; 2];
 					stream.read_exact(&mut op).unwrap();
