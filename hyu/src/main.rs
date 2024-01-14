@@ -24,7 +24,7 @@ struct Vertex {
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
 
-fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
 	let index = 1;
@@ -322,8 +322,6 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 								panic!();
 							};
 
-							let pos = xdg_surface.position;
-
 							let Some(wl::Resource::Surface(surface)) =
 								client.get_object(xdg_surface.get_surface())
 							else {
@@ -337,10 +335,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 									pixels.chunks(bytes_per_pixel as _).enumerate()
 								{
 									let index = index as i32;
-									let position = window.position;
 
-									let x = (index % width) + position.0 - pos.0 + x;
-									let y = (index / width) + position.1 - pos.1 + y;
+									let x = (index % width) + window.position.0
+										- xdg_surface.position.0 + x;
+
+									let y = (index / width) + window.position.1
+										- xdg_surface.position.1 + y;
 
 									buffer.push(Vertex {
 										position: [
