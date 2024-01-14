@@ -45,9 +45,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 		WIDTH * HEIGHT * 8,
 	)));
 
-	let ptr = clients.as_ref() as *const _ as u64;
-
 	let bufferb = buffer.clone();
+
 	std::thread::spawn(move || {
 		let buffer = bufferb;
 
@@ -226,19 +225,16 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 		let mut stream = stream?;
 
 		let buffer = buffer.clone();
+		let clients = clients.clone();
 
 		std::thread::spawn(move || {
 			|| -> Result<()> {
-				let ptr = ptr as *const std::sync::Mutex<
-					std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
-				>;
-
 				let mut client = wl::Client::new(State {
 					buffer: Buffer(Vec::new()),
 					start_position: (100 * (index + 1) as i32, 100 * (index + 1) as i32),
 				});
 
-				let mut display = wl::Display::new();
+				let mut display = wl::Display::new(1);
 
 				display.push_global(wl::Shm::new());
 				display.push_global(wl::Compositor::new());
@@ -250,9 +246,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
 				client.push_client_object(1, display);
 
-				unsafe {
-					let mut lock = (*ptr).lock().unwrap();
-					lock.insert(stream.as_raw_fd(), client);
+				{
+					let mut clients = clients.lock().unwrap();
+					clients.insert(stream.as_raw_fd(), client);
 				}
 
 				loop {
@@ -267,8 +263,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 						nix::sys::socket::MsgFlags::empty(),
 					)?;
 
-					let mut ptr = unsafe { (*ptr).lock().unwrap() };
-					let client = ptr.get_mut(&stream.as_raw_fd()).unwrap();
+					let mut clients = clients.lock().unwrap();
+					let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
 					for i in msgs.cmsgs() {
 						match i {
@@ -313,7 +309,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 					let mut buffer = buffer.lock().unwrap();
 					buffer.clear();
 
-					for client in ptr.values_mut() {
+					for client in clients.values_mut() {
 						for window in client.get_windows() {
 							let wl::Resource::XdgToplevel(window) = window else {
 								panic!();
