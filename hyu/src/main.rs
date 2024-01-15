@@ -1,9 +1,12 @@
 #![feature(unix_socket_ancillary_data)]
 
 mod state;
+mod vertex;
 pub mod wl;
 
-pub use state::*;
+pub use vertex::*;
+
+pub use state::{Buffer, State};
 use winit::platform::wayland::{EventLoopBuilderExtWayland, WindowBuilderExtWayland};
 use wl::Object;
 
@@ -13,13 +16,6 @@ use std::{
 };
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-	position: [f32; 2],
-	color: [f32; 4],
-}
 
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;
@@ -36,20 +32,9 @@ fn main() -> Result<()> {
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 
-	let clients = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::<
-		std::os::fd::RawFd,
-		wl::Client,
-	>::new()));
-
-	let buffer = std::sync::Arc::new(std::sync::Mutex::new(Vec::with_capacity(
-		WIDTH * HEIGHT * 8,
-	)));
-
-	let bufferb = buffer.clone();
+	state::vertex_buffer().reserve(WIDTH * HEIGHT * 8);
 
 	std::thread::spawn(move || {
-		let buffer = bufferb;
-
 		pollster::block_on(async {
 			env_logger::init();
 
@@ -168,8 +153,11 @@ fn main() -> Result<()> {
 
 				match event {
 					winit::event::WindowEvent::RedrawRequested => {
-						let buffer = buffer.lock().unwrap();
-						queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&buffer));
+						queue.write_buffer(
+							&vertex_buffer,
+							0,
+							bytemuck::cast_slice(&state::vertex_buffer()),
+						);
 
 						let frame = surface.get_current_texture().unwrap();
 
@@ -206,7 +194,7 @@ fn main() -> Result<()> {
 
 							render_pass.set_pipeline(&render_pipeline);
 							render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-							render_pass.draw(0..buffer.len() as _, 0..1);
+							render_pass.draw(0..state::vertex_buffer().len() as _, 0..1);
 						}
 
 						queue.submit(Some(encoder.finish()));
@@ -229,9 +217,6 @@ fn main() -> Result<()> {
 	for (index, stream) in socket.incoming().enumerate() {
 		let mut stream = stream?;
 
-		let buffer = buffer.clone();
-		let clients = clients.clone();
-
 		std::thread::spawn(move || {
 			|| -> Result<()> {
 				let mut client = wl::Client::new(State {
@@ -251,10 +236,7 @@ fn main() -> Result<()> {
 
 				client.push_client_object(1, display);
 
-				{
-					let mut clients = clients.lock().unwrap();
-					clients.insert(stream.as_raw_fd(), client);
-				}
+				state::clients().insert(stream.as_raw_fd(), client);
 
 				loop {
 					let mut cmsg_buffer = [0u8; 0x20];
@@ -267,7 +249,7 @@ fn main() -> Result<()> {
 						&mut cmsg,
 					)?;
 
-					let mut clients = clients.lock().unwrap();
+					let mut clients = state::clients();
 
 					if len == 0 {
 						clients.remove(&stream.as_raw_fd());
@@ -313,8 +295,8 @@ fn main() -> Result<()> {
 					stream.write_all(&client.get_state().buffer.0)?;
 					client.get_state().buffer.0.clear();
 
-					let mut buffer = buffer.lock().unwrap();
-					buffer.clear();
+					let mut vertex_buffer = state::vertex_buffer();
+					vertex_buffer.clear();
 
 					for client in clients.values_mut() {
 						for window in client.get_windows() {
@@ -348,7 +330,7 @@ fn main() -> Result<()> {
 									let y = (index / width) + window.position.1
 										- xdg_surface.position.1 + y;
 
-									buffer.push(Vertex {
+									vertex_buffer.push(Vertex {
 										position: [
 											x as f32 / WIDTH as f32 * 2.0 - 1.0,
 											(y as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
