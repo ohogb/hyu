@@ -4,6 +4,7 @@ pub struct Surface {
 	children: Vec<u32>,
 	buffer: Option<(u32, u32, u32)>,
 	front_buffer: Option<(i32, i32, i32, Vec<u8>)>,
+	frame_callback: Option<u32>,
 }
 
 impl Surface {
@@ -12,6 +13,7 @@ impl Surface {
 			children: Vec::new(),
 			buffer: None,
 			front_buffer: None,
+			frame_callback: None,
 		}
 	}
 
@@ -80,11 +82,9 @@ impl wl::Object for Surface {
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 				let callback: u32 = wlm::decode::from_slice(&params)?;
-				client.send_message(wlm::Message {
-					object_id: callback,
-					op: 0,
-					args: 0u32,
-				})?;
+
+				assert!(self.frame_callback.is_none());
+				self.frame_callback = Some(callback);
 			}
 			4 => {
 				// wl_surface.set_opaque_region()
@@ -115,6 +115,16 @@ impl wl::Object for Surface {
 						op: 0,
 						args: (),
 					})?;
+
+					if let Some(callback) = self.frame_callback {
+						client.send_message(wlm::Message {
+							object_id: callback,
+							op: 0,
+							args: 0u32,
+						})?;
+
+						self.frame_callback = None;
+					}
 				}
 			}
 			8 => {
