@@ -236,7 +236,7 @@ fn main() -> Result<()> {
 			|| -> Result<()> {
 				let mut client = wl::Client::new(State {
 					buffer: Buffer(Vec::new()),
-					start_position: (100 * (index + 1) as i32, 100 * (index + 1) as i32),
+					start_position: ((100 * index + 10) as i32, (100 * index + 10) as i32),
 				});
 
 				let mut display = wl::Display::new(1);
