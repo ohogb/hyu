@@ -267,12 +267,13 @@ fn main() -> Result<()> {
 						&mut cmsg,
 					)?;
 
+					let mut clients = clients.lock().unwrap();
+
 					if len == 0 {
-						clients.lock().unwrap().remove(&stream.as_raw_fd());
+						clients.remove(&stream.as_raw_fd());
 						return Ok(());
 					}
 
-					let mut clients = clients.lock().unwrap();
 					let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
 					for i in cmsg.messages() {
