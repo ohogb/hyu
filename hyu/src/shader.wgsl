@@ -20,5 +20,5 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-	return input.color;
+	return pow((input.color + vec4<f32>(0.055)) / vec4<f32>(1.055), vec4<f32>(2.4));
 }

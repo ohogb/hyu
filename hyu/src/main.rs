@@ -354,10 +354,10 @@ fn main() -> Result<()> {
 											(y as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
 										],
 										color: [
-											((pixel[2] as f32 / 255.0 + 0.055) / 1.055).powf(2.4),
-											((pixel[1] as f32 / 255.0 + 0.055) / 1.055).powf(2.4),
-											((pixel[0] as f32 / 255.0 + 0.055) / 1.055).powf(2.4),
-											((pixel[3] as f32 / 255.0 + 0.055) / 1.055).powf(2.4),
+											pixel[2] as f32 / 255.0,
+											pixel[1] as f32 / 255.0,
+											pixel[0] as f32 / 255.0,
+											pixel[3] as f32 / 255.0,
 										],
 									});
 								}
