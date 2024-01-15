@@ -97,8 +97,9 @@ impl wl::Object for Surface {
 			6 => {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
-				if let Some((buffer, _x, _y)) = &self.buffer {
-					let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(*buffer) else {
+				if let Some((buffer_id, _x, _y)) = self.buffer {
+					let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(buffer_id)
+					else {
 						panic!();
 					};
 
@@ -109,11 +110,11 @@ impl wl::Object for Surface {
 						buffer.get_pixels(),
 					));
 
-					/*client.send_message(wlm::Message {
-						object_id: *buffer,
+					client.send_message(wlm::Message {
+						object_id: buffer_id,
 						op: 0,
 						args: (),
-					})?;*/
+					})?;
 				}
 			}
 			8 => {
