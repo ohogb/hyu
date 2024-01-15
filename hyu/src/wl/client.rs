@@ -21,6 +21,19 @@ impl Client {
 		self.objects.insert(id, object.into());
 	}
 
+	pub fn remove_client_object(&mut self, id: u32) -> Result<()> {
+		let ret = self.objects.remove(&id);
+		assert!(ret.is_some());
+
+		self.send_message(wlm::Message {
+			object_id: 1,
+			op: 1,
+			args: id,
+		})?;
+
+		Ok(())
+	}
+
 	pub fn get_object(&self, id: u32) -> Option<&wl::Resource> {
 		self.objects.get(&id)
 	}
