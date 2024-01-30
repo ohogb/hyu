@@ -34,6 +34,8 @@ impl wl::Object for Display {
 					op: 0,
 					args: 0u32,
 				})?;
+
+				client.remove_client_object(callback)?;
 			}
 			1 => {
 				let registry_index: u32 = wlm::decode::from_slice(&params)?;

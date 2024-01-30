@@ -22,8 +22,8 @@ impl Client {
 	}
 
 	pub fn remove_client_object(&mut self, id: u32) -> Result<()> {
-		let ret = self.objects.remove(&id);
-		assert!(ret.is_some());
+		let _ret = self.objects.remove(&id);
+		// assert!(ret.is_some());
 
 		self.send_message(wlm::Message {
 			object_id: 1,

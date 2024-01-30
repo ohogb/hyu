@@ -63,7 +63,7 @@ impl wl::Object for Buffer {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy
-				client.remove_client_object(self.object_id);
+				client.remove_client_object(self.object_id)?;
 			}
 			_ => Err(format!("unknown op '{op}' in Buffer"))?,
 		}

@@ -123,6 +123,7 @@ impl wl::Object for Surface {
 							args: 0u32,
 						})?;
 
+						client.remove_client_object(callback)?;
 						self.frame_callback = None;
 					}
 				}
