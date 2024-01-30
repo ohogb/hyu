@@ -2,18 +2,22 @@ use crate::{wl, Result};
 
 pub struct Surface {
 	children: Vec<u32>,
-	buffer: Option<(u32, u32, u32)>,
-	front_buffer: Option<(i32, i32, i32, Vec<u8>)>,
-	frame_callback: Option<u32>,
+	pending_buffer: Option<u32>,
+	current_buffer: Option<u32>,
+	pending_frame_callback: Option<u32>,
+	current_frame_callback: Option<u32>,
+	data: Option<(i32, i32, i32, Vec<u8>)>,
 }
 
 impl Surface {
 	pub fn new() -> Self {
 		Self {
 			children: Vec::new(),
-			buffer: None,
-			front_buffer: None,
-			frame_callback: None,
+			pending_buffer: None,
+			current_buffer: None,
+			pending_frame_callback: None,
+			current_frame_callback: None,
+			data: None,
 		}
 	}
 
@@ -25,19 +29,12 @@ impl Surface {
 		&self,
 		client: &wl::Client,
 	) -> Vec<(i32, i32, i32, i32, i32, Vec<u8>)> {
-		let Some(front_buffer) = self.front_buffer.as_ref() else {
+		let Some(data) = self.data.as_ref() else {
 			return Vec::new();
 		};
 
 		let mut ret = Vec::new();
-		ret.push((
-			0,
-			0,
-			front_buffer.0,
-			front_buffer.1,
-			front_buffer.2,
-			front_buffer.3.clone(),
-		));
+		ret.push((0, 0, data.0, data.1, data.2, data.3.clone()));
 
 		for i in &self.children {
 			let Some(wl::Resource::SubSurface(sub_surface)) = client.get_object(*i) else {
@@ -61,6 +58,57 @@ impl Surface {
 
 		ret
 	}
+
+	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
+		if let Some(buffer_id) = self.current_buffer {
+			let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(buffer_id) else {
+				panic!();
+			};
+
+			self.data = Some((
+				buffer.width,
+				buffer.height,
+				buffer.stride / buffer.width,
+				buffer.get_pixels(),
+			));
+
+			client.send_message(wlm::Message {
+				object_id: buffer_id,
+				op: 0,
+				args: (),
+			})?;
+
+			self.current_buffer = None;
+		}
+
+		if let Some(callback) = self.current_frame_callback {
+			client.send_message(wlm::Message {
+				object_id: callback,
+				op: 0,
+				args: 0u32,
+			})?;
+
+			client.remove_client_object(callback)?;
+			self.current_frame_callback = None;
+		}
+
+		for i in &self.children {
+			let Some(wl::Resource::SubSurface(sub_surface)) = client.get_object(*i) else {
+				panic!();
+			};
+
+			let client_ptr = client as *const _;
+
+			let Some(wl::Resource::Surface(surface)) = client.get_object_mut(sub_surface.surface)
+			else {
+				panic!();
+			};
+
+			surface.frame(unsafe { &mut *(client_ptr as *mut _) })?;
+		}
+
+		Ok(())
+	}
 }
 
 impl wl::Object for Surface {
@@ -73,18 +121,17 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
 				let (buffer, x, y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
 
-				self.buffer = if buffer != 0 {
-					Some((buffer, x, y))
-				} else {
-					None
-				};
+				assert!(x == 0);
+				assert!(y == 0);
+
+				self.pending_buffer = if buffer != 0 { Some(buffer) } else { None };
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 				let callback: u32 = wlm::decode::from_slice(&params)?;
 
-				assert!(self.frame_callback.is_none());
-				self.frame_callback = Some(callback);
+				assert!(self.pending_frame_callback.is_none());
+				self.pending_frame_callback = Some(callback);
 			}
 			4 => {
 				// wl_surface.set_opaque_region()
@@ -97,35 +144,14 @@ impl wl::Object for Surface {
 			6 => {
 				// wl_surface.commit()
 				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
-				if let Some((buffer_id, _x, _y)) = self.buffer {
-					let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(buffer_id)
-					else {
-						panic!();
-					};
+				if let Some(buffer_id) = self.pending_buffer {
+					self.current_buffer = Some(buffer_id);
+					self.pending_buffer = None;
+				}
 
-					self.front_buffer = Some((
-						buffer.width,
-						buffer.height,
-						buffer.stride / buffer.width,
-						buffer.get_pixels(),
-					));
-
-					client.send_message(wlm::Message {
-						object_id: buffer_id,
-						op: 0,
-						args: (),
-					})?;
-
-					if let Some(callback) = self.frame_callback {
-						client.send_message(wlm::Message {
-							object_id: callback,
-							op: 0,
-							args: 0u32,
-						})?;
-
-						client.remove_client_object(callback)?;
-						self.frame_callback = None;
-					}
+				if let Some(frame_callback) = self.pending_frame_callback {
+					self.current_frame_callback = Some(frame_callback);
+					self.pending_frame_callback = None;
 				}
 			}
 			8 => {

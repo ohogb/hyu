@@ -138,9 +138,38 @@ async fn render() -> Result<()> {
 
 		match event {
 			winit::event::WindowEvent::RedrawRequested => {
+				// TODO: cleanup this mess
+				for client in state::clients().values_mut() {
+					for window in client.windows.clone() {
+						let Some(wl::Resource::XdgToplevel(window)) = client.get_object(window)
+						else {
+							panic!();
+						};
+
+						let Some(wl::Resource::XdgSurface(xdg_surface)) =
+							client.get_object(window.surface)
+						else {
+							panic!();
+						};
+
+						let client_ptr = client as *const _;
+
+						let Some(wl::Resource::Surface(surface)) =
+							client.get_object_mut(xdg_surface.get_surface())
+						else {
+							panic!();
+						};
+
+						surface
+							.frame(unsafe { &mut *(client_ptr as *mut _) })
+							.unwrap();
+					}
+				}
+
 				for client in state::clients().values() {
-					for window in client.get_windows() {
-						let wl::Resource::XdgToplevel(window) = window else {
+					for &window in &client.windows {
+						let Some(wl::Resource::XdgToplevel(window)) = client.get_object(window)
+						else {
 							panic!();
 						};
 
@@ -240,6 +269,8 @@ async fn render() -> Result<()> {
 }
 
 fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -> Result<()> {
+	stream.set_nonblocking(true)?;
+
 	let mut client = wl::Client::new(State {
 		buffer: Buffer(Vec::new()),
 		start_position: ((100 * index + 10) as i32, (100 * index + 10) as i32),
@@ -260,13 +291,34 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	state::clients().insert(stream.as_raw_fd(), client);
 
 	loop {
+		{
+			let mut clients = state::clients();
+			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
+
+			stream.write_all(&client.get_state().buffer.0)?;
+			client.get_state().buffer.0.clear();
+		}
+
 		let mut cmsg_buffer = [0u8; 0x20];
 		let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
 
 		let mut obj = [0u8; 4];
 
 		let len = stream
-			.recv_vectored_with_ancillary(&mut [std::io::IoSliceMut::new(&mut obj)], &mut cmsg)?;
+			.recv_vectored_with_ancillary(&mut [std::io::IoSliceMut::new(&mut obj)], &mut cmsg);
+
+		let len = match len {
+			Ok(len) => len,
+			Err(x) => match x.kind() {
+				std::io::ErrorKind::WouldBlock => {
+					std::thread::sleep(std::time::Duration::from_millis(10));
+					continue;
+				}
+				_ => {
+					return Err(x)?;
+				}
+			},
+		};
 
 		let mut clients = state::clients();
 
@@ -309,9 +361,6 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		// TODO: think how to do this the safe way
 		let object = object as *mut wl::Resource;
 		unsafe { (*object).handle(client, op, params)? };
-
-		stream.write_all(&client.get_state().buffer.0)?;
-		client.get_state().buffer.0.clear();
 	}
 }
 

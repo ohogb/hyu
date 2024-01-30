@@ -4,7 +4,7 @@ pub struct Client {
 	objects: std::collections::HashMap<u32, wl::Resource>,
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
-	windows: Vec<u32>,
+	pub windows: Vec<u32>,
 }
 
 impl Client {
@@ -61,12 +61,5 @@ impl Client {
 
 	pub fn add_window(&mut self, toplevel: u32) {
 		self.windows.push(toplevel);
-	}
-
-	pub fn get_windows(&self) -> Vec<&wl::Resource> {
-		self.windows
-			.iter()
-			.map(|x| self.get_object(*x).unwrap())
-			.collect()
 	}
 }
