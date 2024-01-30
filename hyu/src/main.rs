@@ -125,6 +125,8 @@ async fn render() -> Result<()> {
 		multiview: None,
 	});
 
+	let mut vertices = Vec::with_capacity(WIDTH * HEIGHT * 8);
+
 	event_loop.run(move |event, target| {
 		let winit::event::Event::WindowEvent { window_id, event } = event else {
 			return;
@@ -136,11 +138,54 @@ async fn render() -> Result<()> {
 
 		match event {
 			winit::event::WindowEvent::RedrawRequested => {
-				queue.write_buffer(
-					&vertex_buffer,
-					0,
-					bytemuck::cast_slice(&state::vertex_buffer()),
-				);
+				for client in state::clients().values() {
+					for window in client.get_windows() {
+						let wl::Resource::XdgToplevel(window) = window else {
+							panic!();
+						};
+
+						let Some(wl::Resource::XdgSurface(xdg_surface)) =
+							client.get_object(window.surface)
+						else {
+							panic!();
+						};
+
+						let Some(wl::Resource::Surface(surface)) =
+							client.get_object(xdg_surface.get_surface())
+						else {
+							panic!();
+						};
+
+						for (x, y, width, _height, bytes_per_pixel, pixels) in
+							surface.get_front_buffers(client)
+						{
+							for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
+								let index = index as i32;
+
+								let x = (index % width) + window.position.0
+									- xdg_surface.position.0 + x;
+
+								let y = (index / width) + window.position.1
+									- xdg_surface.position.1 + y;
+
+								vertices.push(Vertex {
+									position: [
+										x as f32 / WIDTH as f32 * 2.0 - 1.0,
+										(y as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
+									],
+									color: [
+										pixel[2] as f32 / 255.0,
+										pixel[1] as f32 / 255.0,
+										pixel[0] as f32 / 255.0,
+										pixel[3] as f32 / 255.0,
+									],
+								});
+							}
+						}
+					}
+				}
+
+				queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
 				let frame = surface.get_current_texture().unwrap();
 
@@ -174,7 +219,9 @@ async fn render() -> Result<()> {
 
 					render_pass.set_pipeline(&render_pipeline);
 					render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-					render_pass.draw(0..state::vertex_buffer().len() as _, 0..1);
+					render_pass.draw(0..vertices.len() as _, 0..1);
+
+					vertices.clear();
 				}
 
 				queue.submit(Some(encoder.finish()));
@@ -265,59 +312,10 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 		stream.write_all(&client.get_state().buffer.0)?;
 		client.get_state().buffer.0.clear();
-
-		let mut vertex_buffer = state::vertex_buffer();
-		vertex_buffer.clear();
-
-		for client in clients.values_mut() {
-			for window in client.get_windows() {
-				let wl::Resource::XdgToplevel(window) = window else {
-					panic!();
-				};
-
-				let Some(wl::Resource::XdgSurface(xdg_surface)) = client.get_object(window.surface)
-				else {
-					panic!();
-				};
-
-				let Some(wl::Resource::Surface(surface)) =
-					client.get_object(xdg_surface.get_surface())
-				else {
-					panic!();
-				};
-
-				for (x, y, width, _height, bytes_per_pixel, pixels) in
-					surface.get_front_buffers(client)
-				{
-					for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
-						let index = index as i32;
-
-						let x = (index % width) + window.position.0 - xdg_surface.position.0 + x;
-
-						let y = (index / width) + window.position.1 - xdg_surface.position.1 + y;
-
-						vertex_buffer.push(Vertex {
-							position: [
-								x as f32 / WIDTH as f32 * 2.0 - 1.0,
-								(y as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
-							],
-							color: [
-								pixel[2] as f32 / 255.0,
-								pixel[1] as f32 / 255.0,
-								pixel[0] as f32 / 255.0,
-								pixel[3] as f32 / 255.0,
-							],
-						});
-					}
-				}
-			}
-		}
 	}
 }
 
 fn main() -> Result<()> {
-	state::vertex_buffer().reserve(WIDTH * HEIGHT * 8);
-
 	std::thread::spawn(move || pollster::block_on(render()).unwrap());
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;

@@ -1,4 +1,4 @@
-use crate::{wl, Vertex};
+use crate::wl;
 
 pub struct State {
 	pub buffer: Buffer,
@@ -15,16 +15,6 @@ pub fn clients(
 ) -> std::sync::MutexGuard<'static, std::collections::HashMap<std::os::fd::RawFd, wl::Client>> {
 	CLIENTS
 		.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
-		.lock()
-		.unwrap()
-}
-
-static VERTEX_BUFFER: std::sync::OnceLock<std::sync::Mutex<Vec<Vertex>>> =
-	std::sync::OnceLock::new();
-
-pub fn vertex_buffer() -> std::sync::MutexGuard<'static, Vec<Vertex>> {
-	VERTEX_BUFFER
-		.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 		.lock()
 		.unwrap()
 }
