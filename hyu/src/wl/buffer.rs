@@ -56,6 +56,16 @@ impl Buffer {
 			ret
 		}
 	}
+
+	pub fn release(&self, client: &mut wl::Client) -> Result<()> {
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 0,
+			args: (),
+		})?;
+
+		Ok(())
+	}
 }
 
 impl wl::Object for Buffer {

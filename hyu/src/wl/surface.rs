@@ -72,12 +72,7 @@ impl Surface {
 				buffer.get_pixels(),
 			));
 
-			client.send_message(wlm::Message {
-				object_id: buffer_id,
-				op: 0,
-				args: (),
-			})?;
-
+			buffer.release(client)?;
 			self.current_buffer = None;
 		}
 
