@@ -13,6 +13,7 @@ impl wl::Object for DataDeviceManager {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			1 => {
+				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:get_data_device
 				let (id, seat): (u32, u32) = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::DataDevice::new(seat));
 			}

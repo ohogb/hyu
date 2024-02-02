@@ -13,9 +13,10 @@ impl wl::Object for SubCompositor {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
-				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy
+				// https://wayland.app/protocols/wayland#wl_subcompositor:request:destroy
 			}
 			1 => {
+				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface
 				let (id, surface, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
 
 				if let Some(wl::Resource::Surface(surface)) = client.get_object_mut(parent) {

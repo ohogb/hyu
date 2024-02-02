@@ -27,6 +27,7 @@ impl wl::Object for Display {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
+				// https://wayland.app/protocols/wayland#wl_display:request:sync
 				let callback: u32 = wlm::decode::from_slice(&params)?;
 
 				client.send_message(wlm::Message {
@@ -38,6 +39,7 @@ impl wl::Object for Display {
 				client.remove_client_object(callback)?;
 			}
 			1 => {
+				// https://wayland.app/protocols/wayland#wl_display:request:get_registry
 				let registry_index: u32 = wlm::decode::from_slice(&params)?;
 				let registry = wl::Registry::new(registry_index, self.object_id);
 

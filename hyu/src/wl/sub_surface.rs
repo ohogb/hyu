@@ -28,8 +28,7 @@ impl wl::Object for SubSurface {
 				self.position = (x, y);
 			}
 			4 => {
-				// wl_subsurface.set_sync()
-				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L2849
+				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_sync
 			}
 			_ => Err(format!("unknown op '{op}' in SubSurface"))?,
 		}

@@ -53,10 +53,12 @@ impl wl::Object for XdgToplevel {
 				let _parent: u32 = wlm::decode::from_slice(&params)?;
 			}
 			2 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_title
 				let title: String = wlm::decode::from_slice(&params)?;
 				self.title = title;
 			}
 			3 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_app_id
 				let app_id: String = wlm::decode::from_slice(&params)?;
 				self.app_id = app_id;
 			}

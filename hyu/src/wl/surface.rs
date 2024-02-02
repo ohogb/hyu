@@ -127,16 +127,13 @@ impl wl::Object for Surface {
 				self.pending_frame_callback = Some(callback);
 			}
 			4 => {
-				// wl_surface.set_opaque_region()
-				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1518
+				// https://wayland.app/protocols/wayland#wl_surface:request:set_opaque_region
 			}
 			5 => {
-				// wl_surface.set_input_region()
-				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1549
+				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
 			}
 			6 => {
-				// wl_surface.commit()
-				// https://gitlab.freedesktop.org/wayland/wayland/blob/master/protocol/wayland.xml#L1578
+				// https://wayland.app/protocols/wayland#wl_surface:request:commit
 				if let Some(buffer_id) = self.pending_buffer {
 					self.current_buffer = Some(buffer_id);
 					self.pending_buffer = None;

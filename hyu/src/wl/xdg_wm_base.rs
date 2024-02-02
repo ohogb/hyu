@@ -16,6 +16,7 @@ impl wl::Object for XdgWmBase {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:destroy
 			}
 			2 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (u32, u32) = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::XdgSurface::new(id, surface));
 			}

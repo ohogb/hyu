@@ -13,10 +13,12 @@ impl wl::Object for Compositor {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
+				// https://wayland.app/protocols/wayland#wl_compositor:request:create_surface
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::Surface::new());
 			}
 			1 => {
+				// https://wayland.app/protocols/wayland#wl_compositor:request:create_region
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::Region::new());
 			}

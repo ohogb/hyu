@@ -39,6 +39,7 @@ impl wl::Object for XdgSurface {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:destroy
 			}
 			1 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				let start_position = client.get_state().start_position;
 

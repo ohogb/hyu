@@ -20,6 +20,7 @@ impl wl::Object for ShmPool {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
+				// https://wayland.app/protocols/wayland#wl_shm_pool:request:create_buffer
 				let (id, offset, width, height, stride, format): (u32, i32, i32, i32, i32, u32) =
 					wlm::decode::from_slice(&params)?;
 

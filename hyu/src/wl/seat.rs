@@ -13,10 +13,12 @@ impl wl::Object for Seat {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
+				// https://wayland.app/protocols/wayland#wl_seat:request:get_pointer
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::Pointer::new());
 			}
 			1 => {
+				// https://wayland.app/protocols/wayland#wl_seat:request:get_keyboard
 				let id: u32 = wlm::decode::from_slice(&params)?;
 				client.push_client_object(id, wl::Keyboard::new());
 			}
