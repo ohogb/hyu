@@ -127,6 +127,8 @@ async fn render() -> Result<()> {
 
 	let mut vertices = Vec::with_capacity(WIDTH * HEIGHT * 8);
 
+	let start_time = std::time::Instant::now();
+
 	event_loop.run(move |event, target| {
 		let winit::event::Event::WindowEvent { window_id, event } = event else {
 			return;
@@ -158,7 +160,9 @@ async fn render() -> Result<()> {
 							panic!();
 						};
 
-						surface.frame(client).unwrap();
+						surface
+							.frame(start_time.elapsed().as_millis() as u32, client)
+							.unwrap();
 					}
 				}
 

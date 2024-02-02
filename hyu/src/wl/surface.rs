@@ -59,7 +59,7 @@ impl Surface {
 		ret
 	}
 
-	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
 		if let Some(buffer_id) = self.current_buffer {
 			let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(buffer_id) else {
 				panic!();
@@ -80,7 +80,7 @@ impl Surface {
 			client.send_message(wlm::Message {
 				object_id: callback,
 				op: 0,
-				args: 0u32,
+				args: ms,
 			})?;
 
 			client.remove_client_object(callback)?;
@@ -97,7 +97,7 @@ impl Surface {
 				panic!();
 			};
 
-			surface.frame(client)?;
+			surface.frame(ms, client)?;
 		}
 
 		Ok(())
