@@ -11,14 +11,18 @@ impl Registry {
 		Self { object_id, display }
 	}
 
-	pub fn global(&self, name: u32, interface: impl AsRef<str>, version: u32) -> Result<Vec<u8>> {
-		let message = wlm::Message {
+	pub fn global(
+		&self,
+		client: &mut wl::Client,
+		name: u32,
+		interface: impl AsRef<str>,
+		version: u32,
+	) -> Result<()> {
+		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 0,
 			args: (name, interface.as_ref(), version),
-		};
-
-		message.to_vec()
+		})
 	}
 }
 

@@ -42,13 +42,12 @@ impl wl::Object for Display {
 				let registry = wl::Registry::new(registry_index, self.object_id);
 
 				for (index, global) in self.globals.iter().enumerate() {
-					let message = registry.global(
+					registry.global(
+						client,
 						index as u32 + 1,
 						global.get_name(),
 						global.get_version(),
 					)?;
-
-					client.get_state().buffer.0.extend(message);
 				}
 
 				client.push_client_object(registry_index, registry);
