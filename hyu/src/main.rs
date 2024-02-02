@@ -140,7 +140,6 @@ async fn render() -> Result<()> {
 
 		match event {
 			winit::event::WindowEvent::RedrawRequested => {
-				// TODO: cleanup this mess
 				for client in state::clients().values_mut() {
 					for window in client.windows.clone() {
 						let Some(wl::Resource::XdgToplevel(window)) = client.get_object(window)
@@ -163,27 +162,6 @@ async fn render() -> Result<()> {
 						surface
 							.frame(start_time.elapsed().as_millis() as u32, client)
 							.unwrap();
-					}
-				}
-
-				for client in state::clients().values() {
-					for &window in &client.windows {
-						let Some(wl::Resource::XdgToplevel(window)) = client.get_object(window)
-						else {
-							panic!();
-						};
-
-						let Some(wl::Resource::XdgSurface(xdg_surface)) =
-							client.get_object(window.surface)
-						else {
-							panic!();
-						};
-
-						let Some(wl::Resource::Surface(surface)) =
-							client.get_object(xdg_surface.get_surface())
-						else {
-							panic!();
-						};
 
 						for (x, y, width, _height, bytes_per_pixel, pixels) in
 							surface.get_front_buffers(client)
