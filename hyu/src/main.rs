@@ -273,7 +273,20 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			let mut clients = state::clients();
 			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
-			stream.write_all(&client.get_state().buffer.0)?;
+			let ret = stream.write_all(&client.get_state().buffer.0);
+
+			if let Err(e) = ret {
+				match e.kind() {
+					std::io::ErrorKind::BrokenPipe => {
+						clients.remove(&stream.as_raw_fd());
+						return Ok(());
+					}
+					_ => {
+						Err(e)?;
+					}
+				}
+			}
+
 			client.get_state().buffer.0.clear();
 		}
 
