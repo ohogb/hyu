@@ -97,14 +97,12 @@ impl Surface {
 				panic!();
 			};
 
-			let client_ptr = client as *const _;
-
 			let Some(wl::Resource::Surface(surface)) = client.get_object_mut(sub_surface.surface)
 			else {
 				panic!();
 			};
 
-			surface.frame(unsafe { &mut *(client_ptr as *mut _) })?;
+			surface.frame(client)?;
 		}
 
 		Ok(())

@@ -37,10 +37,7 @@ impl XdgToplevel {
 			panic!();
 		};
 
-		// TODO: think how to do this the safe way
-		let surface = unsafe { &*(surface as *const wl::XdgSurface) };
 		surface.configure(client)?;
-
 		Ok(())
 	}
 }

@@ -38,10 +38,7 @@ impl wl::Object for Registry {
 				// hmm
 				// TODO: this is very unsafe, if `bind()` pushes a new resource, `client` could get
 				// reallocated.
-				let global = unsafe { &*(display as *const wl::Display) }
-					.get_global(name)
-					.unwrap();
-
+				let global = display.get_global(name).unwrap();
 				global.bind(client, client_object)?;
 			}
 			_ => Err(format!("unknown op '{op}' in Registry"))?,

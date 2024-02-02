@@ -1,7 +1,7 @@
 use crate::{wl, Result, State};
 
 pub struct Client {
-	objects: std::collections::HashMap<u32, wl::Resource>,
+	objects: std::collections::HashMap<u32, std::cell::UnsafeCell<wl::Resource>>,
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
@@ -18,7 +18,8 @@ impl Client {
 	}
 
 	pub fn push_client_object(&mut self, id: u32, object: impl Into<wl::Resource>) {
-		self.objects.insert(id, object.into());
+		self.objects
+			.insert(id, std::cell::UnsafeCell::new(object.into()));
 	}
 
 	pub fn remove_client_object(&mut self, id: u32) -> Result<()> {
@@ -34,12 +35,12 @@ impl Client {
 		Ok(())
 	}
 
-	pub fn get_object(&self, id: u32) -> Option<&wl::Resource> {
-		self.objects.get(&id)
+	pub fn get_object(&self, id: u32) -> Option<&'static wl::Resource> {
+		self.objects.get(&id).map(|x| unsafe { &*x.get() })
 	}
 
-	pub fn get_object_mut(&mut self, id: u32) -> Option<&mut wl::Resource> {
-		self.objects.get_mut(&id)
+	pub fn get_object_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
+		self.objects.get(&id).map(|x| unsafe { &mut *x.get() })
 	}
 
 	pub fn get_state(&mut self) -> &mut State {

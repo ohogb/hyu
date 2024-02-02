@@ -152,17 +152,13 @@ async fn render() -> Result<()> {
 							panic!();
 						};
 
-						let client_ptr = client as *const _;
-
 						let Some(wl::Resource::Surface(surface)) =
 							client.get_object_mut(xdg_surface.get_surface())
 						else {
 							panic!();
 						};
 
-						surface
-							.frame(unsafe { &mut *(client_ptr as *mut _) })
-							.unwrap();
+						surface.frame(client).unwrap();
 					}
 				}
 
@@ -358,9 +354,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			return Err(format!("unknown object '{object}'"))?;
 		};
 
-		// TODO: think how to do this the safe way
-		let object = object as *mut wl::Resource;
-		unsafe { (*object).handle(client, op, params)? };
+		object.handle(client, op, params)?;
 	}
 }
 
