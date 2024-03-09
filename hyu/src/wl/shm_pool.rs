@@ -34,6 +34,9 @@ impl wl::Object for ShmPool {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:destroy
 			}
+			2 => {
+				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize
+			}
 			_ => Err(format!("unknown op '{op}' in ShmPool"))?,
 		}
 
