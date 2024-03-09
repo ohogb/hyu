@@ -1,4 +1,4 @@
-use crate::wl;
+use crate::{wl, Result};
 
 pub struct Pointer {}
 
@@ -9,8 +9,11 @@ impl Pointer {
 }
 
 impl wl::Object for Pointer {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> crate::Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/wayland#wl_pointer:request:set_cursor
+			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:release
 			}
