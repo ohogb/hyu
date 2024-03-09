@@ -55,6 +55,17 @@ impl Pointer {
 		Ok(())
 	}
 
+	pub fn button(&mut self, client: &mut wl::Client, button: u32, state: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:button
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 3,
+			args: (self.serial(), 0, button, state),
+		})?;
+
+		Ok(())
+	}
+
 	fn serial(&mut self) -> u32 {
 		let ret = self.serial;
 		self.serial += 1;
