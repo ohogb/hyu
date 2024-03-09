@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 bytemuck = { version = "1.14.0", features = ["derive"] }
 env_logger = "0.10.1"
+fixed = { version = "1.26.0", features = ["serde"] }
 log = "0.4.20"
 nix = { version = "0.27.1", features = ["socket", "uio", "mman"] }
 pollster = "0.3.0"

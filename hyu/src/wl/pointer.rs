@@ -1,10 +1,55 @@
 use crate::{wl, Result};
 
-pub struct Pointer {}
+pub struct Pointer {
+	object_id: u32,
+}
 
 impl Pointer {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: u32) -> Self {
+		Self { object_id }
+	}
+
+	pub fn enter(&mut self, client: &mut wl::Client, surface: u32, x: i32, y: i32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 0,
+			args: (
+				0,
+				surface,
+				fixed::types::I24F8::from_num(x),
+				fixed::types::I24F8::from_num(y),
+			),
+		})?;
+
+		Ok(())
+	}
+
+	pub fn leave(&mut self, client: &mut wl::Client, surface: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 1,
+			args: (0, surface),
+		})?;
+
+		Ok(())
+	}
+
+	pub fn motion(&mut self, client: &mut wl::Client, x: i32, y: i32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:motion
+
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 2,
+			args: (
+				0,
+				fixed::types::I24F8::from_num(x),
+				fixed::types::I24F8::from_num(y),
+			),
+		})?;
+
+		Ok(())
 	}
 }
 
