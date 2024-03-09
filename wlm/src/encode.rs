@@ -191,7 +191,7 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 		_name: &'static str,
 		_len: usize,
 	) -> std::result::Result<Self::SerializeStruct, Self::Error> {
-		todo!()
+		Ok(self)
 	}
 
 	fn serialize_struct_variant(
@@ -301,15 +301,16 @@ impl<'a> serde::ser::SerializeStruct for &'a mut Serializer {
 
 	type Error = Error;
 
-	fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, _value: &T) -> Result<()>
+	fn serialize_field<T: ?Sized>(&mut self, _key: &'static str, value: &T) -> Result<()>
 	where
 		T: serde::Serialize,
 	{
-		todo!()
+		value.serialize(&mut **self)?;
+		Ok(())
 	}
 
 	fn end(self) -> Result<()> {
-		todo!()
+		Ok(())
 	}
 }
 
