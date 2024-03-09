@@ -1,17 +1,19 @@
 use crate::{wl, Result};
 
 pub struct Surface {
-	children: Vec<u32>,
+	pub object_id: u32,
+	pub children: Vec<u32>,
 	pending_buffer: Option<u32>,
 	current_buffer: Option<u32>,
 	pending_frame_callback: Option<u32>,
 	current_frame_callback: Option<u32>,
-	data: Option<(i32, i32, i32, Vec<u8>)>,
+	pub data: Option<(i32, i32, i32, Vec<u8>)>,
 }
 
 impl Surface {
-	pub fn new() -> Self {
+	pub fn new(object_id: u32) -> Self {
 		Self {
+			object_id,
 			children: Vec::new(),
 			pending_buffer: None,
 			current_buffer: None,

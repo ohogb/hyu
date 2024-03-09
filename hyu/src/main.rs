@@ -239,6 +239,128 @@ async fn render() -> Result<()> {
 			winit::event::WindowEvent::CloseRequested => {
 				target.exit();
 			}
+			winit::event::WindowEvent::CursorMoved {
+				position: cursor_position,
+				..
+			} => {
+				for client in state::clients().values_mut() {
+					let old = client.surface_cursor_is_over;
+					client.surface_cursor_is_over = None;
+
+					fn do_stuff(
+						client: &mut wl::Client,
+						surface: &wl::Surface,
+						cursor_position: (i32, i32),
+						surface_position: (i32, i32),
+						surface_size: (i32, i32),
+					) {
+						fn is_point_inside_area(
+							cursor: (i32, i32),
+							position: (i32, i32),
+							size: (i32, i32),
+						) -> bool {
+							cursor.0 > position.0
+								&& cursor.1 > position.1 && cursor.0 <= position.0 + size.0
+								&& cursor.1 <= position.1 + size.1
+						}
+
+						if is_point_inside_area(cursor_position, surface_position, surface_size) {
+							client.surface_cursor_is_over = Some((
+								surface.object_id,
+								(
+									cursor_position.0 - surface_position.0,
+									cursor_position.1 - surface_position.1,
+								),
+							));
+						}
+
+						for child in &surface.children {
+							let Some(wl::Resource::SubSurface(sub_surface)) =
+								client.get_object(*child)
+							else {
+								panic!();
+							};
+
+							let Some(wl::Resource::Surface(surface)) =
+								client.get_object(sub_surface.surface)
+							else {
+								panic!();
+							};
+
+							let size = if let Some((w, h, ..)) = surface.data {
+								(w, h)
+							} else {
+								(0, 0)
+							};
+
+							do_stuff(
+								client,
+								surface,
+								cursor_position,
+								(
+									surface_position.0 + sub_surface.position.0,
+									surface_position.1 + sub_surface.position.1,
+								),
+								size,
+							);
+						}
+					}
+
+					for window in client.windows.clone() {
+						let Some(wl::Resource::XdgToplevel(toplevel)) = client.get_object(window)
+						else {
+							panic!();
+						};
+
+						let Some(wl::Resource::XdgSurface(xdg_surface)) =
+							client.get_object(toplevel.surface)
+						else {
+							panic!();
+						};
+
+						let Some(wl::Resource::Surface(surface)) =
+							client.get_object(xdg_surface.get_surface())
+						else {
+							panic!();
+						};
+
+						let position = (
+							toplevel.position.0 - xdg_surface.position.0,
+							toplevel.position.1 - xdg_surface.position.1,
+						);
+
+						// let size = xdg_surface.size;
+
+						let Some((w, h, ..)) = surface.data else {
+							panic!();
+						};
+
+						do_stuff(client, surface, cursor_position.into(), position, (w, h));
+					}
+
+					for object in client.objects().collect::<Vec<_>>() {
+						let wl::Resource::Pointer(pointer) = object else {
+							continue;
+						};
+
+						if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
+							if let Some((old, ..)) = old {
+								pointer.leave(client, old).unwrap();
+								println!("leave");
+							}
+
+							if let Some((surface, (x, y))) = client.surface_cursor_is_over {
+								pointer.enter(client, surface, x, y).unwrap();
+								println!("enter");
+							}
+						} else {
+							if let Some((_, (x, y))) = client.surface_cursor_is_over {
+								pointer.motion(client, x, y).unwrap();
+							}
+						}
+					}
+				}
+			}
 			_ => {}
 		}
 	})?;

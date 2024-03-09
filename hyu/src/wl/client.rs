@@ -5,6 +5,7 @@ pub struct Client {
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
+	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
 }
 
 impl Client {
@@ -14,6 +15,7 @@ impl Client {
 			state,
 			fds: Default::default(),
 			windows: Vec::new(),
+			surface_cursor_is_over: None,
 		}
 	}
 
@@ -62,5 +64,9 @@ impl Client {
 
 	pub fn add_window(&mut self, toplevel: u32) {
 		self.windows.push(toplevel);
+	}
+
+	pub fn objects(&self) -> impl Iterator<Item = &'static mut wl::Resource> + '_ {
+		self.objects.values().map(|x| unsafe { &mut *x.get() })
 	}
 }
