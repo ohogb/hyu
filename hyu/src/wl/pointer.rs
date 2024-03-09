@@ -2,11 +2,15 @@ use crate::{wl, Result};
 
 pub struct Pointer {
 	object_id: u32,
+	serial: u32,
 }
 
 impl Pointer {
 	pub fn new(object_id: u32) -> Self {
-		Self { object_id }
+		Self {
+			object_id,
+			serial: 0,
+		}
 	}
 
 	pub fn enter(&mut self, client: &mut wl::Client, surface: u32, x: i32, y: i32) -> Result<()> {
@@ -15,7 +19,7 @@ impl Pointer {
 			object_id: self.object_id,
 			op: 0,
 			args: (
-				0,
+				self.serial(),
 				surface,
 				fixed::types::I24F8::from_num(x),
 				fixed::types::I24F8::from_num(y),
@@ -30,7 +34,7 @@ impl Pointer {
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 1,
-			args: (0, surface),
+			args: (self.serial(), surface),
 		})?;
 
 		Ok(())
@@ -38,18 +42,24 @@ impl Pointer {
 
 	pub fn motion(&mut self, client: &mut wl::Client, x: i32, y: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:motion
-
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 2,
 			args: (
-				0,
+				self.serial(),
 				fixed::types::I24F8::from_num(x),
 				fixed::types::I24F8::from_num(y),
 			),
 		})?;
 
 		Ok(())
+	}
+
+	fn serial(&mut self) -> u32 {
+		let ret = self.serial;
+		self.serial += 1;
+
+		ret
 	}
 }
 
