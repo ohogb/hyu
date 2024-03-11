@@ -362,28 +362,22 @@ async fn render() -> Result<()> {
 				}
 			}
 			winit::event::WindowEvent::MouseInput { state, button, .. } => match button {
-				winit::event::MouseButton::Left => match state {
-					winit::event::ElementState::Pressed => {
-						for client in state::clients().values_mut() {
-							for object in client.objects().collect::<Vec<_>>() {
-								let wl::Resource::Pointer(pointer) = object else {
-									continue;
-								};
-								pointer.button(client, 0x110, 1).unwrap();
-							}
+				winit::event::MouseButton::Left => {
+					let state = match state {
+						winit::event::ElementState::Pressed => 1,
+						winit::event::ElementState::Released => 0,
+					};
+
+					for client in state::clients().values_mut() {
+						for object in client.objects().collect::<Vec<_>>() {
+							let wl::Resource::Pointer(pointer) = object else {
+								continue;
+							};
+
+							pointer.button(client, 0x110, state).unwrap();
 						}
 					}
-					winit::event::ElementState::Released => {
-						for client in state::clients().values_mut() {
-							for object in client.objects().collect::<Vec<_>>() {
-								let wl::Resource::Pointer(pointer) = object else {
-									continue;
-								};
-								pointer.button(client, 0x110, 0).unwrap();
-							}
-						}
-					}
-				},
+				}
 				_ => {}
 			},
 			_ => {}
