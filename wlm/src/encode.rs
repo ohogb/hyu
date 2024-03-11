@@ -149,9 +149,10 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 
 	fn serialize_seq(
 		self,
-		_len: Option<usize>,
+		len: Option<usize>,
 	) -> std::result::Result<Self::SerializeSeq, Self::Error> {
-		todo!()
+		self.output.extend(len.unwrap().to_ne_bytes());
+		Ok(self)
 	}
 
 	fn serialize_tuple(
@@ -210,15 +211,20 @@ impl<'a> serde::ser::SerializeSeq for &'a mut Serializer {
 
 	type Error = Error;
 
-	fn serialize_element<T: ?Sized>(&mut self, _value: &T) -> Result<()>
+	fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
 	where
 		T: serde::Serialize,
 	{
-		todo!()
+		value.serialize(&mut **self)
 	}
 
 	fn end(self) -> Result<()> {
-		todo!()
+		if self.output.len() % 4 != 0 {
+			self.output
+				.extend((0..(4 - (self.output.len() % 4))).map(|_| 0u8));
+		}
+
+		Ok(())
 	}
 }
 impl<'a> serde::ser::SerializeTuple for &'a mut Serializer {
