@@ -149,6 +149,9 @@ impl wl::Object for Surface {
 					self.pending_frame_callback = None;
 				}
 			}
+			7 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform
+			}
 			8 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
 				let _scale: u32 = wlm::decode::from_slice(&params)?;
