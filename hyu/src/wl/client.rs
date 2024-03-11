@@ -66,7 +66,10 @@ impl Client {
 		self.windows.push(toplevel);
 	}
 
-	pub fn objects(&self) -> impl Iterator<Item = &'static mut wl::Resource> + '_ {
-		self.objects.values().map(|x| unsafe { &mut *x.get() })
+	pub fn objects(&self) -> Vec<&'static mut wl::Resource> {
+		self.objects
+			.values()
+			.map(|x| unsafe { &mut *x.get() })
+			.collect()
 	}
 }

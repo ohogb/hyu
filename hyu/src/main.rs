@@ -338,7 +338,7 @@ async fn render() -> Result<()> {
 						do_stuff(client, surface, cursor_position.into(), position, (w, h));
 					}
 
-					for object in client.objects().collect::<Vec<_>>() {
+					for object in client.objects() {
 						let wl::Resource::Pointer(pointer) = object else {
 							continue;
 						};
@@ -369,7 +369,7 @@ async fn render() -> Result<()> {
 					};
 
 					for client in state::clients().values_mut() {
-						for object in client.objects().collect::<Vec<_>>() {
+						for object in client.objects() {
 							let wl::Resource::Pointer(pointer) = object else {
 								continue;
 							};
