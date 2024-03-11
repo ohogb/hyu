@@ -6,6 +6,7 @@ pub struct Client {
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
 	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
+	pub has_keyboard_focus: bool,
 }
 
 impl Client {
@@ -16,6 +17,7 @@ impl Client {
 			fds: Default::default(),
 			windows: Vec::new(),
 			surface_cursor_is_over: None,
+			has_keyboard_focus: false,
 		}
 	}
 

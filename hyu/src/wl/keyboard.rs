@@ -2,11 +2,15 @@ use crate::{wl, Result};
 
 pub struct Keyboard {
 	object_id: u32,
+	pub key_states: [bool; 0x100],
 }
 
 impl Keyboard {
 	pub fn new(object_id: u32) -> Self {
-		Self { object_id }
+		Self {
+			object_id,
+			key_states: [false; _],
+		}
 	}
 
 	pub fn keymap(&mut self, client: &mut wl::Client) -> Result<()> {

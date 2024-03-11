@@ -1,4 +1,5 @@
 #![feature(unix_socket_ancillary_data)]
+#![feature(generic_arg_infer)]
 
 mod state;
 mod vertex;
@@ -7,7 +8,10 @@ pub mod wl;
 pub use vertex::*;
 
 pub use state::{Buffer, State};
-use winit::platform::wayland::{EventLoopBuilderExtWayland, WindowBuilderExtWayland};
+use winit::platform::{
+	scancode::PhysicalKeyExtScancode,
+	wayland::{EventLoopBuilderExtWayland, WindowBuilderExtWayland},
+};
 use wl::Object;
 
 use std::{
@@ -332,7 +336,7 @@ async fn render() -> Result<()> {
 						// let size = xdg_surface.size;
 
 						let Some((w, h, ..)) = surface.data else {
-							panic!();
+							continue;
 						};
 
 						do_stuff(client, surface, cursor_position.into(), position, (w, h));
@@ -380,6 +384,49 @@ async fn render() -> Result<()> {
 				}
 				_ => {}
 			},
+			winit::event::WindowEvent::KeyboardInput { event, .. } => {
+				let code = event.physical_key.to_scancode().unwrap();
+
+				let state = match event.state {
+					winit::event::ElementState::Pressed => 1,
+					winit::event::ElementState::Released => 0,
+				};
+
+				for client in state::clients().values_mut() {
+					for object in client.objects() {
+						let wl::Resource::Keyboard(keyboard) = object else {
+							continue;
+						};
+
+						if !client.has_keyboard_focus {
+							// keyboard.keymap(client).unwrap();
+
+							for window in client.windows.clone() {
+								let Some(wl::Resource::XdgToplevel(toplevel)) =
+									client.get_object(window)
+								else {
+									panic!();
+								};
+
+								let Some(wl::Resource::XdgSurface(xdg_surface)) =
+									client.get_object(toplevel.surface)
+								else {
+									panic!();
+								};
+
+								keyboard.enter(client, xdg_surface.get_surface()).unwrap();
+							}
+
+							client.has_keyboard_focus = true;
+						}
+
+						if keyboard.key_states[code as usize] != (state != 0) {
+							keyboard.key_states[code as usize] = state != 0;
+							keyboard.key(client, code, state).unwrap();
+						}
+					}
+				}
+			}
 			_ => {}
 		}
 	})?;
