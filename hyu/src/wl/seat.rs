@@ -20,7 +20,11 @@ impl wl::Object for Seat {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_keyboard
 				let id: u32 = wlm::decode::from_slice(&params)?;
-				client.push_client_object(id, wl::Keyboard::new());
+
+				let mut keyboard = wl::Keyboard::new(id);
+				keyboard.repeat_info(client, 500, 500)?;
+
+				client.push_client_object(id, keyboard);
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:release
