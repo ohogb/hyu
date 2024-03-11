@@ -121,6 +121,9 @@ impl wl::Object for Surface {
 
 				self.pending_buffer = if buffer != 0 { Some(buffer) } else { None };
 			}
+			2 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:damage
+			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 				let callback: u32 = wlm::decode::from_slice(&params)?;
