@@ -33,11 +33,9 @@ impl XdgToplevel {
 			args: (0u32, 0u32, [0u32]),
 		})?;
 
-		let Some(wl::Resource::XdgSurface(surface)) = client.get_object(self.surface) else {
-			panic!();
-		};
+		let xdg_surface = client.get_object::<wl::XdgSurface>(self.surface)?;
+		xdg_surface.configure(client)?;
 
-		surface.configure(client)?;
 		Ok(())
 	}
 }

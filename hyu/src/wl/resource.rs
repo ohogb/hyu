@@ -22,6 +22,33 @@ macro_rules! implement {
                     Self::$children(x)
                 }
             }
+
+            impl From<Resource> for crate::Result<crate::wl::$children> {
+                fn from(x: Resource) -> Self {
+                    match x {
+                        Resource::$children(x) => Self::Ok(x),
+                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                    }
+                }
+            }
+
+            impl<'a> From<&'a Resource> for crate::Result<&'a crate::wl::$children> {
+                fn from(x: &'a Resource) -> Self {
+                    match x {
+                        Resource::$children(x) => Self::Ok(x),
+                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                    }
+                }
+            }
+
+            impl<'a> From<&'a mut Resource> for crate::Result<&'a mut crate::wl::$children> {
+                fn from(x: &'a mut Resource) -> Self {
+                    match x {
+                        Resource::$children(x) => Self::Ok(x),
+                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                    }
+                }
+            }
         )*
     }
 }

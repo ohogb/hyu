@@ -146,22 +146,13 @@ async fn render() -> Result<()> {
 			winit::event::WindowEvent::RedrawRequested => {
 				for client in state::clients().values_mut() {
 					for window in client.windows.clone() {
-						let Some(wl::Resource::XdgToplevel(window)) = client.get_object(window)
-						else {
-							panic!();
-						};
+						let window = client.get_object::<wl::XdgToplevel>(window).unwrap();
+						let xdg_surface =
+							client.get_object::<wl::XdgSurface>(window.surface).unwrap();
 
-						let Some(wl::Resource::XdgSurface(xdg_surface)) =
-							client.get_object(window.surface)
-						else {
-							panic!();
-						};
-
-						let Some(wl::Resource::Surface(surface)) =
-							client.get_object_mut(xdg_surface.get_surface())
-						else {
-							panic!();
-						};
+						let surface = client
+							.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
+							.unwrap();
 
 						surface
 							.frame(start_time.elapsed().as_millis() as u32, client)
@@ -279,17 +270,10 @@ async fn render() -> Result<()> {
 						}
 
 						for child in &surface.children {
-							let Some(wl::Resource::SubSurface(sub_surface)) =
-								client.get_object(*child)
-							else {
-								panic!();
-							};
-
-							let Some(wl::Resource::Surface(surface)) =
-								client.get_object(sub_surface.surface)
-							else {
-								panic!();
-							};
+							let sub_surface = client.get_object::<wl::SubSurface>(*child).unwrap();
+							let surface = client
+								.get_object::<wl::Surface>(sub_surface.surface)
+								.unwrap();
 
 							let size = if let Some((w, h, ..)) = surface.data {
 								(w, h)
@@ -311,22 +295,14 @@ async fn render() -> Result<()> {
 					}
 
 					for window in client.windows.clone() {
-						let Some(wl::Resource::XdgToplevel(toplevel)) = client.get_object(window)
-						else {
-							panic!();
-						};
+						let toplevel = client.get_object::<wl::XdgToplevel>(window).unwrap();
+						let xdg_surface = client
+							.get_object::<wl::XdgSurface>(toplevel.surface)
+							.unwrap();
 
-						let Some(wl::Resource::XdgSurface(xdg_surface)) =
-							client.get_object(toplevel.surface)
-						else {
-							panic!();
-						};
-
-						let Some(wl::Resource::Surface(surface)) =
-							client.get_object(xdg_surface.get_surface())
-						else {
-							panic!();
-						};
+						let surface = client
+							.get_object::<wl::Surface>(xdg_surface.get_surface())
+							.unwrap();
 
 						let position = (
 							toplevel.position.0 - xdg_surface.position.0,
@@ -402,17 +378,12 @@ async fn render() -> Result<()> {
 							// keyboard.keymap(client).unwrap();
 
 							for window in client.windows.clone() {
-								let Some(wl::Resource::XdgToplevel(toplevel)) =
-									client.get_object(window)
-								else {
-									panic!();
-								};
+								let toplevel =
+									client.get_object::<wl::XdgToplevel>(window).unwrap();
 
-								let Some(wl::Resource::XdgSurface(xdg_surface)) =
-									client.get_object(toplevel.surface)
-								else {
-									panic!();
-								};
+								let xdg_surface = client
+									.get_object::<wl::XdgSurface>(toplevel.surface)
+									.unwrap();
 
 								keyboard.enter(client, xdg_surface.get_surface()).unwrap();
 							}
@@ -533,7 +504,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		let object = u32::from_ne_bytes(obj);
 		let op = u16::from_ne_bytes(op);
 
-		let Some(object) = client.get_object_mut(object) else {
+		let Some(object) = client.get_resource_mut(object) else {
 			return Err(format!("unknown object '{object}'"))?;
 		};
 

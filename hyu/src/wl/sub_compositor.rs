@@ -17,15 +17,12 @@ impl wl::Object for SubCompositor {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface
-				let (id, surface, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+				let (id, surface_id, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
 
-				if let Some(wl::Resource::Surface(surface)) = client.get_object_mut(parent) {
-					surface.push(id);
-				} else {
-					panic!();
-				}
+				let surface = client.get_object_mut::<wl::Surface>(parent)?;
+				surface.push(id);
 
-				client.push_client_object(id, wl::SubSurface::new(id, surface));
+				client.push_client_object(id, wl::SubSurface::new(id, surface_id));
 			}
 			_ => Err(format!("unknown op '{op}' in SubCompositor"))?,
 		}

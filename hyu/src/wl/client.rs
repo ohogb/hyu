@@ -39,11 +39,37 @@ impl Client {
 		Ok(())
 	}
 
-	pub fn get_object(&self, id: u32) -> Option<&'static wl::Resource> {
+	pub fn get_object<T>(&self, id: u32) -> Result<&'static T>
+	where
+		Result<&'static T>: From<&'static wl::Resource>,
+	{
+		let a = self
+			.objects
+			.get(&id)
+			.map(|x| unsafe { &*x.get() })
+			.ok_or_else(|| format!("object '{id}' does not exist"))?;
+
+		a.into()
+	}
+
+	pub fn get_object_mut<T>(&self, id: u32) -> Result<&'static mut T>
+	where
+		Result<&'static mut T>: From<&'static mut wl::Resource>,
+	{
+		let a = self
+			.objects
+			.get(&id)
+			.map(|x| unsafe { &mut *x.get() })
+			.ok_or_else(|| format!("object '{id}' does not exist"))?;
+
+		a.into()
+	}
+
+	pub fn get_resource(&self, id: u32) -> Option<&'static wl::Resource> {
 		self.objects.get(&id).map(|x| unsafe { &*x.get() })
 	}
 
-	pub fn get_object_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
+	pub fn get_resource_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
 		self.objects.get(&id).map(|x| unsafe { &mut *x.get() })
 	}
 

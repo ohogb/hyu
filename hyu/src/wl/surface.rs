@@ -39,14 +39,10 @@ impl Surface {
 		ret.push((0, 0, data.0, data.1, data.2, data.3.clone()));
 
 		for i in &self.children {
-			let Some(wl::Resource::SubSurface(sub_surface)) = client.get_object(*i) else {
-				panic!();
-			};
-
-			let Some(wl::Resource::Surface(surface)) = client.get_object(sub_surface.surface)
-			else {
-				panic!();
-			};
+			let sub_surface = client.get_object::<wl::SubSurface>(*i).unwrap();
+			let surface = client
+				.get_object::<wl::Surface>(sub_surface.surface)
+				.unwrap();
 
 			let position = sub_surface.position;
 
@@ -63,9 +59,7 @@ impl Surface {
 
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
 		if let Some(buffer_id) = self.current_buffer {
-			let Some(wl::Resource::Buffer(buffer)) = client.get_object_mut(buffer_id) else {
-				panic!();
-			};
+			let buffer = client.get_object_mut::<wl::Buffer>(buffer_id)?;
 
 			self.data = Some((
 				buffer.width,
@@ -90,14 +84,8 @@ impl Surface {
 		}
 
 		for i in &self.children {
-			let Some(wl::Resource::SubSurface(sub_surface)) = client.get_object(*i) else {
-				panic!();
-			};
-
-			let Some(wl::Resource::Surface(surface)) = client.get_object_mut(sub_surface.surface)
-			else {
-				panic!();
-			};
+			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
+			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
 
 			surface.frame(ms, client)?;
 		}

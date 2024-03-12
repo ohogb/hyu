@@ -36,9 +36,7 @@ impl wl::Object for Registry {
 
 				println!(" {client_object}, {name}, {interface:?} {_version}");
 
-				let Some(wl::Resource::Display(display)) = client.get_object(self.display) else {
-					panic!();
-				};
+				let display = client.get_object::<wl::Display>(self.display)?;
 
 				// hmm
 				// TODO: this is very unsafe, if `bind()` pushes a new resource, `client` could get
