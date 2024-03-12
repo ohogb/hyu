@@ -1,7 +1,7 @@
 use crate::{wl, Result, State};
 
 pub struct Client {
-	objects: std::collections::HashMap<u32, std::cell::UnsafeCell<wl::Resource>>,
+	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	state: State,
 	fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
@@ -12,7 +12,7 @@ pub struct Client {
 impl Client {
 	pub fn new(state: State) -> Self {
 		Self {
-			objects: std::collections::HashMap::new(),
+			objects: Vec::new(),
 			state,
 			fds: Default::default(),
 			windows: Vec::new(),
@@ -22,12 +22,18 @@ impl Client {
 	}
 
 	pub fn push_client_object(&mut self, id: u32, object: impl Into<wl::Resource>) {
-		self.objects
-			.insert(id, std::cell::UnsafeCell::new(object.into()));
+		if self.objects.len() < (id + 1) as usize {
+			self.objects.resize_with((id + 1) as _, Default::default);
+		}
+
+		self.objects[id as usize] = Some(std::cell::UnsafeCell::new(object.into()));
 	}
 
 	pub fn remove_client_object(&mut self, id: u32) -> Result<()> {
-		let _ret = self.objects.remove(&id);
+		if let Some(a) = self.objects.get_mut(id as usize) {
+			*a = None;
+		}
+		// let _ret = self.objects.remove(&id);
 		// assert!(ret.is_some());
 
 		self.send_message(wlm::Message {
@@ -43,34 +49,32 @@ impl Client {
 	where
 		Result<&'static T>: From<&'static wl::Resource>,
 	{
-		let a = self
-			.objects
-			.get(&id)
-			.map(|x| unsafe { &*x.get() })
-			.ok_or_else(|| format!("object '{id}' does not exist"))?;
-
-		a.into()
+		self.get_resource(id)
+			.ok_or_else(|| format!("object '{id}' does not exist"))?
+			.into()
 	}
 
 	pub fn get_object_mut<T>(&self, id: u32) -> Result<&'static mut T>
 	where
 		Result<&'static mut T>: From<&'static mut wl::Resource>,
 	{
-		let a = self
-			.objects
-			.get(&id)
-			.map(|x| unsafe { &mut *x.get() })
-			.ok_or_else(|| format!("object '{id}' does not exist"))?;
-
-		a.into()
+		self.get_resource_mut(id)
+			.ok_or_else(|| format!("object '{id}' does not exist"))?
+			.into()
 	}
 
 	pub fn get_resource(&self, id: u32) -> Option<&'static wl::Resource> {
-		self.objects.get(&id).map(|x| unsafe { &*x.get() })
+		self.objects
+			.get(id as usize)
+			.map(|x| x.as_ref().map(|x| unsafe { &*x.get() }))
+			.flatten()
 	}
 
 	pub fn get_resource_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
-		self.objects.get(&id).map(|x| unsafe { &mut *x.get() })
+		self.objects
+			.get(id as usize)
+			.map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
+			.flatten()
 	}
 
 	pub fn get_state(&mut self) -> &mut State {
@@ -96,8 +100,9 @@ impl Client {
 
 	pub fn objects(&self) -> Vec<&'static mut wl::Resource> {
 		self.objects
-			.values()
-			.map(|x| unsafe { &mut *x.get() })
+			.iter()
+			.map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
+			.flatten()
 			.collect()
 	}
 }
