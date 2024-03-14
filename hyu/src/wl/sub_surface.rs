@@ -30,6 +30,9 @@ impl wl::Object for SubSurface {
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_sync
 			}
+			5 => {
+				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_desync
+			}
 			_ => Err(format!("unknown op '{op}' in SubSurface"))?,
 		}
 
