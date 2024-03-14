@@ -34,7 +34,7 @@ impl Buffer {
 		}
 	}
 
-	pub fn get_pixels(&self) -> Vec<u8> {
+	pub fn wgpu_get_pixels(&self, queue: &wgpu::Queue, texture: &wgpu::Texture) {
 		unsafe {
 			let map = nix::sys::mman::mmap(
 				None,
@@ -49,11 +49,29 @@ impl Buffer {
 			let ret = std::slice::from_raw_parts(
 				(map as *const u8).offset(self.offset as _),
 				(self.stride * self.height) as _,
-			)
-			.to_vec();
+			);
+
+			queue.write_texture(
+				wgpu::ImageCopyTexture {
+					texture: &texture,
+					mip_level: 0,
+					origin: wgpu::Origin3d::ZERO,
+					aspect: wgpu::TextureAspect::All,
+				},
+				ret,
+				wgpu::ImageDataLayout {
+					offset: 0,
+					bytes_per_row: Some(self.stride as _),
+					rows_per_image: Some(self.height as _),
+				},
+				wgpu::Extent3d {
+					width: self.width as _,
+					height: self.height as _,
+					depth_or_array_layers: 1,
+				},
+			);
 
 			nix::sys::mman::munmap(map, self.size as _).unwrap();
-			ret
 		}
 	}
 

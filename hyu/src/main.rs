@@ -64,9 +64,32 @@ async fn render() -> Result<()> {
 		source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(include_str!("shader.wgsl"))),
 	});
 
+	let texture_bind_group_layout =
+		device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+			entries: &[
+				wgpu::BindGroupLayoutEntry {
+					binding: 0,
+					visibility: wgpu::ShaderStages::FRAGMENT,
+					ty: wgpu::BindingType::Texture {
+						multisampled: false,
+						view_dimension: wgpu::TextureViewDimension::D2,
+						sample_type: wgpu::TextureSampleType::Float { filterable: true },
+					},
+					count: None,
+				},
+				wgpu::BindGroupLayoutEntry {
+					binding: 1,
+					visibility: wgpu::ShaderStages::FRAGMENT,
+					ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+					count: None,
+				},
+			],
+			label: None,
+		});
+
 	let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
 		label: None,
-		bind_group_layouts: &[],
+		bind_group_layouts: &[&texture_bind_group_layout],
 		push_constant_ranges: &[],
 	});
 
@@ -92,6 +115,8 @@ async fn render() -> Result<()> {
 		mapped_at_creation: false,
 	});
 
+	let sampler = device.create_sampler(&wgpu::SamplerDescriptor::default());
+
 	let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
 		label: None,
 		layout: Some(&pipeline_layout),
@@ -101,7 +126,7 @@ async fn render() -> Result<()> {
 			buffers: &[wgpu::VertexBufferLayout {
 				array_stride: std::mem::size_of::<Vertex>() as _,
 				step_mode: wgpu::VertexStepMode::Vertex,
-				attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4],
+				attributes: &wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2],
 			}],
 		},
 		fragment: Some(wgpu::FragmentState {
@@ -120,10 +145,7 @@ async fn render() -> Result<()> {
 				write_mask: wgpu::ColorWrites::ALL,
 			})],
 		}),
-		primitive: wgpu::PrimitiveState {
-			topology: wgpu::PrimitiveTopology::PointList,
-			..Default::default()
-		},
+		primitive: wgpu::PrimitiveState::default(),
 		depth_stencil: None,
 		multisample: wgpu::MultisampleState::default(),
 		multiview: None,
@@ -144,51 +166,6 @@ async fn render() -> Result<()> {
 
 		match event {
 			winit::event::WindowEvent::RedrawRequested => {
-				for client in state::clients().values_mut() {
-					for window in client.windows.clone() {
-						let window = client.get_object::<wl::XdgToplevel>(window).unwrap();
-						let xdg_surface =
-							client.get_object::<wl::XdgSurface>(window.surface).unwrap();
-
-						let surface = client
-							.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
-							.unwrap();
-
-						surface
-							.frame(start_time.elapsed().as_millis() as u32, client)
-							.unwrap();
-
-						for (x, y, width, _height, bytes_per_pixel, pixels) in
-							surface.get_front_buffers(client)
-						{
-							for (index, pixel) in pixels.chunks(bytes_per_pixel as _).enumerate() {
-								let index = index as i32;
-
-								let x = (index % width) + window.position.0
-									- xdg_surface.position.0 + x;
-
-								let y = (index / width) + window.position.1
-									- xdg_surface.position.1 + y;
-
-								vertices.push(Vertex {
-									position: [
-										x as f32 / WIDTH as f32 * 2.0 - 1.0,
-										(y as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
-									],
-									color: [
-										pixel[2] as f32 / 255.0,
-										pixel[1] as f32 / 255.0,
-										pixel[0] as f32 / 255.0,
-										pixel[3] as f32 / 255.0,
-									],
-								});
-							}
-						}
-					}
-				}
-
-				queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
-
 				let frame = surface.get_current_texture().unwrap();
 
 				let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
@@ -198,36 +175,133 @@ async fn render() -> Result<()> {
 				let mut encoder =
 					device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
 
-				{
-					let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-						label: None,
-						color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-							view: &view,
-							resolve_target: None,
-							ops: wgpu::Operations {
-								load: wgpu::LoadOp::Clear(wgpu::Color {
-									r: 0.2,
-									g: 0.2,
-									b: 0.2,
-									a: 1.0,
-								}),
-								store: wgpu::StoreOp::Store,
-							},
-						})],
-						depth_stencil_attachment: None,
-						timestamp_writes: None,
-						occlusion_query_set: None,
-					});
+				encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+					label: None,
+					color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+						view: &view,
+						resolve_target: None,
+						ops: wgpu::Operations {
+							load: wgpu::LoadOp::Clear(wgpu::Color {
+								r: 0.2,
+								g: 0.2,
+								b: 0.2,
+								a: 1.0,
+							}),
+							store: wgpu::StoreOp::Store,
+						},
+					})],
+					depth_stencil_attachment: None,
+					timestamp_writes: None,
+					occlusion_query_set: None,
+				});
 
-					render_pass.set_pipeline(&render_pipeline);
-					render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-					render_pass.draw(0..vertices.len() as _, 0..1);
+				for client in state::clients().values_mut() {
+					for window in client.windows.clone() {
+						let window = client.get_object::<wl::XdgToplevel>(window).unwrap();
 
-					vertices.clear();
+						let xdg_surface =
+							client.get_object::<wl::XdgSurface>(window.surface).unwrap();
+
+						let surface = client
+							.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
+							.unwrap();
+
+						surface
+							.wgpu_do_textures(
+								client,
+								&device,
+								&queue,
+								&sampler,
+								&texture_bind_group_layout,
+							)
+							.unwrap();
+
+						surface
+							.frame(start_time.elapsed().as_millis() as u32, client)
+							.unwrap();
+
+						for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
+							let surface = client.get_object::<wl::Surface>(surface_id).unwrap();
+
+							let Some((.., (_, bind_group))) = &surface.data else {
+								panic!();
+							};
+
+							fn pixels_to_float(input: [i32; 2]) -> [f32; 2] {
+								[
+									input[0] as f32 / WIDTH as f32 * 2.0 - 1.0,
+									(input[1] as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
+								]
+							}
+
+							let x = window.position.0 - xdg_surface.position.0 + x;
+							let y = window.position.1 - xdg_surface.position.1 + y;
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x, y]),
+								uv: [0.0, 0.0],
+							});
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x + width, y]),
+								uv: [1.0, 0.0],
+							});
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x, y + height]),
+								uv: [0.0, 1.0],
+							});
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x, y + height]),
+								uv: [0.0, 1.0],
+							});
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x + width, y + height]),
+								uv: [1.0, 1.0],
+							});
+
+							vertices.push(Vertex {
+								position: pixels_to_float([x + width, y]),
+								uv: [1.0, 0.0],
+							});
+
+							let mut render_pass =
+								encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+									label: None,
+									color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+										view: &view,
+										resolve_target: None,
+										ops: wgpu::Operations {
+											load: wgpu::LoadOp::Load,
+											store: wgpu::StoreOp::Store,
+										},
+									})],
+									depth_stencil_attachment: None,
+									timestamp_writes: None,
+									occlusion_query_set: None,
+								});
+
+							render_pass.set_pipeline(&render_pipeline);
+							render_pass.set_bind_group(0, bind_group, &[]);
+							render_pass.set_vertex_buffer(
+								0,
+								vertex_buffer.slice(
+									((vertices.len() - 6) * std::mem::size_of::<Vertex>()) as u64..,
+								),
+							);
+							render_pass.draw(0..6 as _, 0..1);
+						}
+					}
 				}
+
+				queue.write_buffer(&vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
 				queue.submit(Some(encoder.finish()));
 				frame.present();
+
+				vertices.clear();
 
 				window.request_redraw();
 			}

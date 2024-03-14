@@ -7,7 +7,7 @@ pub struct Surface {
 	current_buffer: Option<u32>,
 	pending_frame_callback: Option<u32>,
 	current_frame_callback: Option<u32>,
-	pub data: Option<(i32, i32, i32, Vec<u8>)>,
+	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
 }
 
 impl Surface {
@@ -27,16 +27,13 @@ impl Surface {
 		self.children.push(child);
 	}
 
-	pub fn get_front_buffers(
-		&self,
-		client: &wl::Client,
-	) -> Vec<(i32, i32, i32, i32, i32, Vec<u8>)> {
+	pub fn get_front_buffers(&self, client: &wl::Client) -> Vec<(i32, i32, i32, i32, u32)> {
 		let Some(data) = self.data.as_ref() else {
 			return Vec::new();
 		};
 
 		let mut ret = Vec::new();
-		ret.push((0, 0, data.0, data.1, data.2, data.3.clone()));
+		ret.push((0, 0, data.0, data.1, self.object_id));
 
 		for i in &self.children {
 			let sub_surface = client.get_object::<wl::SubSurface>(*i).unwrap();
@@ -50,7 +47,7 @@ impl Surface {
 				surface
 					.get_front_buffers(client)
 					.into_iter()
-					.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4, x.5)),
+					.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4)),
 			);
 		}
 
@@ -58,20 +55,6 @@ impl Surface {
 	}
 
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
-		if let Some(buffer_id) = self.current_buffer {
-			let buffer = client.get_object_mut::<wl::Buffer>(buffer_id)?;
-
-			self.data = Some((
-				buffer.width,
-				buffer.height,
-				buffer.stride / buffer.width,
-				buffer.get_pixels(),
-			));
-
-			buffer.release(client)?;
-			self.current_buffer = None;
-		}
-
 		if let Some(callback) = self.current_frame_callback {
 			client.send_message(wlm::Message {
 				object_id: callback,
@@ -88,6 +71,75 @@ impl Surface {
 			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
 
 			surface.frame(ms, client)?;
+		}
+
+		Ok(())
+	}
+
+	pub fn wgpu_do_textures(
+		&mut self,
+		client: &mut wl::Client,
+		device: &wgpu::Device,
+		queue: &wgpu::Queue,
+		sampler: &wgpu::Sampler,
+		texture_bind_group_layout: &wgpu::BindGroupLayout,
+	) -> Result<()> {
+		let Some(buffer_id) = self.current_buffer else {
+			return Ok(());
+		};
+
+		let buffer = client.get_object_mut::<wl::Buffer>(buffer_id)?;
+
+		if let Some((width, height, ..)) = &self.data {
+			assert!(buffer.width == *width && buffer.height == *height);
+		}
+
+		let (_, _, (texture, _)) = self.data.get_or_insert_with(|| {
+			let texture = device.create_texture(&wgpu::TextureDescriptor {
+				size: wgpu::Extent3d {
+					width: buffer.width as _,
+					height: buffer.height as _,
+					depth_or_array_layers: 1,
+				},
+				mip_level_count: 1,
+				sample_count: 1,
+				dimension: wgpu::TextureDimension::D2,
+				format: wgpu::TextureFormat::Bgra8UnormSrgb,
+				usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+				label: None,
+				view_formats: &[],
+			});
+
+			let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+				layout: texture_bind_group_layout,
+				entries: &[
+					wgpu::BindGroupEntry {
+						binding: 0,
+						resource: wgpu::BindingResource::TextureView(
+							&texture.create_view(&wgpu::TextureViewDescriptor::default()),
+						),
+					},
+					wgpu::BindGroupEntry {
+						binding: 1,
+						resource: wgpu::BindingResource::Sampler(sampler),
+					},
+				],
+				label: None,
+			});
+
+			(buffer.width, buffer.height, (texture, bind_group))
+		});
+
+		buffer.wgpu_get_pixels(queue, texture);
+
+		buffer.release(client)?;
+		self.current_buffer = None;
+
+		for i in &self.children {
+			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
+			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
+
+			surface.wgpu_do_textures(client, device, queue, sampler, texture_bind_group_layout)?;
 		}
 
 		Ok(())
