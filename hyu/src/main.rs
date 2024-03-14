@@ -27,10 +27,10 @@ const HEIGHT: usize = 720;
 async fn render() -> Result<()> {
 	env_logger::init();
 
-	let mut event_loop_builder = winit::event_loop::EventLoopBuilder::new();
-	event_loop_builder.with_any_thread(true);
+	let event_loop = winit::event_loop::EventLoopBuilder::new()
+		.with_any_thread(true)
+		.build()?;
 
-	let event_loop = event_loop_builder.build()?;
 	let window = winit::window::WindowBuilder::new()
 		.with_name("hyu", "hyu")
 		.with_inner_size(winit::dpi::PhysicalSize::new(WIDTH as u32, HEIGHT as u32))
