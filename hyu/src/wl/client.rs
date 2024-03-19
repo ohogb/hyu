@@ -97,15 +97,13 @@ impl Client {
 	pub fn get_resource(&self, id: u32) -> Option<&'static wl::Resource> {
 		self.objects
 			.get(id as usize)
-			.map(|x| x.as_ref().map(|x| unsafe { &*x.get() }))
-			.flatten()
+			.and_then(|x| x.as_ref().map(|x| unsafe { &*x.get() }))
 	}
 
 	pub fn get_resource_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
 		self.objects
 			.get(id as usize)
-			.map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
-			.flatten()
+			.and_then(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
 	}
 
 	pub fn get_state(&mut self) -> &mut State {
@@ -132,8 +130,7 @@ impl Client {
 	pub fn objects(&self) -> Vec<&'static mut wl::Resource> {
 		self.objects
 			.iter()
-			.map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
-			.flatten()
+			.filter_map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
 			.collect()
 	}
 }
