@@ -46,7 +46,7 @@ impl wl::Object for XdgSurface {
 				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
 				xdg_toplevel.configure(client)?;
 
-				client.push_client_object(id, xdg_toplevel);
+				client.queue_new_object(id, xdg_toplevel);
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry

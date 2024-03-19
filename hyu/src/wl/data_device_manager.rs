@@ -15,7 +15,7 @@ impl wl::Object for DataDeviceManager {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:get_data_device
 				let (id, seat): (u32, u32) = wlm::decode::from_slice(&params)?;
-				client.push_client_object(id, wl::DataDevice::new(seat));
+				client.queue_new_object(id, wl::DataDevice::new(seat));
 			}
 			_ => Err(format!("unknown op '{op}' in DataDeviceManager"))?,
 		}
@@ -34,7 +34,7 @@ impl wl::Global for DataDeviceManager {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.push_client_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new());
 		Ok(())
 	}
 }

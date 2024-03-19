@@ -497,7 +497,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::Output::new());
 	display.push_global(wl::XdgWmBase::new());
 
-	client.push_client_object(1, display);
+	client.queue_new_object(1, display);
 
 	state::clients().insert(stream.as_raw_fd(), client);
 
@@ -505,6 +505,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		{
 			let mut clients = state::clients();
 			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
+
+			client.process_queue()?;
 
 			let ret = stream.write_all(&client.get_state().buffer.0);
 

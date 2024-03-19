@@ -32,7 +32,7 @@ impl wl::Global for Output {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.push_client_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new());
 
 		client.send_message(wlm::Message {
 			object_id,

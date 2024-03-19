@@ -17,7 +17,7 @@ impl wl::Object for Shm {
 				let (id, size): (u32, u32) = wlm::decode::from_slice(&params)?;
 				let fd = client.pop_fd();
 
-				client.push_client_object(id, wl::ShmPool::new(id, fd, size));
+				client.queue_new_object(id, wl::ShmPool::new(id, fd, size));
 			}
 			_ => Err(format!("unknown op '{op}' in Shm"))?,
 		}
@@ -36,7 +36,7 @@ impl wl::Global for Shm {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.push_client_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new());
 
 		client.send_message(wlm::Message {
 			object_id,

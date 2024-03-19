@@ -18,7 +18,7 @@ impl wl::Object for XdgWmBase {
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (u32, u32) = wlm::decode::from_slice(&params)?;
-				client.push_client_object(id, wl::XdgSurface::new(id, surface));
+				client.queue_new_object(id, wl::XdgSurface::new(id, surface));
 			}
 			_ => Err(format!("unknown op '{op}' in XdgWmBase"))?,
 		}
@@ -37,7 +37,7 @@ impl wl::Global for XdgWmBase {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.push_client_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new());
 		Ok(())
 	}
 }

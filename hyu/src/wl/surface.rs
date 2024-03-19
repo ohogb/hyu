@@ -62,7 +62,7 @@ impl Surface {
 				args: ms,
 			})?;
 
-			client.remove_client_object(callback)?;
+			client.queue_remove_object(callback);
 			self.current_frame_callback = None;
 		}
 

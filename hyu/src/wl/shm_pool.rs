@@ -24,7 +24,7 @@ impl wl::Object for ShmPool {
 				let (id, offset, width, height, stride, format): (u32, i32, i32, i32, i32, u32) =
 					wlm::decode::from_slice(&params)?;
 
-				client.push_client_object(
+				client.queue_new_object(
 					id,
 					wl::Buffer::new(
 						id, self.fd, self.size, offset, width, height, stride, format,

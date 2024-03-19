@@ -22,7 +22,7 @@ impl wl::Object for SubCompositor {
 				let surface = client.get_object_mut::<wl::Surface>(parent)?;
 				surface.push(id);
 
-				client.push_client_object(id, wl::SubSurface::new(id, surface_id));
+				client.queue_new_object(id, wl::SubSurface::new(id, surface_id));
 			}
 			_ => Err(format!("unknown op '{op}' in SubCompositor"))?,
 		}
@@ -41,7 +41,7 @@ impl wl::Global for SubCompositor {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.push_client_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new());
 		Ok(())
 	}
 }
