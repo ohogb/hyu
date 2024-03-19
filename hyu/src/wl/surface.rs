@@ -82,7 +82,7 @@ impl Surface {
 		device: &wgpu::Device,
 		queue: &wgpu::Queue,
 		sampler: &wgpu::Sampler,
-		texture_bind_group_layout: &wgpu::BindGroupLayout,
+		bind_group_layout: &wgpu::BindGroupLayout,
 	) -> Result<()> {
 		let Some(buffer_id) = self.current_buffer else {
 			return Ok(());
@@ -111,7 +111,7 @@ impl Surface {
 			});
 
 			let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: texture_bind_group_layout,
+				layout: bind_group_layout,
 				entries: &[
 					wgpu::BindGroupEntry {
 						binding: 0,
@@ -139,7 +139,7 @@ impl Surface {
 			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
 			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
 
-			surface.wgpu_do_textures(client, device, queue, sampler, texture_bind_group_layout)?;
+			surface.wgpu_do_textures(client, device, queue, sampler, bind_group_layout)?;
 		}
 
 		Ok(())
