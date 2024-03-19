@@ -1,9 +1,13 @@
+mod vertex;
+
+use vertex::Vertex;
+
 use winit::platform::{
 	scancode::PhysicalKeyExtScancode as _,
 	wayland::{EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _},
 };
 
-use crate::{state, wl, Result, Vertex};
+use crate::{state, wl, Result};
 
 const WIDTH: usize = 1280;
 const HEIGHT: usize = 720;

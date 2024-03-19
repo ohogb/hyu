@@ -3,10 +3,7 @@
 
 pub mod backend;
 mod state;
-mod vertex;
 pub mod wl;
-
-pub use vertex::*;
 
 pub use state::{Buffer, State};
 use wl::Object;
