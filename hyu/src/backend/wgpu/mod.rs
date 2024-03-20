@@ -430,7 +430,7 @@ pub async fn render() -> Result<()> {
 						};
 
 						if !client.has_keyboard_focus {
-							// keyboard.keymap(client).unwrap();
+							keyboard.keymap(client).unwrap();
 
 							for window in client.windows.clone() {
 								let toplevel =

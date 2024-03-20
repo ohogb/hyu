@@ -1,8 +1,11 @@
+use std::{io::Seek, os::fd::AsRawFd};
+
 use crate::{wl, Result};
 
 pub struct Keyboard {
 	object_id: u32,
 	pub key_states: [bool; 0x100],
+	serial: u32,
 }
 
 impl Keyboard {
@@ -10,16 +13,21 @@ impl Keyboard {
 		Self {
 			object_id,
 			key_states: [false; _],
+			serial: 0,
 		}
 	}
 
 	pub fn keymap(&mut self, client: &mut wl::Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:keymap
+		let file = Box::leak(Box::new(std::fs::File::open("xkb")?));
+
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 0,
-			args: (0, 0, 0),
+			args: (1, file.stream_len()? as u32),
 		})?;
+
+		client.to_send_fds.push(file.as_raw_fd());
 
 		Ok(())
 	}
@@ -29,7 +37,7 @@ impl Keyboard {
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 1,
-			args: (0, surface, &[] as &[i32]),
+			args: (self.serial(), surface, &[] as &[i32]),
 		})?;
 
 		self.modifiers(client)?;
@@ -42,7 +50,7 @@ impl Keyboard {
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 2,
-			args: (0, surface),
+			args: (self.serial(), surface),
 		})?;
 
 		Ok(())
@@ -53,7 +61,7 @@ impl Keyboard {
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 3,
-			args: (1, 100, key, state),
+			args: (self.serial(), 100, key, state),
 		})?;
 
 		Ok(())
@@ -64,7 +72,7 @@ impl Keyboard {
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 4,
-			args: (0, 0, 0, 0, 0),
+			args: (self.serial(), 0, 0, 0, 0),
 		})?;
 
 		Ok(())
@@ -79,6 +87,13 @@ impl Keyboard {
 		})?;
 
 		Ok(())
+	}
+
+	fn serial(&mut self) -> u32 {
+		let ret = self.serial;
+		self.serial += 1;
+
+		ret
 	}
 }
 

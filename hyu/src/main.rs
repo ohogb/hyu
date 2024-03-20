@@ -1,5 +1,6 @@
 #![feature(unix_socket_ancillary_data)]
 #![feature(generic_arg_infer)]
+#![feature(seek_stream_len)]
 
 pub mod backend;
 mod state;
