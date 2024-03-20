@@ -44,7 +44,16 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 			client.process_queue()?;
 
-			let ret = stream.write_all(&client.get_state().buffer.0);
+			let mut cmsg_buffer = [0u8; 0x20];
+			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+
+			cmsg.add_fds(&client.to_send_fds);
+			client.to_send_fds.clear();
+
+			let ret = stream.send_vectored_with_ancillary(
+				&[std::io::IoSlice::new(&client.get_state().buffer.0)],
+				&mut cmsg,
+			);
 
 			if let Err(e) = ret {
 				match e.kind() {
@@ -96,7 +105,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				continue;
 			};
 
-			client.push_fds(scm_rights.into_iter().collect());
+			client.received_fds.extend(scm_rights.into_iter());
 		}
 
 		let mut op = [0u8; 2];

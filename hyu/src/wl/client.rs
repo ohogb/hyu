@@ -9,7 +9,8 @@ pub struct Client<'object> {
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	object_queue: Vec<Option<ObjectChange>>,
 	state: State,
-	fds: std::collections::VecDeque<std::os::fd::RawFd>,
+	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
+	pub to_send_fds: Vec<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
 	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
 	pub has_keyboard_focus: bool,
@@ -22,7 +23,8 @@ impl<'object> Client<'object> {
 			objects: Vec::new(),
 			object_queue: Vec::new(),
 			state,
-			fds: Default::default(),
+			received_fds: Default::default(),
+			to_send_fds: Default::default(),
 			windows: Vec::new(),
 			surface_cursor_is_over: None,
 			has_keyboard_focus: false,
@@ -115,14 +117,6 @@ impl<'object> Client<'object> {
 	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
 		self.get_state().buffer.0.extend(message.to_vec()?);
 		Ok(())
-	}
-
-	pub fn push_fds(&mut self, fds: Vec<std::os::fd::RawFd>) {
-		self.fds.extend(fds);
-	}
-
-	pub fn pop_fd(&mut self) -> std::os::fd::RawFd {
-		self.fds.pop_front().unwrap()
 	}
 
 	pub fn add_window(&mut self, toplevel: u32) {

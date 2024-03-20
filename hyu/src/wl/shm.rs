@@ -15,7 +15,7 @@ impl wl::Object for Shm {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_shm:request:create_pool
 				let (id, size): (u32, u32) = wlm::decode::from_slice(&params)?;
-				let fd = client.pop_fd();
+				let fd = client.received_fds.pop_front().unwrap();
 
 				client.queue_new_object(id, wl::ShmPool::new(id, fd, size));
 			}
