@@ -5,7 +5,7 @@ enum ObjectChange {
 	Remove { id: u32 },
 }
 
-pub struct Client {
+pub struct Client<'object> {
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	object_queue: Vec<Option<ObjectChange>>,
 	state: State,
@@ -13,9 +13,10 @@ pub struct Client {
 	pub windows: Vec<u32>,
 	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
 	pub has_keyboard_focus: bool,
+	_phantom: std::marker::PhantomData<&'object ()>,
 }
 
-impl Client {
+impl<'object> Client<'object> {
 	pub fn new(state: State) -> Self {
 		Self {
 			objects: Vec::new(),
@@ -25,6 +26,7 @@ impl Client {
 			windows: Vec::new(),
 			surface_cursor_is_over: None,
 			has_keyboard_focus: false,
+			_phantom: std::marker::PhantomData,
 		}
 	}
 
@@ -76,31 +78,31 @@ impl Client {
 		Ok(())
 	}
 
-	pub fn get_object<T>(&self, id: u32) -> Result<&'static T>
+	pub fn get_object<T>(&self, id: u32) -> Result<&'object T>
 	where
-		Result<&'static T>: From<&'static wl::Resource>,
+		Result<&'object T>: From<&'object wl::Resource>,
 	{
 		self.get_resource(id)
 			.ok_or_else(|| format!("object '{id}' does not exist"))?
 			.into()
 	}
 
-	pub fn get_object_mut<T>(&self, id: u32) -> Result<&'static mut T>
+	pub fn get_object_mut<T>(&self, id: u32) -> Result<&'object mut T>
 	where
-		Result<&'static mut T>: From<&'static mut wl::Resource>,
+		Result<&'object mut T>: From<&'object mut wl::Resource>,
 	{
 		self.get_resource_mut(id)
 			.ok_or_else(|| format!("object '{id}' does not exist"))?
 			.into()
 	}
 
-	pub fn get_resource(&self, id: u32) -> Option<&'static wl::Resource> {
+	pub fn get_resource(&self, id: u32) -> Option<&'object wl::Resource> {
 		self.objects
 			.get(id as usize)
 			.and_then(|x| x.as_ref().map(|x| unsafe { &*x.get() }))
 	}
 
-	pub fn get_resource_mut(&self, id: u32) -> Option<&'static mut wl::Resource> {
+	pub fn get_resource_mut(&self, id: u32) -> Option<&'object mut wl::Resource> {
 		self.objects
 			.get(id as usize)
 			.and_then(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
