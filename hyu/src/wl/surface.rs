@@ -5,8 +5,8 @@ pub struct Surface {
 	pub children: Vec<u32>,
 	pending_buffer: Option<u32>,
 	current_buffer: Option<u32>,
-	pending_frame_callback: Option<u32>,
-	current_frame_callback: Option<u32>,
+	pending_frame_callbacks: Vec<u32>,
+	current_frame_callbacks: Vec<u32>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
 }
 
@@ -17,8 +17,8 @@ impl Surface {
 			children: Vec::new(),
 			pending_buffer: None,
 			current_buffer: None,
-			pending_frame_callback: None,
-			current_frame_callback: None,
+			pending_frame_callbacks: Vec::new(),
+			current_frame_callbacks: Vec::new(),
 			data: None,
 		}
 	}
@@ -55,7 +55,7 @@ impl Surface {
 	}
 
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
-		if let Some(callback) = self.current_frame_callback {
+		for &callback in &self.current_frame_callbacks {
 			client.send_message(wlm::Message {
 				object_id: callback,
 				op: 0,
@@ -63,8 +63,9 @@ impl Surface {
 			})?;
 
 			client.queue_remove_object(callback);
-			self.current_frame_callback = None;
 		}
+
+		self.current_frame_callbacks.clear();
 
 		for i in &self.children {
 			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
@@ -167,9 +168,7 @@ impl wl::Object for Surface {
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 				let callback: u32 = wlm::decode::from_slice(&params)?;
-
-				assert!(self.pending_frame_callback.is_none());
-				self.pending_frame_callback = Some(callback);
+				self.pending_frame_callbacks.push(callback);
 			}
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_opaque_region
@@ -184,10 +183,10 @@ impl wl::Object for Surface {
 					self.pending_buffer = None;
 				}
 
-				if let Some(frame_callback) = self.pending_frame_callback {
-					self.current_frame_callback = Some(frame_callback);
-					self.pending_frame_callback = None;
-				}
+				self.current_frame_callbacks
+					.extend(&self.pending_frame_callbacks);
+
+				self.pending_frame_callbacks.clear();
 			}
 			7 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform
