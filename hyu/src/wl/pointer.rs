@@ -68,6 +68,17 @@ impl Pointer {
 
 		Ok(())
 	}
+
+	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:frame
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 5,
+			args: (),
+		})?;
+
+		Ok(())
+	}
 }
 
 impl wl::Object for Pointer {

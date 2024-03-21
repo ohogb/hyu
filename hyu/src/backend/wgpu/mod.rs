@@ -390,6 +390,7 @@ pub async fn render() -> Result<()> {
 							}
 						} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
 							pointer.motion(client, x, y).unwrap();
+							pointer.frame(client).unwrap();
 						}
 					}
 				}
@@ -408,6 +409,7 @@ pub async fn render() -> Result<()> {
 							};
 
 							pointer.button(client, 0x110, state).unwrap();
+							pointer.frame(client).unwrap();
 						}
 					}
 				}
