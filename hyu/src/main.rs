@@ -9,10 +9,7 @@ pub mod wl;
 pub use state::{Buffer, State};
 use wl::Object;
 
-use std::{
-	io::{Read, Write},
-	os::fd::AsRawFd,
-};
+use std::{io::Read, os::fd::AsRawFd};
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 

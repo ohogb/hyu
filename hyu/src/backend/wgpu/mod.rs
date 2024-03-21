@@ -388,10 +388,8 @@ pub async fn render() -> Result<()> {
 								pointer.enter(client, surface, x, y).unwrap();
 								println!("enter");
 							}
-						} else {
-							if let Some((_, (x, y))) = client.surface_cursor_is_over {
-								pointer.motion(client, x, y).unwrap();
-							}
+						} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
+							pointer.motion(client, x, y).unwrap();
 						}
 					}
 				}
