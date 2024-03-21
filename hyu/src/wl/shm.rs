@@ -17,7 +17,7 @@ impl wl::Object for Shm {
 				let (id, size): (u32, u32) = wlm::decode::from_slice(&params)?;
 				let fd = client.received_fds.pop_front().unwrap();
 
-				client.queue_new_object(id, wl::ShmPool::new(id, fd, size));
+				client.queue_new_object(id, wl::ShmPool::new(id, fd, size)?);
 			}
 			_ => Err(format!("unknown op '{op}' in Shm"))?,
 		}

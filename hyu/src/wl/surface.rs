@@ -131,7 +131,7 @@ impl Surface {
 			(buffer.width, buffer.height, (texture, bind_group))
 		});
 
-		buffer.wgpu_get_pixels(queue, texture);
+		buffer.wgpu_get_pixels(client, queue, texture)?;
 
 		buffer.release(client)?;
 		self.current_buffer = None;

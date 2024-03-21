@@ -2,8 +2,7 @@ use crate::{wl, Result};
 
 pub struct Buffer {
 	object_id: u32,
-	fd: std::os::fd::RawFd,
-	size: u32,
+	pool_id: u32,
 	offset: i32,
 	pub width: i32,
 	pub height: i32,
@@ -14,8 +13,7 @@ pub struct Buffer {
 impl Buffer {
 	pub fn new(
 		object_id: u32,
-		fd: std::os::fd::RawFd,
-		size: u32,
+		pool_id: u32,
 		offset: i32,
 		width: i32,
 		height: i32,
@@ -24,8 +22,7 @@ impl Buffer {
 	) -> Self {
 		Self {
 			object_id,
-			fd,
-			size,
+			pool_id,
 			offset,
 			width,
 			height,
@@ -34,45 +31,41 @@ impl Buffer {
 		}
 	}
 
-	pub fn wgpu_get_pixels(&self, queue: &wgpu::Queue, texture: &wgpu::Texture) {
-		unsafe {
-			let map = nix::sys::mman::mmap(
-				None,
-				std::num::NonZeroUsize::new(self.size as _).unwrap(),
-				nix::sys::mman::ProtFlags::PROT_READ | nix::sys::mman::ProtFlags::PROT_WRITE,
-				nix::sys::mman::MapFlags::MAP_SHARED,
-				Some(std::os::fd::BorrowedFd::borrow_raw(self.fd)),
-				0,
-			)
-			.unwrap();
+	pub fn wgpu_get_pixels(
+		&self,
+		client: &wl::Client,
+		queue: &wgpu::Queue,
+		texture: &wgpu::Texture,
+	) -> Result<()> {
+		let pool = client.get_object::<wl::ShmPool>(self.pool_id)?;
+		let map = pool.get_map().ok_or("pool is not mapped")?;
 
-			let ret = std::slice::from_raw_parts(
-				(map as *const u8).offset(self.offset as _),
-				(self.stride * self.height) as _,
-			);
+		let start = self.offset as usize;
+		let end = start + (self.stride * self.height) as usize;
 
-			queue.write_texture(
-				wgpu::ImageCopyTexture {
-					texture,
-					mip_level: 0,
-					origin: wgpu::Origin3d::ZERO,
-					aspect: wgpu::TextureAspect::All,
-				},
-				ret,
-				wgpu::ImageDataLayout {
-					offset: 0,
-					bytes_per_row: Some(self.stride as _),
-					rows_per_image: Some(self.height as _),
-				},
-				wgpu::Extent3d {
-					width: self.width as _,
-					height: self.height as _,
-					depth_or_array_layers: 1,
-				},
-			);
+		let buffer = &map[start..end];
 
-			nix::sys::mman::munmap(map, self.size as _).unwrap();
-		}
+		queue.write_texture(
+			wgpu::ImageCopyTexture {
+				texture,
+				mip_level: 0,
+				origin: wgpu::Origin3d::ZERO,
+				aspect: wgpu::TextureAspect::All,
+			},
+			buffer,
+			wgpu::ImageDataLayout {
+				offset: 0,
+				bytes_per_row: Some(self.stride as _),
+				rows_per_image: Some(self.height as _),
+			},
+			wgpu::Extent3d {
+				width: self.width as _,
+				height: self.height as _,
+				depth_or_array_layers: 1,
+			},
+		);
+
+		Ok(())
 	}
 
 	pub fn release(&self, client: &mut wl::Client) -> Result<()> {
