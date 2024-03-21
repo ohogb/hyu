@@ -4,16 +4,16 @@ use crate::{wl, Result};
 
 pub struct Keyboard {
 	object_id: u32,
+	seat_id: u32,
 	pub key_states: [bool; 0x100],
-	serial: u32,
 }
 
 impl Keyboard {
-	pub fn new(object_id: u32) -> Self {
+	pub fn new(object_id: u32, seat_id: u32) -> Self {
 		Self {
 			object_id,
+			seat_id,
 			key_states: [false; _],
-			serial: 0,
 		}
 	}
 
@@ -34,10 +34,12 @@ impl Keyboard {
 
 	pub fn enter(&mut self, client: &mut wl::Client, surface: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
+		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 1,
-			args: (self.serial(), surface, &[] as &[i32]),
+			args: (seat.serial(), surface, &[] as &[i32]),
 		})?;
 
 		self.modifiers(client)?;
@@ -47,10 +49,12 @@ impl Keyboard {
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
+		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 2,
-			args: (self.serial(), surface),
+			args: (seat.serial(), surface),
 		})?;
 
 		Ok(())
@@ -58,10 +62,12 @@ impl Keyboard {
 
 	pub fn key(&mut self, client: &mut wl::Client, key: u32, state: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
+		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 3,
-			args: (self.serial(), 100, key, state),
+			args: (seat.serial(), 100, key, state),
 		})?;
 
 		Ok(())
@@ -69,10 +75,12 @@ impl Keyboard {
 
 	pub fn modifiers(&mut self, client: &mut wl::Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
+		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+
 		client.send_message(wlm::Message {
 			object_id: self.object_id,
 			op: 4,
-			args: (self.serial(), 0, 0, 0, 0),
+			args: (seat.serial(), 0, 0, 0, 0),
 		})?;
 
 		Ok(())
@@ -87,13 +95,6 @@ impl Keyboard {
 		})?;
 
 		Ok(())
-	}
-
-	fn serial(&mut self) -> u32 {
-		let ret = self.serial;
-		self.serial += 1;
-
-		ret
 	}
 }
 
