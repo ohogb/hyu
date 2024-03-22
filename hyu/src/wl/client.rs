@@ -1,4 +1,4 @@
-use crate::{wl, Result, State};
+use crate::{wl, Result};
 
 enum ObjectChange {
 	Add { id: u32, resource: wl::Resource },
@@ -8,7 +8,8 @@ enum ObjectChange {
 pub struct Client<'object> {
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	object_queue: Vec<Option<ObjectChange>>,
-	state: State,
+	pub buffer: Vec<u8>,
+	pub start_position: (i32, i32),
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
 	pub windows: Vec<u32>,
@@ -18,11 +19,12 @@ pub struct Client<'object> {
 }
 
 impl<'object> Client<'object> {
-	pub fn new(state: State) -> Self {
+	pub fn new(start_position: (i32, i32)) -> Self {
 		Self {
 			objects: Vec::new(),
 			object_queue: Vec::new(),
-			state,
+			buffer: Vec::new(),
+			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
 			windows: Vec::new(),
@@ -110,12 +112,8 @@ impl<'object> Client<'object> {
 			.and_then(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
 	}
 
-	pub fn get_state(&mut self) -> &mut State {
-		&mut self.state
-	}
-
 	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
-		self.get_state().buffer.0.extend(message.to_vec()?);
+		self.buffer.extend(message.to_vec()?);
 		Ok(())
 	}
 

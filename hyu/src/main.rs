@@ -6,7 +6,6 @@ pub mod backend;
 mod state;
 pub mod wl;
 
-pub use state::{Buffer, State};
 use wl::Object;
 
 use std::{io::Read, os::fd::AsRawFd};
@@ -16,10 +15,7 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -> Result<()> {
 	stream.set_nonblocking(true)?;
 
-	let mut client = wl::Client::new(State {
-		buffer: Buffer(Vec::new()),
-		start_position: ((100 * index + 10) as i32, (100 * index + 10) as i32),
-	});
+	let mut client = wl::Client::new(((100 * index + 10) as i32, (100 * index + 10) as i32));
 
 	let mut display = wl::Display::new(1);
 
@@ -48,10 +44,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			cmsg.add_fds(&client.to_send_fds);
 			client.to_send_fds.clear();
 
-			let ret = stream.send_vectored_with_ancillary(
-				&[std::io::IoSlice::new(&client.get_state().buffer.0)],
-				&mut cmsg,
-			);
+			let ret = stream
+				.send_vectored_with_ancillary(&[std::io::IoSlice::new(&client.buffer)], &mut cmsg);
 
 			if let Err(e) = ret {
 				match e.kind() {
@@ -65,7 +59,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				}
 			}
 
-			client.get_state().buffer.0.clear();
+			client.buffer.clear();
 		}
 
 		let mut cmsg_buffer = [0u8; 0x20];
