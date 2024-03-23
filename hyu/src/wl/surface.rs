@@ -167,10 +167,25 @@ impl Surface {
 		self.role = Some(role);
 		Ok(())
 	}
+
+	// https://wayland.app/protocols/wayland#wl_surface:request:commit
+	pub fn commit(&mut self) -> Result<()> {
+		if let Some(buffer_id) = self.pending_buffer {
+			self.current_buffer = Some(buffer_id);
+			self.pending_buffer = None;
+		}
+
+		self.current_frame_callbacks
+			.extend(&self.pending_frame_callbacks);
+
+		self.pending_frame_callbacks.clear();
+
+		Ok(())
+	}
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
@@ -199,16 +214,7 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
 			}
 			6 => {
-				// https://wayland.app/protocols/wayland#wl_surface:request:commit
-				if let Some(buffer_id) = self.pending_buffer {
-					self.current_buffer = Some(buffer_id);
-					self.pending_buffer = None;
-				}
-
-				self.current_frame_callbacks
-					.extend(&self.pending_frame_callbacks);
-
-				self.pending_frame_callbacks.clear();
+				self.commit()?;
 			}
 			7 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform
