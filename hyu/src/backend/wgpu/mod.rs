@@ -182,98 +182,98 @@ pub async fn render() -> Result<()> {
 					occlusion_query_set: None,
 				});
 
-				for client in state::clients().values_mut() {
-					for window in client.windows.clone() {
-						let window = client.get_object::<wl::XdgToplevel>(window).unwrap();
+				let mut clients = state::clients();
 
-						let xdg_surface =
-							client.get_object::<wl::XdgSurface>(window.surface).unwrap();
+				for (client, window) in state::window_stack().iter().rev() {
+					let client = clients.get_mut(client).unwrap();
+					let window = client.get_object::<wl::XdgToplevel>(*window).unwrap();
 
-						let surface = client
-							.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
-							.unwrap();
+					let xdg_surface = client.get_object::<wl::XdgSurface>(window.surface).unwrap();
 
-						surface
-							.wgpu_do_textures(client, &device, &queue, &sampler, &bind_group_layout)
-							.unwrap();
+					let surface = client
+						.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
+						.unwrap();
 
-						surface
-							.frame(start_time.elapsed().as_millis() as u32, client)
-							.unwrap();
+					surface
+						.wgpu_do_textures(client, &device, &queue, &sampler, &bind_group_layout)
+						.unwrap();
 
-						for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
-							let surface = client.get_object::<wl::Surface>(surface_id).unwrap();
+					surface
+						.frame(start_time.elapsed().as_millis() as u32, client)
+						.unwrap();
 
-							let Some((.., (_, bind_group))) = &surface.data else {
-								panic!();
-							};
+					for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
+						let surface = client.get_object::<wl::Surface>(surface_id).unwrap();
 
-							fn pixels_to_float(input: [i32; 2]) -> [f32; 2] {
-								[
-									input[0] as f32 / WIDTH as f32 * 2.0 - 1.0,
-									(input[1] as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
-								]
-							}
+						let Some((.., (_, bind_group))) = &surface.data else {
+							panic!();
+						};
 
-							let x = window.position.0 - xdg_surface.position.0 + x;
-							let y = window.position.1 - xdg_surface.position.1 + y;
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x, y]),
-								uv: [0.0, 0.0],
-							});
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x + width, y]),
-								uv: [1.0, 0.0],
-							});
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x, y + height]),
-								uv: [0.0, 1.0],
-							});
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x, y + height]),
-								uv: [0.0, 1.0],
-							});
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x + width, y + height]),
-								uv: [1.0, 1.0],
-							});
-
-							vertices.push(Vertex {
-								position: pixels_to_float([x + width, y]),
-								uv: [1.0, 0.0],
-							});
-
-							let mut render_pass =
-								encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-									label: None,
-									color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-										view: &view,
-										resolve_target: None,
-										ops: wgpu::Operations {
-											load: wgpu::LoadOp::Load,
-											store: wgpu::StoreOp::Store,
-										},
-									})],
-									depth_stencil_attachment: None,
-									timestamp_writes: None,
-									occlusion_query_set: None,
-								});
-
-							render_pass.set_pipeline(&render_pipeline);
-							render_pass.set_bind_group(0, bind_group, &[]);
-							render_pass.set_vertex_buffer(
-								0,
-								vertex_buffer.slice(
-									((vertices.len() - 6) * std::mem::size_of::<Vertex>()) as u64..,
-								),
-							);
-							render_pass.draw(0..6 as _, 0..1);
+						fn pixels_to_float(input: [i32; 2]) -> [f32; 2] {
+							[
+								input[0] as f32 / WIDTH as f32 * 2.0 - 1.0,
+								(input[1] as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
+							]
 						}
+
+						let x = window.position.0 - xdg_surface.position.0 + x;
+						let y = window.position.1 - xdg_surface.position.1 + y;
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x, y]),
+							uv: [0.0, 0.0],
+						});
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x + width, y]),
+							uv: [1.0, 0.0],
+						});
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x, y + height]),
+							uv: [0.0, 1.0],
+						});
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x, y + height]),
+							uv: [0.0, 1.0],
+						});
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x + width, y + height]),
+							uv: [1.0, 1.0],
+						});
+
+						vertices.push(Vertex {
+							position: pixels_to_float([x + width, y]),
+							uv: [1.0, 0.0],
+						});
+
+						let mut render_pass =
+							encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+								label: None,
+								color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+									view: &view,
+									resolve_target: None,
+									ops: wgpu::Operations {
+										load: wgpu::LoadOp::Load,
+										store: wgpu::StoreOp::Store,
+									},
+								})],
+								depth_stencil_attachment: None,
+								timestamp_writes: None,
+								occlusion_query_set: None,
+							});
+
+						render_pass.set_pipeline(&render_pipeline);
+						render_pass.set_bind_group(0, bind_group, &[]);
+						render_pass.set_vertex_buffer(
+							0,
+							vertex_buffer.slice(
+								((vertices.len() - 6) * std::mem::size_of::<Vertex>()) as u64..,
+							),
+						);
+						render_pass.draw(0..6 as _, 0..1);
 					}
 				}
 
@@ -293,7 +293,13 @@ pub async fn render() -> Result<()> {
 				position: cursor_position,
 				..
 			} => {
-				for client in state::clients().values_mut() {
+				let mut should_stop = false;
+
+				let mut clients = state::clients();
+
+				for (client, window) in state::window_stack().iter() {
+					let client = clients.get_mut(client).unwrap();
+
 					let old = client.surface_cursor_is_over;
 					client.surface_cursor_is_over = None;
 
@@ -349,55 +355,58 @@ pub async fn render() -> Result<()> {
 						}
 					}
 
-					for window in client.windows.clone() {
-						let toplevel = client.get_object::<wl::XdgToplevel>(window).unwrap();
-						let xdg_surface = client
-							.get_object::<wl::XdgSurface>(toplevel.surface)
-							.unwrap();
+					let toplevel = client.get_object::<wl::XdgToplevel>(*window).unwrap();
+					let xdg_surface = client
+						.get_object::<wl::XdgSurface>(toplevel.surface)
+						.unwrap();
 
-						let surface = client
-							.get_object::<wl::Surface>(xdg_surface.get_surface())
-							.unwrap();
+					let surface = client
+						.get_object::<wl::Surface>(xdg_surface.get_surface())
+						.unwrap();
 
-						let position = (
-							toplevel.position.0 - xdg_surface.position.0,
-							toplevel.position.1 - xdg_surface.position.1,
-						);
+					let position = (
+						toplevel.position.0 - xdg_surface.position.0,
+						toplevel.position.1 - xdg_surface.position.1,
+					);
 
-						// let size = xdg_surface.size;
+					// let size = xdg_surface.size;
 
-						let Some((w, h, ..)) = surface.data else {
-							continue;
-						};
+					let Some((w, h, ..)) = surface.data else {
+						continue;
+					};
 
-						do_stuff(client, surface, cursor_position.into(), position, (w, h));
-					}
+					do_stuff(client, surface, cursor_position.into(), position, (w, h));
 
-					for object in client.objects() {
-						let wl::Resource::Pointer(pointer) = object else {
-							continue;
-						};
+					if !should_stop {
+						for object in client.objects() {
+							let wl::Resource::Pointer(pointer) = object else {
+								continue;
+							};
 
-						if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
-							if let Some((old, ..)) = old {
-								pointer.leave(client, old).unwrap();
-								println!("leave");
+							if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
+								if let Some((old, ..)) = old {
+									pointer.leave(client, old).unwrap();
+									println!("leave");
+									should_stop = true;
+								}
+
+								if let Some((surface, (x, y))) = client.surface_cursor_is_over {
+									pointer.enter(client, surface, x, y).unwrap();
+									println!("enter");
+									should_stop = true;
+								}
+							} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
+								pointer.motion(client, x, y).unwrap();
+								pointer.frame(client).unwrap();
+								should_stop = true;
 							}
-
-							if let Some((surface, (x, y))) = client.surface_cursor_is_over {
-								pointer.enter(client, surface, x, y).unwrap();
-								println!("enter");
-							}
-						} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
-							pointer.motion(client, x, y).unwrap();
-							pointer.frame(client).unwrap();
 						}
 					}
 				}
 			}
 			winit::event::WindowEvent::MouseInput { state, button, .. } => match button {
 				winit::event::MouseButton::Left => {
-					let state = match state {
+					let input_state = match state {
 						winit::event::ElementState::Pressed => 1,
 						winit::event::ElementState::Released => 0,
 					};
@@ -408,7 +417,7 @@ pub async fn render() -> Result<()> {
 								continue;
 							};
 
-							pointer.button(client, 0x110, state).unwrap();
+							pointer.button(client, 0x110, input_state).unwrap();
 							pointer.frame(client).unwrap();
 						}
 					}
@@ -418,37 +427,36 @@ pub async fn render() -> Result<()> {
 			winit::event::WindowEvent::KeyboardInput { event, .. } => {
 				let code = event.physical_key.to_scancode().unwrap();
 
-				let state = match event.state {
+				let input_state = match event.state {
 					winit::event::ElementState::Pressed => 1,
 					winit::event::ElementState::Released => 0,
 				};
 
-				for client in state::clients().values_mut() {
+				let mut clients = state::clients();
+
+				if let Some((client, window)) = state::window_stack().iter().next() {
+					let client = clients.get_mut(client).unwrap();
+
 					for object in client.objects() {
 						let wl::Resource::Keyboard(keyboard) = object else {
 							continue;
 						};
 
 						if !client.has_keyboard_focus {
-							keyboard.keymap(client).unwrap();
+							let toplevel = client.get_object::<wl::XdgToplevel>(*window).unwrap();
 
-							for window in client.windows.clone() {
-								let toplevel =
-									client.get_object::<wl::XdgToplevel>(window).unwrap();
+							let xdg_surface = client
+								.get_object::<wl::XdgSurface>(toplevel.surface)
+								.unwrap();
 
-								let xdg_surface = client
-									.get_object::<wl::XdgSurface>(toplevel.surface)
-									.unwrap();
-
-								keyboard.enter(client, xdg_surface.get_surface()).unwrap();
-							}
+							keyboard.enter(client, xdg_surface.get_surface()).unwrap();
 
 							client.has_keyboard_focus = true;
 						}
 
-						if keyboard.key_states[code as usize] != (state != 0) {
-							keyboard.key_states[code as usize] = state != 0;
-							keyboard.key(client, code, state).unwrap();
+						if keyboard.key_states[code as usize] != (input_state != 0) {
+							keyboard.key_states[code as usize] = input_state != 0;
+							keyboard.key(client, code, input_state).unwrap();
 						}
 					}
 				}

@@ -15,7 +15,10 @@ pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -> Result<()> {
 	stream.set_nonblocking(true)?;
 
-	let mut client = wl::Client::new(((100 * index + 10) as i32, (100 * index + 10) as i32));
+	let mut client = wl::Client::new(
+		stream.as_raw_fd(),
+		((100 * index + 10) as i32, (100 * index + 10) as i32),
+	);
 
 	let mut display = wl::Display::new(1);
 
@@ -29,6 +32,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 	client.queue_new_object(1, display);
 
+	// state::clients().insert(stream.as_raw_fd(), client);
 	state::clients().insert(stream.as_raw_fd(), client);
 
 	loop {
@@ -51,6 +55,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				match e.kind() {
 					std::io::ErrorKind::BrokenPipe => {
 						clients.remove(&stream.as_raw_fd());
+						state::window_stack().retain(|&(fd, _)| fd != stream.as_raw_fd());
+
 						return Ok(());
 					}
 					_ => {
@@ -87,6 +93,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 		if len == 0 {
 			clients.remove(&stream.as_raw_fd());
+			state::window_stack().retain(|&(fd, _)| fd != stream.as_raw_fd());
+
 			return Ok(());
 		}
 

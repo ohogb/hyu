@@ -6,28 +6,28 @@ enum ObjectChange {
 }
 
 pub struct Client<'object> {
+	pub fd: std::os::fd::RawFd,
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	object_queue: Vec<Option<ObjectChange>>,
 	pub buffer: Vec<u8>,
 	pub start_position: (i32, i32),
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
-	pub windows: Vec<u32>,
 	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
 	pub has_keyboard_focus: bool,
 	_phantom: std::marker::PhantomData<&'object ()>,
 }
 
 impl<'object> Client<'object> {
-	pub fn new(start_position: (i32, i32)) -> Self {
+	pub fn new(fd: std::os::fd::RawFd, start_position: (i32, i32)) -> Self {
 		Self {
+			fd,
 			objects: Vec::new(),
 			object_queue: Vec::new(),
 			buffer: Vec::new(),
 			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
-			windows: Vec::new(),
 			surface_cursor_is_over: None,
 			has_keyboard_focus: false,
 			_phantom: std::marker::PhantomData,
@@ -115,10 +115,6 @@ impl<'object> Client<'object> {
 	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
 		self.buffer.extend(message.to_vec()?);
 		Ok(())
-	}
-
-	pub fn add_window(&mut self, toplevel: u32) {
-		self.windows.push(toplevel);
 	}
 
 	pub fn objects(&self) -> Vec<&'static mut wl::Resource> {

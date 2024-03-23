@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{state, wl, Result};
 
 pub struct XdgToplevel {
 	object_id: u32,
@@ -15,7 +15,7 @@ impl XdgToplevel {
 		surface: u32,
 		position: (i32, i32),
 	) -> Self {
-		client.add_window(object_id);
+		state::window_stack().push_front((client.fd, object_id));
 
 		Self {
 			object_id,
@@ -42,10 +42,11 @@ impl XdgToplevel {
 }
 
 impl wl::Object for XdgToplevel {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
+				state::window_stack().retain(|&x| x != (client.fd, self.object_id));
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent

@@ -11,3 +11,12 @@ pub fn clients<'a>(
 		.lock()
 		.unwrap()
 }
+
+static WINDOW_STACK: std::sync::OnceLock<
+	std::sync::Mutex<std::collections::VecDeque<(std::os::fd::RawFd, u32)>>,
+> = std::sync::OnceLock::new();
+
+pub fn window_stack(
+) -> std::sync::MutexGuard<'static, std::collections::VecDeque<(std::os::fd::RawFd, u32)>> {
+	WINDOW_STACK.get_or_init(Default::default).lock().unwrap()
+}

@@ -35,6 +35,7 @@ impl wl::Object for Seat {
 				let id: u32 = wlm::decode::from_slice(&params)?;
 
 				let mut keyboard = wl::Keyboard::new(id, self.object_id);
+				keyboard.keymap(client)?;
 				keyboard.repeat_info(client, 500, 500)?;
 
 				client.queue_new_object(id, keyboard);

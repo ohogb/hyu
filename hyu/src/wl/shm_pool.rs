@@ -47,10 +47,7 @@ impl ShmPool {
 	}
 
 	pub fn get_map(&self) -> Option<&[u8]> {
-		let Some((map, size)) = &self.map else {
-			return None;
-		};
-
+		let (map, size) = self.map.as_ref()?;
 		Some(unsafe { std::slice::from_raw_parts(map.0 as *const u8, *size) })
 	}
 }
