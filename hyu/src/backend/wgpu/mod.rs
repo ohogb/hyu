@@ -386,18 +386,51 @@ pub async fn render() -> Result<()> {
 							if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
 								if let Some((old, ..)) = old {
 									pointer.leave(client, old).unwrap();
-									println!("leave");
+									pointer.frame(client).unwrap();
+
+									for object in client.objects() {
+										let wl::Resource::XdgWmBase(wm_base) = object else {
+											continue;
+										};
+
+										wm_base
+											.ping(client, start_time.elapsed().as_millis() as u32)
+											.unwrap();
+									}
+
 									should_stop = true;
 								}
 
 								if let Some((surface, (x, y))) = client.surface_cursor_is_over {
 									pointer.enter(client, surface, x, y).unwrap();
-									println!("enter");
+									pointer.frame(client).unwrap();
+
+									for object in client.objects() {
+										let wl::Resource::XdgWmBase(wm_base) = object else {
+											continue;
+										};
+
+										wm_base
+											.ping(client, start_time.elapsed().as_millis() as u32)
+											.unwrap();
+									}
+
 									should_stop = true;
 								}
 							} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
 								pointer.motion(client, x, y).unwrap();
 								pointer.frame(client).unwrap();
+
+								for object in client.objects() {
+									let wl::Resource::XdgWmBase(wm_base) = object else {
+										continue;
+									};
+
+									wm_base
+										.ping(client, start_time.elapsed().as_millis() as u32)
+										.unwrap();
+								}
+
 								should_stop = true;
 							}
 						}

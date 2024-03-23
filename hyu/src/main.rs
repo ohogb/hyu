@@ -28,7 +28,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::DataDeviceManager::new());
 	display.push_global(wl::Seat::new(0));
 	display.push_global(wl::Output::new());
-	display.push_global(wl::XdgWmBase::new());
+	display.push_global(wl::XdgWmBase::new(0));
 
 	client.queue_new_object(1, display);
 

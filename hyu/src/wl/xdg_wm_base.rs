@@ -1,11 +1,22 @@
 use crate::{wl, Result};
 
 #[derive(Debug)]
-pub struct XdgWmBase {}
+pub struct XdgWmBase {
+	object_id: u32,
+}
 
 impl XdgWmBase {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: u32) -> Self {
+		Self { object_id }
+	}
+
+	pub fn ping(&self, client: &mut wl::Client, serial: u32) -> Result<()> {
+		// https://wayland.app/protocols/xdg-shell#xdg_wm_base:event:ping
+		client.send_message(wlm::Message {
+			object_id: self.object_id,
+			op: 0,
+			args: serial,
+		})
 	}
 }
 
@@ -19,6 +30,10 @@ impl wl::Object for XdgWmBase {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (u32, u32) = wlm::decode::from_slice(&params)?;
 				client.queue_new_object(id, wl::XdgSurface::new(id, surface));
+			}
+			3 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:pong
+				let _serial: u32 = wlm::decode::from_slice(&params)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgWmBase"))?,
 		}
@@ -37,7 +52,7 @@ impl wl::Global for XdgWmBase {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(object_id, Self::new());
+		client.queue_new_object(object_id, Self::new(object_id));
 		Ok(())
 	}
 }
