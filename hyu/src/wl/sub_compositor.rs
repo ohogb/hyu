@@ -17,10 +17,16 @@ impl wl::Object for SubCompositor {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface
-				let (id, surface_id, parent): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+				let (id, surface_id, parent_id): (u32, u32, u32) =
+					wlm::decode::from_slice(&params)?;
 
-				let surface = client.get_object_mut::<wl::Surface>(parent)?;
-				surface.push(id);
+				let parent = client.get_object_mut::<wl::Surface>(parent_id)?;
+				parent.push(id);
+
+				let surface = client.get_object_mut::<wl::Surface>(surface_id)?;
+				surface.set_role(wl::SurfaceRole::SubSurface {
+					mode: wl::SubSurfaceMode::Sync,
+				})?;
 
 				client.queue_new_object(id, wl::SubSurface::new(id, surface_id));
 			}

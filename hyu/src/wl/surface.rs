@@ -1,5 +1,16 @@
 use crate::{wl, Result};
 
+pub enum SubSurfaceMode {
+	Sync,
+	Desync,
+}
+
+pub enum SurfaceRole {
+	XdgToplevel,
+	SubSurface { mode: SubSurfaceMode },
+	Cursor,
+}
+
 pub struct Surface {
 	pub object_id: u32,
 	pub children: Vec<u32>,
@@ -8,6 +19,7 @@ pub struct Surface {
 	pending_frame_callbacks: Vec<u32>,
 	current_frame_callbacks: Vec<u32>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
+	pub role: Option<SurfaceRole>,
 }
 
 impl Surface {
@@ -20,6 +32,7 @@ impl Surface {
 			pending_frame_callbacks: Vec::new(),
 			current_frame_callbacks: Vec::new(),
 			data: None,
+			role: None,
 		}
 	}
 
@@ -143,6 +156,15 @@ impl Surface {
 			surface.wgpu_do_textures(client, device, queue, sampler, bind_group_layout)?;
 		}
 
+		Ok(())
+	}
+
+	pub fn set_role(&mut self, role: SurfaceRole) -> Result<()> {
+		if self.role.is_some() {
+			Err("surface already has a role")?;
+		}
+
+		self.role = Some(role);
 		Ok(())
 	}
 }

@@ -191,7 +191,7 @@ pub async fn render() -> Result<()> {
 					let xdg_surface = client.get_object::<wl::XdgSurface>(window.surface).unwrap();
 
 					let surface = client
-						.get_object_mut::<wl::Surface>(xdg_surface.get_surface())
+						.get_object_mut::<wl::Surface>(xdg_surface.surface)
 						.unwrap();
 
 					surface
@@ -361,7 +361,7 @@ pub async fn render() -> Result<()> {
 						.unwrap();
 
 					let surface = client
-						.get_object::<wl::Surface>(xdg_surface.get_surface())
+						.get_object::<wl::Surface>(xdg_surface.surface)
 						.unwrap();
 
 					let position = (
@@ -449,7 +449,7 @@ pub async fn render() -> Result<()> {
 								.get_object::<wl::XdgSurface>(toplevel.surface)
 								.unwrap();
 
-							keyboard.enter(client, xdg_surface.get_surface()).unwrap();
+							keyboard.enter(client, xdg_surface.surface).unwrap();
 
 							client.has_keyboard_focus = true;
 						}

@@ -2,7 +2,7 @@ use crate::{wl, Result};
 
 pub struct XdgSurface {
 	object_id: u32,
-	surface: u32,
+	pub surface: u32,
 	pub position: (i32, i32),
 	pub size: (i32, i32),
 }
@@ -26,10 +26,6 @@ impl XdgSurface {
 
 		Ok(())
 	}
-
-	pub fn get_surface(&self) -> u32 {
-		self.surface
-	}
 }
 
 impl wl::Object for XdgSurface {
@@ -45,6 +41,9 @@ impl wl::Object for XdgSurface {
 
 				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
 				xdg_toplevel.configure(client)?;
+
+				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
 
 				client.queue_new_object(id, xdg_toplevel);
 			}

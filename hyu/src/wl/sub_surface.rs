@@ -17,7 +17,7 @@ impl SubSurface {
 }
 
 impl wl::Object for SubSurface {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy
@@ -29,9 +29,23 @@ impl wl::Object for SubSurface {
 			}
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_sync
+				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+
+				let Some(wl::SurfaceRole::SubSurface { mode }) = &mut surface.role else {
+					panic!();
+				};
+
+				*mode = wl::SubSurfaceMode::Sync;
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_desync
+				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+
+				let Some(wl::SurfaceRole::SubSurface { mode }) = &mut surface.role else {
+					panic!();
+				};
+
+				*mode = wl::SubSurfaceMode::Desync;
 			}
 			_ => Err(format!("unknown op '{op}' in SubSurface"))?,
 		}
