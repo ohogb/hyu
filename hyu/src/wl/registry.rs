@@ -1,13 +1,12 @@
 use crate::{wl, Result};
 
-#[derive(Debug, Clone)]
 pub struct Registry {
-	object_id: u32,
-	display: u32,
+	object_id: wl::Id<Self>,
+	display: wl::Id<wl::Display>,
 }
 
 impl Registry {
-	pub fn new(object_id: u32, display: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>, display: wl::Id<wl::Display>) -> Self {
 		Self { object_id, display }
 	}
 
@@ -19,7 +18,7 @@ impl Registry {
 		version: u32,
 	) -> Result<()> {
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 0,
 			args: (name, interface.as_ref(), version),
 		})
@@ -36,11 +35,8 @@ impl wl::Object for Registry {
 
 				println!(" {client_object}, {name}, {interface:?} {_version}");
 
-				let display = client.get_object::<wl::Display>(self.display)?;
+				let display = client.get_object(self.display)?;
 
-				// hmm
-				// TODO: this is very unsafe, if `bind()` pushes a new resource, `client` could get
-				// reallocated.
 				let global = display.get_global(name).unwrap();
 				global.bind(client, client_object)?;
 			}

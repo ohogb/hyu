@@ -7,23 +7,27 @@ pub enum SubSurfaceMode {
 
 pub enum SurfaceRole {
 	XdgToplevel,
-	SubSurface { mode: SubSurfaceMode, parent: u32 },
+	SubSurface {
+		mode: SubSurfaceMode,
+		parent: wl::Id<wl::Surface>,
+	},
 	Cursor,
 }
 
 pub struct Surface {
-	pub object_id: u32,
-	pub children: Vec<u32>,
-	pending_buffer: Option<u32>,
-	current_buffer: Option<u32>,
-	pending_frame_callbacks: Vec<u32>,
-	current_frame_callbacks: Vec<u32>,
+	pub object_id: wl::Id<Self>,
+	pub children: Vec<wl::Id<wl::SubSurface>>,
+	pending_buffer: Option<wl::Id<wl::Buffer>>,
+	current_buffer: Option<wl::Id<wl::Buffer>>,
+	// TODO: callback type
+	pending_frame_callbacks: Vec<wl::Id<()>>,
+	current_frame_callbacks: Vec<wl::Id<()>>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
 	pub role: Option<SurfaceRole>,
 }
 
 impl Surface {
-	pub fn new(object_id: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>) -> Self {
 		Self {
 			object_id,
 			children: Vec::new(),
@@ -36,11 +40,14 @@ impl Surface {
 		}
 	}
 
-	pub fn push(&mut self, child: u32) {
+	pub fn push(&mut self, child: wl::Id<wl::SubSurface>) {
 		self.children.push(child);
 	}
 
-	pub fn get_front_buffers(&self, client: &wl::Client) -> Vec<(i32, i32, i32, i32, u32)> {
+	pub fn get_front_buffers(
+		&self,
+		client: &wl::Client,
+	) -> Vec<(i32, i32, i32, i32, wl::Id<wl::Surface>)> {
 		let Some(data) = self.data.as_ref() else {
 			return Vec::new();
 		};
@@ -49,10 +56,8 @@ impl Surface {
 		ret.push((0, 0, data.0, data.1, self.object_id));
 
 		for i in &self.children {
-			let sub_surface = client.get_object::<wl::SubSurface>(*i).unwrap();
-			let surface = client
-				.get_object::<wl::Surface>(sub_surface.surface)
-				.unwrap();
+			let sub_surface = client.get_object(*i).unwrap();
+			let surface = client.get_object(sub_surface.surface).unwrap();
 
 			let position = sub_surface.position;
 
@@ -70,7 +75,7 @@ impl Surface {
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
 		for &callback in &self.current_frame_callbacks {
 			client.send_message(wlm::Message {
-				object_id: callback,
+				object_id: *callback,
 				op: 0,
 				args: ms,
 			})?;
@@ -81,8 +86,8 @@ impl Surface {
 		self.current_frame_callbacks.clear();
 
 		for i in &self.children {
-			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
-			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
+			let sub_surface = client.get_object(*i)?;
+			let surface = client.get_object_mut(sub_surface.surface)?;
 
 			surface.frame(ms, client)?;
 		}
@@ -102,7 +107,7 @@ impl Surface {
 			return Ok(());
 		};
 
-		let buffer = client.get_object_mut::<wl::Buffer>(buffer_id)?;
+		let buffer = client.get_object_mut(buffer_id)?;
 
 		if let Some((width, height, ..)) = &self.data {
 			assert!(buffer.width == *width && buffer.height == *height);
@@ -150,8 +155,8 @@ impl Surface {
 		self.current_buffer = None;
 
 		for i in &self.children {
-			let sub_surface = client.get_object::<wl::SubSurface>(*i)?;
-			let surface = client.get_object_mut::<wl::Surface>(sub_surface.surface)?;
+			let sub_surface = client.get_object(*i)?;
+			let surface = client.get_object_mut(sub_surface.surface)?;
 
 			surface.wgpu_do_textures(client, device, queue, sampler, bind_group_layout)?;
 		}
@@ -192,19 +197,26 @@ impl wl::Object for Surface {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
-				let (buffer, x, y): (u32, u32, u32) = wlm::decode::from_slice(&params)?;
+				let (buffer, x, y): (wl::Id<wl::Buffer>, u32, u32) =
+					wlm::decode::from_slice(&params)?;
 
 				assert!(x == 0);
 				assert!(y == 0);
 
-				self.pending_buffer = if buffer != 0 { Some(buffer) } else { None };
+				self.pending_buffer = if !buffer.is_null() {
+					Some(buffer)
+				} else {
+					None
+				};
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
-				let callback: u32 = wlm::decode::from_slice(&params)?;
+
+				// TODO: callback type
+				let callback: wl::Id<()> = wlm::decode::from_slice(&params)?;
 				self.pending_frame_callbacks.push(callback);
 			}
 			4 => {

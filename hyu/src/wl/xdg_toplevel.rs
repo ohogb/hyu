@@ -1,8 +1,8 @@
 use crate::{state, wl, Result};
 
 pub struct XdgToplevel {
-	object_id: u32,
-	pub surface: u32,
+	object_id: wl::Id<Self>,
+	pub surface: wl::Id<wl::XdgSurface>,
 	app_id: String,
 	title: String,
 	pub position: (i32, i32),
@@ -11,8 +11,8 @@ pub struct XdgToplevel {
 impl XdgToplevel {
 	pub fn new(
 		client: &mut wl::Client,
-		object_id: u32,
-		surface: u32,
+		object_id: wl::Id<Self>,
+		surface: wl::Id<wl::XdgSurface>,
 		position: (i32, i32),
 	) -> Self {
 		state::window_stack().push_front((client.fd, object_id));
@@ -29,12 +29,12 @@ impl XdgToplevel {
 	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 0,
 			args: (0u32, 0u32, &[] as &[u32]),
 		})?;
 
-		let xdg_surface = client.get_object::<wl::XdgSurface>(self.surface)?;
+		let xdg_surface = client.get_object(self.surface)?;
 		xdg_surface.configure(client)?;
 
 		Ok(())

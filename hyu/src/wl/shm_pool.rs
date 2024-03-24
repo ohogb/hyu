@@ -5,14 +5,14 @@ struct Ptr(*mut std::ffi::c_void);
 unsafe impl Send for Ptr {}
 
 pub struct ShmPool {
-	object_id: u32,
+	object_id: wl::Id<Self>,
 	fd: std::os::fd::RawFd,
 	size: u32,
 	map: Option<(Ptr, usize)>,
 }
 
 impl ShmPool {
-	pub fn new(object_id: u32, fd: std::os::fd::RawFd, size: u32) -> Result<Self> {
+	pub fn new(object_id: wl::Id<Self>, fd: std::os::fd::RawFd, size: u32) -> Result<Self> {
 		let mut ret = Self {
 			object_id,
 			fd,
@@ -57,8 +57,14 @@ impl wl::Object for ShmPool {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:create_buffer
-				let (id, offset, width, height, stride, format): (u32, i32, i32, i32, i32, u32) =
-					wlm::decode::from_slice(&params)?;
+				let (id, offset, width, height, stride, format): (
+					wl::Id<wl::Buffer>,
+					i32,
+					i32,
+					i32,
+					i32,
+					u32,
+				) = wlm::decode::from_slice(&params)?;
 
 				client.queue_new_object(
 					id,

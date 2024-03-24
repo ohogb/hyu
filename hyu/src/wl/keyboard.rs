@@ -3,13 +3,13 @@ use std::{io::Seek, os::fd::AsRawFd};
 use crate::{wl, Result};
 
 pub struct Keyboard {
-	object_id: u32,
-	seat_id: u32,
+	object_id: wl::Id<Self>,
+	seat_id: wl::Id<wl::Seat>,
 	pub key_states: [bool; 0x100],
 }
 
 impl Keyboard {
-	pub fn new(object_id: u32, seat_id: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>, seat_id: wl::Id<wl::Seat>) -> Self {
 		Self {
 			object_id,
 			seat_id,
@@ -22,7 +22,7 @@ impl Keyboard {
 		let file = Box::leak(Box::new(std::fs::File::open("xkb")?));
 
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 0,
 			args: (1, file.stream_len()? as u32),
 		})?;
@@ -32,12 +32,12 @@ impl Keyboard {
 		Ok(())
 	}
 
-	pub fn enter(&mut self, client: &mut wl::Client, surface: u32) -> Result<()> {
+	pub fn enter(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
-		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+		let seat = client.get_object_mut(self.seat_id)?;
 
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 1,
 			args: (seat.serial(), surface, &[] as &[i32]),
 		})?;
@@ -47,12 +47,12 @@ impl Keyboard {
 		Ok(())
 	}
 
-	pub fn leave(&mut self, client: &mut wl::Client, surface: u32) -> Result<()> {
+	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
-		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+		let seat = client.get_object_mut(self.seat_id)?;
 
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 2,
 			args: (seat.serial(), surface),
 		})?;
@@ -62,10 +62,10 @@ impl Keyboard {
 
 	pub fn key(&mut self, client: &mut wl::Client, key: u32, state: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
-		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+		let seat = client.get_object_mut(self.seat_id)?;
 
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 3,
 			args: (seat.serial(), 100, key, state),
 		})?;
@@ -75,10 +75,10 @@ impl Keyboard {
 
 	pub fn modifiers(&mut self, client: &mut wl::Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
-		let seat = client.get_object_mut::<wl::Seat>(self.seat_id)?;
+		let seat = client.get_object_mut(self.seat_id)?;
 
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 4,
 			args: (seat.serial(), 0, 0, 0, 0),
 		})?;
@@ -89,7 +89,7 @@ impl Keyboard {
 	pub fn repeat_info(&mut self, client: &mut wl::Client, rate: i32, delay: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:repeat_info
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 5,
 			args: (rate, delay),
 		})?;

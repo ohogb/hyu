@@ -17,13 +17,16 @@ impl wl::Object for SubCompositor {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface
-				let (id, surface_id, parent_id): (u32, u32, u32) =
-					wlm::decode::from_slice(&params)?;
+				let (id, surface_id, parent_id): (
+					wl::Id<wl::SubSurface>,
+					wl::Id<wl::Surface>,
+					wl::Id<wl::Surface>,
+				) = wlm::decode::from_slice(&params)?;
 
-				let parent = client.get_object_mut::<wl::Surface>(parent_id)?;
+				let parent = client.get_object_mut(parent_id)?;
 				parent.push(id);
 
-				let surface = client.get_object_mut::<wl::Surface>(surface_id)?;
+				let surface = client.get_object_mut(surface_id)?;
 				surface.set_role(wl::SurfaceRole::SubSurface {
 					mode: wl::SubSurfaceMode::Sync,
 					parent: parent_id,
@@ -48,7 +51,7 @@ impl wl::Global for SubCompositor {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(object_id, Self::new());
+		client.queue_new_object(wl::Id::new(object_id), Self::new());
 		Ok(())
 	}
 }

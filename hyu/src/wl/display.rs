@@ -1,13 +1,12 @@
 use crate::{wl, Result};
 
-#[derive(Debug)]
 pub struct Display {
-	object_id: u32,
+	object_id: wl::Id<Self>,
 	globals: Vec<Box<dyn wl::Global + Send + Sync>>,
 }
 
 impl Display {
-	pub fn new(object_id: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>) -> Self {
 		Self {
 			object_id,
 			globals: Vec::new(),
@@ -28,10 +27,12 @@ impl wl::Object for Display {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:sync
-				let callback: u32 = wlm::decode::from_slice(&params)?;
+
+				// TODO: callback type
+				let callback: wl::Id<()> = wlm::decode::from_slice(&params)?;
 
 				client.send_message(wlm::Message {
-					object_id: callback,
+					object_id: *callback,
 					op: 0,
 					args: 0u32,
 				})?;
@@ -40,7 +41,7 @@ impl wl::Object for Display {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry
-				let registry_index: u32 = wlm::decode::from_slice(&params)?;
+				let registry_index: wl::Id<wl::Registry> = wlm::decode::from_slice(&params)?;
 				let registry = wl::Registry::new(registry_index, self.object_id);
 
 				for (index, global) in self.globals.iter().enumerate() {

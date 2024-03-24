@@ -14,7 +14,7 @@ impl wl::Object for Shm {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_shm:request:create_pool
-				let (id, size): (u32, u32) = wlm::decode::from_slice(&params)?;
+				let (id, size): (wl::Id<wl::ShmPool>, u32) = wlm::decode::from_slice(&params)?;
 				let fd = client.received_fds.pop_front().unwrap();
 
 				client.queue_new_object(id, wl::ShmPool::new(id, fd, size)?);
@@ -36,7 +36,7 @@ impl wl::Global for Shm {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(object_id, Self::new());
+		client.queue_new_object(wl::Id::new(object_id), Self::new());
 
 		client.send_message(wlm::Message {
 			object_id,

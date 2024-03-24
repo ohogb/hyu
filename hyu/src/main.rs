@@ -20,17 +20,17 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		((100 * index + 10) as i32, (100 * index + 10) as i32),
 	);
 
-	let mut display = wl::Display::new(1);
+	let mut display = wl::Display::new(wl::Id::new(1));
 
 	display.push_global(wl::Shm::new());
 	display.push_global(wl::Compositor::new());
 	display.push_global(wl::SubCompositor::new());
 	display.push_global(wl::DataDeviceManager::new());
-	display.push_global(wl::Seat::new(0));
+	display.push_global(wl::Seat::new(wl::Id::null()));
 	display.push_global(wl::Output::new());
-	display.push_global(wl::XdgWmBase::new(0));
+	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 
-	client.queue_new_object(1, display);
+	client.queue_new_object(wl::Id::new(1), display);
 
 	// state::clients().insert(stream.as_raw_fd(), client);
 	state::clients().insert(stream.as_raw_fd(), client);

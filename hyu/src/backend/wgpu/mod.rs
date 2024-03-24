@@ -186,13 +186,10 @@ pub async fn render() -> Result<()> {
 
 				for (client, window) in state::window_stack().iter().rev() {
 					let client = clients.get_mut(client).unwrap();
-					let window = client.get_object::<wl::XdgToplevel>(*window).unwrap();
+					let window = client.get_object(*window).unwrap();
 
-					let xdg_surface = client.get_object::<wl::XdgSurface>(window.surface).unwrap();
-
-					let surface = client
-						.get_object_mut::<wl::Surface>(xdg_surface.surface)
-						.unwrap();
+					let xdg_surface = client.get_object(window.surface).unwrap();
+					let surface = client.get_object_mut(xdg_surface.surface).unwrap();
 
 					surface
 						.wgpu_do_textures(client, &device, &queue, &sampler, &bind_group_layout)
@@ -203,7 +200,7 @@ pub async fn render() -> Result<()> {
 						.unwrap();
 
 					for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
-						let surface = client.get_object::<wl::Surface>(surface_id).unwrap();
+						let surface = client.get_object(surface_id).unwrap();
 
 						let Some((.., (_, bind_group))) = &surface.data else {
 							panic!();
@@ -331,10 +328,8 @@ pub async fn render() -> Result<()> {
 						}
 
 						for child in &surface.children {
-							let sub_surface = client.get_object::<wl::SubSurface>(*child).unwrap();
-							let surface = client
-								.get_object::<wl::Surface>(sub_surface.surface)
-								.unwrap();
+							let sub_surface = client.get_object(*child).unwrap();
+							let surface = client.get_object(sub_surface.surface).unwrap();
 
 							let size = if let Some((w, h, ..)) = surface.data {
 								(w, h)
@@ -355,14 +350,9 @@ pub async fn render() -> Result<()> {
 						}
 					}
 
-					let toplevel = client.get_object::<wl::XdgToplevel>(*window).unwrap();
-					let xdg_surface = client
-						.get_object::<wl::XdgSurface>(toplevel.surface)
-						.unwrap();
-
-					let surface = client
-						.get_object::<wl::Surface>(xdg_surface.surface)
-						.unwrap();
+					let toplevel = client.get_object(*window).unwrap();
+					let xdg_surface = client.get_object(toplevel.surface).unwrap();
+					let surface = client.get_object(xdg_surface.surface).unwrap();
 
 					let position = (
 						toplevel.position.0 - xdg_surface.position.0,
@@ -476,11 +466,8 @@ pub async fn render() -> Result<()> {
 						};
 
 						if !client.has_keyboard_focus {
-							let toplevel = client.get_object::<wl::XdgToplevel>(*window).unwrap();
-
-							let xdg_surface = client
-								.get_object::<wl::XdgSurface>(toplevel.surface)
-								.unwrap();
+							let toplevel = client.get_object(*window).unwrap();
+							let xdg_surface = client.get_object(toplevel.surface).unwrap();
 
 							keyboard.enter(client, xdg_surface.surface).unwrap();
 

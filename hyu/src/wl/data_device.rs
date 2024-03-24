@@ -1,12 +1,11 @@
 use crate::{wl, Result};
 
-#[derive(Debug)]
 pub struct DataDevice {
-	seat: u32,
+	seat: wl::Id<wl::Seat>,
 }
 
 impl DataDevice {
-	pub fn new(seat: u32) -> Self {
+	pub fn new(seat: wl::Id<wl::Seat>) -> Self {
 		Self { seat }
 	}
 }

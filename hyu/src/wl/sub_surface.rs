@@ -1,13 +1,13 @@
 use crate::{wl, Result};
 
 pub struct SubSurface {
-	object_id: u32,
-	pub surface: u32,
+	object_id: wl::Id<Self>,
+	pub surface: wl::Id<wl::Surface>,
 	pub position: (i32, i32),
 }
 
 impl SubSurface {
-	pub fn new(object_id: u32, surface: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>, surface: wl::Id<wl::Surface>) -> Self {
 		Self {
 			object_id,
 			surface,
@@ -29,7 +29,7 @@ impl wl::Object for SubSurface {
 			}
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_sync
-				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+				let surface = client.get_object_mut(self.surface)?;
 
 				let Some(wl::SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
 					panic!();
@@ -39,7 +39,7 @@ impl wl::Object for SubSurface {
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_desync
-				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+				let surface = client.get_object_mut(self.surface)?;
 
 				let Some(wl::SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
 					panic!();

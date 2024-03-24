@@ -4,6 +4,7 @@ mod compositor;
 mod data_device;
 mod data_device_manager;
 mod display;
+mod id;
 mod keyboard;
 mod output;
 mod pointer;
@@ -26,6 +27,7 @@ pub use compositor::*;
 pub use data_device::*;
 pub use data_device_manager::*;
 pub use display::*;
+pub use id::*;
 pub use keyboard::*;
 pub use output::*;
 pub use pointer::*;
@@ -44,7 +46,7 @@ pub use xdg_wm_base::*;
 
 use crate::{wl, Result};
 
-pub trait Global: std::fmt::Debug {
+pub trait Global {
 	fn get_name(&self) -> &'static str;
 	fn get_version(&self) -> u32;
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()>;

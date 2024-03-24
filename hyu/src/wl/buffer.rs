@@ -1,8 +1,8 @@
 use crate::{wl, Result};
 
 pub struct Buffer {
-	object_id: u32,
-	pool_id: u32,
+	object_id: wl::Id<Self>,
+	pool_id: wl::Id<wl::ShmPool>,
 	offset: i32,
 	pub width: i32,
 	pub height: i32,
@@ -12,8 +12,8 @@ pub struct Buffer {
 
 impl Buffer {
 	pub fn new(
-		object_id: u32,
-		pool_id: u32,
+		object_id: wl::Id<Self>,
+		pool_id: wl::Id<wl::ShmPool>,
 		offset: i32,
 		width: i32,
 		height: i32,
@@ -37,7 +37,7 @@ impl Buffer {
 		queue: &wgpu::Queue,
 		texture: &wgpu::Texture,
 	) -> Result<()> {
-		let pool = client.get_object::<wl::ShmPool>(self.pool_id)?;
+		let pool = client.get_object(self.pool_id)?;
 		let map = pool.get_map().ok_or("pool is not mapped")?;
 
 		let start = self.offset as usize;
@@ -70,7 +70,7 @@ impl Buffer {
 
 	pub fn release(&self, client: &mut wl::Client) -> Result<()> {
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 0,
 			args: (),
 		})?;

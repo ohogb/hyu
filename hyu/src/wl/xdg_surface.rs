@@ -1,14 +1,14 @@
 use crate::{wl, Result};
 
 pub struct XdgSurface {
-	object_id: u32,
-	pub surface: u32,
+	object_id: wl::Id<Self>,
+	pub surface: wl::Id<wl::Surface>,
 	pub position: (i32, i32),
 	pub size: (i32, i32),
 }
 
 impl XdgSurface {
-	pub fn new(object_id: u32, surface: u32) -> Self {
+	pub fn new(object_id: wl::Id<Self>, surface: wl::Id<wl::Surface>) -> Self {
 		Self {
 			object_id,
 			surface,
@@ -19,7 +19,7 @@ impl XdgSurface {
 
 	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
 		client.send_message(wlm::Message {
-			object_id: self.object_id,
+			object_id: *self.object_id,
 			op: 0,
 			args: 123u32,
 		})?;
@@ -36,13 +36,13 @@ impl wl::Object for XdgSurface {
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
-				let id: u32 = wlm::decode::from_slice(&params)?;
+				let id: wl::Id<wl::XdgToplevel> = wlm::decode::from_slice(&params)?;
 				let start_position = client.start_position;
 
 				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
 				xdg_toplevel.configure(client)?;
 
-				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
+				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
 
 				client.queue_new_object(id, xdg_toplevel);

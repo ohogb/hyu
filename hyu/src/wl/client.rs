@@ -13,7 +13,7 @@ pub struct Client<'object> {
 	pub start_position: (i32, i32),
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
-	pub surface_cursor_is_over: Option<(u32, (i32, i32))>,
+	pub surface_cursor_is_over: Option<(wl::Id<wl::Surface>, (i32, i32))>,
 	pub has_keyboard_focus: bool,
 	_phantom: std::marker::PhantomData<&'object ()>,
 }
@@ -34,15 +34,16 @@ impl<'object> Client<'object> {
 		}
 	}
 
-	pub fn queue_new_object(&mut self, id: u32, object: impl Into<wl::Resource>) {
+	pub fn queue_new_object<T: Into<wl::Resource>>(&mut self, id: wl::Id<T>, object: T) {
 		self.object_queue.push(Some(ObjectChange::Add {
-			id,
+			id: *id,
 			resource: object.into(),
 		}));
 	}
 
-	pub fn queue_remove_object(&mut self, id: u32) {
-		self.object_queue.push(Some(ObjectChange::Remove { id }));
+	pub fn queue_remove_object<T>(&mut self, id: wl::Id<T>) {
+		self.object_queue
+			.push(Some(ObjectChange::Remove { id: *id }));
 	}
 
 	pub fn process_queue(&mut self) -> Result<()> {
@@ -82,21 +83,21 @@ impl<'object> Client<'object> {
 		Ok(())
 	}
 
-	pub fn get_object<T>(&self, id: u32) -> Result<&'object T>
+	pub fn get_object<T>(&self, id: wl::Id<T>) -> Result<&'object T>
 	where
 		Result<&'object T>: From<&'object wl::Resource>,
 	{
-		self.get_resource(id)
-			.ok_or_else(|| format!("object '{id}' does not exist"))?
+		self.get_resource(*id)
+			.ok_or_else(|| format!("object '{}' does not exist", *id))?
 			.into()
 	}
 
-	pub fn get_object_mut<T>(&self, id: u32) -> Result<&'object mut T>
+	pub fn get_object_mut<T>(&self, id: wl::Id<T>) -> Result<&'object mut T>
 	where
 		Result<&'object mut T>: From<&'object mut wl::Resource>,
 	{
-		self.get_resource_mut(id)
-			.ok_or_else(|| format!("object '{id}' does not exist"))?
+		self.get_resource_mut(*id)
+			.ok_or_else(|| format!("object '{}' does not exist", *id))?
 			.into()
 	}
 
