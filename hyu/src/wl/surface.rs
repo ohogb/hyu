@@ -7,7 +7,7 @@ pub enum SubSurfaceMode {
 
 pub enum SurfaceRole {
 	XdgToplevel,
-	SubSurface { mode: SubSurfaceMode },
+	SubSurface { mode: SubSurfaceMode, parent: u32 },
 	Cursor,
 }
 

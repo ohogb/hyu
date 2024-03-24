@@ -26,6 +26,7 @@ impl wl::Object for SubCompositor {
 				let surface = client.get_object_mut::<wl::Surface>(surface_id)?;
 				surface.set_role(wl::SurfaceRole::SubSurface {
 					mode: wl::SubSurfaceMode::Sync,
+					parent: parent_id,
 				})?;
 
 				client.queue_new_object(id, wl::SubSurface::new(id, surface_id));

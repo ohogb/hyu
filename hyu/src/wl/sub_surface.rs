@@ -31,7 +31,7 @@ impl wl::Object for SubSurface {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_sync
 				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
 
-				let Some(wl::SurfaceRole::SubSurface { mode }) = &mut surface.role else {
+				let Some(wl::SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
 					panic!();
 				};
 
@@ -41,7 +41,7 @@ impl wl::Object for SubSurface {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_desync
 				let surface = client.get_object_mut::<wl::Surface>(self.surface)?;
 
-				let Some(wl::SurfaceRole::SubSurface { mode }) = &mut surface.role else {
+				let Some(wl::SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
 					panic!();
 				};
 
