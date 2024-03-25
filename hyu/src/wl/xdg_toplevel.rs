@@ -26,12 +26,18 @@ impl XdgToplevel {
 		}
 	}
 
-	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn configure(
+		&self,
+		client: &mut wl::Client,
+		width: i32,
+		height: i32,
+		states: &[u32],
+	) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: (0u32, 0u32, &[] as &[u32]),
+			args: (width, height, states),
 		})?;
 
 		let xdg_surface = client.get_object_mut(self.surface)?;

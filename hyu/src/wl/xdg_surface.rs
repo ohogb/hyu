@@ -49,7 +49,7 @@ impl wl::Object for XdgSurface {
 				let start_position = client.start_position;
 
 				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
-				xdg_toplevel.configure(client)?;
+				xdg_toplevel.configure(client, 0, 0, &[])?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
