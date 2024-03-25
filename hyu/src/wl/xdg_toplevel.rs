@@ -34,7 +34,7 @@ impl XdgToplevel {
 			args: (0u32, 0u32, &[] as &[u32]),
 		})?;
 
-		let xdg_surface = client.get_object(self.surface)?;
+		let xdg_surface = client.get_object_mut(self.surface)?;
 		xdg_surface.configure(client)?;
 
 		Ok(())

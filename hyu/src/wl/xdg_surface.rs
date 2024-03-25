@@ -5,6 +5,7 @@ pub struct XdgSurface {
 	pub surface: wl::Id<wl::Surface>,
 	pub position: (i32, i32),
 	pub size: (i32, i32),
+	serial: u32,
 }
 
 impl XdgSurface {
@@ -14,17 +15,25 @@ impl XdgSurface {
 			surface,
 			position: (0, 0),
 			size: (0, 0),
+			serial: 0,
 		}
 	}
 
-	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn configure(&mut self, client: &mut wl::Client) -> Result<()> {
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: 123u32,
+			args: self.serial(),
 		})?;
 
 		Ok(())
+	}
+
+	fn serial(&mut self) -> u32 {
+		let ret = self.serial;
+		self.serial += 1;
+
+		ret
 	}
 }
 
