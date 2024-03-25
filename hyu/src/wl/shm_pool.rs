@@ -1,6 +1,6 @@
 use crate::{wl, Result};
 
-struct Ptr(*mut std::ffi::c_void);
+struct Ptr(std::ptr::NonNull<std::ffi::c_void>);
 
 unsafe impl Send for Ptr {}
 
@@ -36,7 +36,7 @@ impl ShmPool {
 					std::num::NonZeroUsize::new(self.size as _).unwrap(),
 					nix::sys::mman::ProtFlags::PROT_READ | nix::sys::mman::ProtFlags::PROT_WRITE,
 					nix::sys::mman::MapFlags::MAP_SHARED,
-					Some(std::os::fd::BorrowedFd::borrow_raw(self.fd)),
+					std::os::fd::BorrowedFd::borrow_raw(self.fd),
 					0,
 				)?
 			}),
@@ -48,7 +48,7 @@ impl ShmPool {
 
 	pub fn get_map(&self) -> Option<&[u8]> {
 		let (map, size) = self.map.as_ref()?;
-		Some(unsafe { std::slice::from_raw_parts(map.0 as *const u8, *size) })
+		Some(unsafe { std::slice::from_raw_parts(map.0.as_ptr() as *const u8, *size) })
 	}
 }
 

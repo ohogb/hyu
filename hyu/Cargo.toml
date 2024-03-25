@@ -6,13 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytemuck = { version = "1.14.0", features = ["derive"] }
-env_logger = "0.10.1"
+bytemuck = { version = "1.15.0", features = ["derive"] }
+env_logger = "0.11.3"
 fixed = { version = "1.26.0", features = ["serde"] }
-log = "0.4.20"
-nix = { version = "0.27.1", features = ["socket", "uio", "mman"] }
+log = "0.4.21"
+nix = { version = "0.28.0", features = ["socket", "uio", "mman"] }
 pollster = "0.3.0"
-serde = { version = "1.0.189", features = ["derive"] }
-wgpu = "0.18.0"
-winit = { version = "0.29.9", features = ["rwh_05"] }
+serde.workspace = true
+wgpu = "0.19.3"
+winit = { version = "0.29.15", features = ["rwh_05"] }
 wlm = { path = "../wlm" }

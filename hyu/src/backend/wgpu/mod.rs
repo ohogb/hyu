@@ -26,7 +26,7 @@ pub async fn render() -> Result<()> {
 		.build(&event_loop)?;
 
 	let instance = wgpu::Instance::default();
-	let surface = unsafe { instance.create_surface(&window)? };
+	let surface = instance.create_surface(&window)?;
 
 	let adapter = instance
 		.request_adapter(&wgpu::RequestAdapterOptions {
@@ -40,8 +40,8 @@ pub async fn render() -> Result<()> {
 		.request_device(
 			&wgpu::DeviceDescriptor {
 				label: None,
-				features: wgpu::Features::empty(),
-				limits: wgpu::Limits::downlevel_defaults(),
+				required_features: wgpu::Features::empty(),
+				required_limits: wgpu::Limits::downlevel_defaults(),
 			},
 			None,
 		)
@@ -90,6 +90,7 @@ pub async fn render() -> Result<()> {
 			width: window.inner_size().width,
 			height: window.inner_size().height,
 			present_mode: wgpu::PresentMode::AutoVsync,
+			desired_maximum_frame_latency: 2,
 			alpha_mode: caps.alpha_modes[0],
 			view_formats: Vec::new(),
 		},
@@ -142,7 +143,7 @@ pub async fn render() -> Result<()> {
 
 	let start_time = std::time::Instant::now();
 
-	event_loop.run(move |event, target| {
+	event_loop.run(|event, target| {
 		let winit::event::Event::WindowEvent { window_id, event } = event else {
 			return;
 		};
