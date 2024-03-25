@@ -45,6 +45,15 @@ impl XdgToplevel {
 
 		Ok(())
 	}
+
+	pub fn configure_bounds(&self, client: &mut wl::Client, width: i32, height: i32) -> Result<()> {
+		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure_bounds
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 2,
+			args: (width, height),
+		})
+	}
 }
 
 impl wl::Object for XdgToplevel {
