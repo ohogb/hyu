@@ -118,10 +118,15 @@ impl<'object> Client<'object> {
 		Ok(())
 	}
 
-	pub fn objects(&self) -> Vec<&'static mut wl::Resource> {
+	pub fn objects_mut<T>(&self) -> Vec<&'object mut T>
+	where
+		Result<&'object mut T>: From<&'object mut wl::Resource>,
+	{
 		self.objects
 			.iter()
 			.filter_map(|x| x.as_ref().map(|x| unsafe { &mut *x.get() }))
+			.map(Result::from)
+			.filter_map(|x| x.ok())
 			.collect()
 	}
 }

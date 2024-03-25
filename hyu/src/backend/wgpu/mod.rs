@@ -369,21 +369,13 @@ pub async fn render() -> Result<()> {
 					do_stuff(client, surface, cursor_position.into(), position, (w, h));
 
 					if !should_stop {
-						for object in client.objects() {
-							let wl::Resource::Pointer(pointer) = object else {
-								continue;
-							};
-
+						for pointer in client.objects_mut::<wl::Pointer>() {
 							if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
 								if let Some((old, ..)) = old {
 									pointer.leave(client, old).unwrap();
 									pointer.frame(client).unwrap();
 
-									for object in client.objects() {
-										let wl::Resource::XdgWmBase(wm_base) = object else {
-											continue;
-										};
-
+									for wm_base in client.objects_mut::<wl::XdgWmBase>() {
 										wm_base
 											.ping(client, start_time.elapsed().as_millis() as u32)
 											.unwrap();
@@ -396,11 +388,7 @@ pub async fn render() -> Result<()> {
 									pointer.enter(client, surface, x, y).unwrap();
 									pointer.frame(client).unwrap();
 
-									for object in client.objects() {
-										let wl::Resource::XdgWmBase(wm_base) = object else {
-											continue;
-										};
-
+									for wm_base in client.objects_mut::<wl::XdgWmBase>() {
 										wm_base
 											.ping(client, start_time.elapsed().as_millis() as u32)
 											.unwrap();
@@ -412,11 +400,7 @@ pub async fn render() -> Result<()> {
 								pointer.motion(client, x, y).unwrap();
 								pointer.frame(client).unwrap();
 
-								for object in client.objects() {
-									let wl::Resource::XdgWmBase(wm_base) = object else {
-										continue;
-									};
-
+								for wm_base in client.objects_mut::<wl::XdgWmBase>() {
 									wm_base
 										.ping(client, start_time.elapsed().as_millis() as u32)
 										.unwrap();
@@ -436,11 +420,7 @@ pub async fn render() -> Result<()> {
 					};
 
 					for client in state::clients().values_mut() {
-						for object in client.objects() {
-							let wl::Resource::Pointer(pointer) = object else {
-								continue;
-							};
-
+						for pointer in client.objects_mut::<wl::Pointer>() {
 							pointer.button(client, 0x110, input_state).unwrap();
 							pointer.frame(client).unwrap();
 						}
@@ -461,11 +441,7 @@ pub async fn render() -> Result<()> {
 				if let Some((client, window)) = state::window_stack().iter().next() {
 					let client = clients.get_mut(client).unwrap();
 
-					for object in client.objects() {
-						let wl::Resource::Keyboard(keyboard) = object else {
-							continue;
-						};
-
+					for keyboard in client.objects_mut::<wl::Keyboard>() {
 						if !client.has_keyboard_focus {
 							let toplevel = client.get_object(*window).unwrap();
 							let xdg_surface = client.get_object(toplevel.surface).unwrap();
