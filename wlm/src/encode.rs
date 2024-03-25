@@ -16,7 +16,7 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 
 	type Error = Error;
 
-	type SerializeSeq = Self;
+	type SerializeSeq = ArraySerializer<'a>;
 
 	type SerializeTuple = Self;
 
@@ -144,10 +144,12 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 
 	fn serialize_seq(
 		self,
-		len: Option<usize>,
+		_len: Option<usize>,
 	) -> std::result::Result<Self::SerializeSeq, Self::Error> {
-		self.output.extend(len.unwrap().to_ne_bytes());
-		Ok(self)
+		Ok(ArraySerializer {
+			storage: Vec::new(),
+			output: &mut self.output,
+		})
 	}
 
 	fn serialize_tuple(
@@ -201,24 +203,6 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeSeq for &'a mut Serializer {
-	type Ok = ();
-
-	type Error = Error;
-
-	fn serialize_element<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
-		value.serialize(&mut **self)
-	}
-
-	fn end(self) -> Result<()> {
-		if self.output.len() % 4 != 0 {
-			self.output
-				.extend((0..(4 - (self.output.len() % 4))).map(|_| 0u8));
-		}
-
-		Ok(())
-	}
-}
 impl<'a> serde::ser::SerializeTuple for &'a mut Serializer {
 	type Ok = ();
 
@@ -313,5 +297,37 @@ impl<'a> serde::ser::SerializeStructVariant for &'a mut Serializer {
 
 	fn end(self) -> Result<()> {
 		todo!()
+	}
+}
+
+pub struct ArraySerializer<'a> {
+	storage: Vec<u8>,
+	output: &'a mut Vec<u8>,
+}
+
+impl<'a> serde::ser::SerializeSeq for ArraySerializer<'a> {
+	type Ok = ();
+
+	type Error = Error;
+
+	fn serialize_element<T: ?Sized + serde::Serialize>(&mut self, value: &T) -> Result<()> {
+		let mut serializer = Serializer { output: Vec::new() };
+		value.serialize(&mut serializer)?;
+
+		self.storage.extend(serializer.output);
+		Ok(())
+	}
+
+	fn end(self) -> Result<Self::Ok> {
+		let len = self.storage.len() as u32;
+
+		self.output.extend(len.to_ne_bytes());
+		self.output.extend(self.storage);
+
+		if len % 4 != 0 {
+			self.output.extend((0..(4 - (len % 4))).map(|_| 0u8));
+		}
+
+		Ok(())
 	}
 }
