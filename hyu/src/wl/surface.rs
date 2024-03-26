@@ -103,56 +103,54 @@ impl Surface {
 		sampler: &wgpu::Sampler,
 		bind_group_layout: &wgpu::BindGroupLayout,
 	) -> Result<()> {
-		let Some(buffer_id) = self.current_buffer else {
-			return Ok(());
-		};
+		if let Some(buffer_id) = self.current_buffer {
+			let buffer = client.get_object_mut(buffer_id)?;
 
-		let buffer = client.get_object_mut(buffer_id)?;
+			if let Some((width, height, ..)) = &self.data {
+				assert!(buffer.width == *width && buffer.height == *height);
+			}
 
-		if let Some((width, height, ..)) = &self.data {
-			assert!(buffer.width == *width && buffer.height == *height);
+			let (_, _, (texture, _)) = self.data.get_or_insert_with(|| {
+				let texture = device.create_texture(&wgpu::TextureDescriptor {
+					size: wgpu::Extent3d {
+						width: buffer.width as _,
+						height: buffer.height as _,
+						depth_or_array_layers: 1,
+					},
+					mip_level_count: 1,
+					sample_count: 1,
+					dimension: wgpu::TextureDimension::D2,
+					format: wgpu::TextureFormat::Bgra8UnormSrgb,
+					usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+					label: None,
+					view_formats: &[],
+				});
+
+				let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+					layout: bind_group_layout,
+					entries: &[
+						wgpu::BindGroupEntry {
+							binding: 0,
+							resource: wgpu::BindingResource::TextureView(
+								&texture.create_view(&wgpu::TextureViewDescriptor::default()),
+							),
+						},
+						wgpu::BindGroupEntry {
+							binding: 1,
+							resource: wgpu::BindingResource::Sampler(sampler),
+						},
+					],
+					label: None,
+				});
+
+				(buffer.width, buffer.height, (texture, bind_group))
+			});
+
+			buffer.wgpu_get_pixels(client, queue, texture)?;
+
+			buffer.release(client)?;
+			self.current_buffer = None;
 		}
-
-		let (_, _, (texture, _)) = self.data.get_or_insert_with(|| {
-			let texture = device.create_texture(&wgpu::TextureDescriptor {
-				size: wgpu::Extent3d {
-					width: buffer.width as _,
-					height: buffer.height as _,
-					depth_or_array_layers: 1,
-				},
-				mip_level_count: 1,
-				sample_count: 1,
-				dimension: wgpu::TextureDimension::D2,
-				format: wgpu::TextureFormat::Bgra8UnormSrgb,
-				usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-				label: None,
-				view_formats: &[],
-			});
-
-			let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-				layout: bind_group_layout,
-				entries: &[
-					wgpu::BindGroupEntry {
-						binding: 0,
-						resource: wgpu::BindingResource::TextureView(
-							&texture.create_view(&wgpu::TextureViewDescriptor::default()),
-						),
-					},
-					wgpu::BindGroupEntry {
-						binding: 1,
-						resource: wgpu::BindingResource::Sampler(sampler),
-					},
-				],
-				label: None,
-			});
-
-			(buffer.width, buffer.height, (texture, bind_group))
-		});
-
-		buffer.wgpu_get_pixels(client, queue, texture)?;
-
-		buffer.release(client)?;
-		self.current_buffer = None;
 
 		for i in &self.children {
 			let sub_surface = client.get_object(*i)?;
