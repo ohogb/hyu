@@ -22,6 +22,8 @@ pub struct Surface {
 	// TODO: callback type
 	pending_frame_callbacks: Vec<wl::Id<()>>,
 	current_frame_callbacks: Vec<wl::Id<()>>,
+	pending_input_region: Option<wl::Id<wl::Region>>,
+	pub current_input_region: Option<wl::Id<wl::Region>>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
 	pub role: Option<SurfaceRole>,
 }
@@ -35,6 +37,8 @@ impl Surface {
 			current_buffer: None,
 			pending_frame_callbacks: Vec::new(),
 			current_frame_callbacks: Vec::new(),
+			pending_input_region: None,
+			current_input_region: None,
 			data: None,
 			role: None,
 		}
@@ -183,6 +187,11 @@ impl Surface {
 
 		self.pending_frame_callbacks.clear();
 
+		if let Some(region) = self.pending_input_region {
+			self.current_input_region = if region.is_null() { None } else { Some(region) };
+			self.pending_input_region = None;
+		}
+
 		Ok(())
 	}
 }
@@ -222,6 +231,8 @@ impl wl::Object for Surface {
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
+				let region: wl::Id<wl::Region> = wlm::decode::from_slice(&params)?;
+				self.pending_input_region = Some(region);
 			}
 			6 => {
 				self.commit()?;
