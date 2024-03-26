@@ -1,7 +1,7 @@
 use crate::{wl, Result};
 
 pub struct Region {
-	areas: Vec<(u32, u32, u32, u32)>,
+	pub areas: Vec<(u32, u32, u32, u32)>,
 }
 
 impl Region {

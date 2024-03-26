@@ -308,6 +308,25 @@ pub async fn render() -> Result<()> {
 
 					let client = clients.get_mut(client).unwrap();
 
+					fn get_surface_input_size(
+						client: &wl::Client,
+						surface: &wl::Surface,
+					) -> (i32, i32) {
+						None.or_else(|| {
+							let region = client.get_object(surface.current_input_region?).unwrap();
+							if region.areas.is_empty() {
+								Some((0, 0))
+							} else {
+								None
+							}
+						})
+						.or_else(|| {
+							let &(w, h, ..) = surface.data.as_ref()?;
+							Some((w, h))
+						})
+						.unwrap_or((0, 0))
+					}
+
 					fn do_stuff(
 						client: &mut wl::Client,
 						surface: &wl::Surface,
@@ -340,12 +359,6 @@ pub async fn render() -> Result<()> {
 							let sub_surface = client.get_object(*child).unwrap();
 							let surface = client.get_object(sub_surface.surface).unwrap();
 
-							let size = if let Some((w, h, ..)) = surface.data {
-								(w, h)
-							} else {
-								(0, 0)
-							};
-
 							do_stuff(
 								client,
 								surface,
@@ -354,7 +367,7 @@ pub async fn render() -> Result<()> {
 									surface_position.0 + sub_surface.position.0,
 									surface_position.1 + sub_surface.position.1,
 								),
-								size,
+								get_surface_input_size(client, surface),
 							);
 						}
 					}
@@ -368,13 +381,13 @@ pub async fn render() -> Result<()> {
 						toplevel.position.1 - xdg_surface.position.1,
 					);
 
-					// let size = xdg_surface.size;
-
-					let Some((w, h, ..)) = surface.data else {
-						continue;
-					};
-
-					do_stuff(client, surface, cursor_position.into(), position, (w, h));
+					do_stuff(
+						client,
+						surface,
+						cursor_position.into(),
+						position,
+						get_surface_input_size(client, surface),
+					);
 				}
 
 				let current = *state::pointer_over();
