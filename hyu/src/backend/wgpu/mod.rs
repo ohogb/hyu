@@ -438,19 +438,10 @@ pub async fn render() -> Result<()> {
 
 				let mut clients = state::clients();
 
-				if let Some((client, window)) = state::window_stack().iter().next() {
+				if let Some((client, _window)) = state::window_stack().iter().next() {
 					let client = clients.get_mut(client).unwrap();
 
 					for keyboard in client.objects_mut::<wl::Keyboard>() {
-						if !client.has_keyboard_focus {
-							let toplevel = client.get_object(*window).unwrap();
-							let xdg_surface = client.get_object(toplevel.surface).unwrap();
-
-							keyboard.enter(client, xdg_surface.surface).unwrap();
-
-							client.has_keyboard_focus = true;
-						}
-
 						if keyboard.key_states[code as usize] != (input_state != 0) {
 							keyboard.key_states[code as usize] = input_state != 0;
 							keyboard.key(client, code, input_state).unwrap();

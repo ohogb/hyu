@@ -32,7 +32,6 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 	client.queue_new_object(wl::Id::new(1), display);
 
-	// state::clients().insert(stream.as_raw_fd(), client);
 	state::clients().insert(stream.as_raw_fd(), client);
 
 	loop {
@@ -55,7 +54,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				match e.kind() {
 					std::io::ErrorKind::BrokenPipe => {
 						clients.remove(&stream.as_raw_fd());
-						state::window_stack().retain(|&(fd, _)| fd != stream.as_raw_fd());
+						state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
 
 						return Ok(());
 					}
@@ -66,6 +65,10 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			}
 
 			client.buffer.clear();
+		}
+
+		if state::process_focus_changes().unwrap() {
+			continue;
 		}
 
 		let mut cmsg_buffer = [0u8; 0x20];
@@ -93,7 +96,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 		if len == 0 {
 			clients.remove(&stream.as_raw_fd());
-			state::window_stack().retain(|&(fd, _)| fd != stream.as_raw_fd());
+			state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
 
 			return Ok(());
 		}

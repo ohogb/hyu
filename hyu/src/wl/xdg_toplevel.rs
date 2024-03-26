@@ -15,7 +15,7 @@ impl XdgToplevel {
 		surface: wl::Id<wl::XdgSurface>,
 		position: (i32, i32),
 	) -> Self {
-		state::window_stack().push_front((client.fd, object_id));
+		state::add_change(state::Change::Push(client.fd, object_id));
 
 		Self {
 			object_id,
@@ -61,7 +61,7 @@ impl wl::Object for XdgToplevel {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
-				state::window_stack().retain(|&x| x != (client.fd, self.object_id));
+				state::add_change(state::Change::Remove(client.fd, self.object_id));
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent
