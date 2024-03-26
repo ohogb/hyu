@@ -291,15 +291,22 @@ pub async fn render() -> Result<()> {
 				position: cursor_position,
 				..
 			} => {
-				let mut should_stop = false;
-
 				let mut clients = state::clients();
 
-				for (client, window) in state::window_stack().iter() {
-					let client = clients.get_mut(client).unwrap();
+				let old = {
+					let mut lock = state::pointer_over();
+					let ret = *lock;
 
-					let old = client.surface_cursor_is_over;
-					client.surface_cursor_is_over = None;
+					*lock = None;
+					ret
+				};
+
+				for (client, window) in state::window_stack().iter() {
+					if state::pointer_over().is_some() {
+						break;
+					}
+
+					let client = clients.get_mut(client).unwrap();
 
 					fn do_stuff(
 						client: &mut wl::Client,
@@ -319,7 +326,8 @@ pub async fn render() -> Result<()> {
 						}
 
 						if is_point_inside_area(cursor_position, surface_position, surface_size) {
-							client.surface_cursor_is_over = Some((
+							*state::pointer_over() = Some((
+								client.fd,
 								surface.object_id,
 								(
 									cursor_position.0 - surface_position.0,
@@ -367,48 +375,39 @@ pub async fn render() -> Result<()> {
 					};
 
 					do_stuff(client, surface, cursor_position.into(), position, (w, h));
+				}
 
-					if !should_stop {
+				let current = *state::pointer_over();
+
+				if old.is_none() && current.is_none() {
+					return;
+				}
+
+				if old.map(|x| (x.0, x.1)) != current.map(|x| (x.0, x.1)) {
+					if let Some((fd, surface, ..)) = old {
+						let client = clients.get_mut(&fd).unwrap();
+
 						for pointer in client.objects_mut::<wl::Pointer>() {
-							if old.map(|x| x.0) != client.surface_cursor_is_over.map(|x| x.0) {
-								if let Some((old, ..)) = old {
-									pointer.leave(client, old).unwrap();
-									pointer.frame(client).unwrap();
-
-									for wm_base in client.objects_mut::<wl::XdgWmBase>() {
-										wm_base
-											.ping(client, start_time.elapsed().as_millis() as u32)
-											.unwrap();
-									}
-
-									should_stop = true;
-								}
-
-								if let Some((surface, (x, y))) = client.surface_cursor_is_over {
-									pointer.enter(client, surface, x, y).unwrap();
-									pointer.frame(client).unwrap();
-
-									for wm_base in client.objects_mut::<wl::XdgWmBase>() {
-										wm_base
-											.ping(client, start_time.elapsed().as_millis() as u32)
-											.unwrap();
-									}
-
-									should_stop = true;
-								}
-							} else if let Some((_, (x, y))) = client.surface_cursor_is_over {
-								pointer.motion(client, x, y).unwrap();
-								pointer.frame(client).unwrap();
-
-								for wm_base in client.objects_mut::<wl::XdgWmBase>() {
-									wm_base
-										.ping(client, start_time.elapsed().as_millis() as u32)
-										.unwrap();
-								}
-
-								should_stop = true;
-							}
+							pointer.leave(client, surface).unwrap();
+							pointer.frame(client).unwrap();
 						}
+					}
+
+					if let Some((fd, surface, (x, y))) = current {
+						let client = clients.get_mut(&fd).unwrap();
+
+						for pointer in client.objects_mut::<wl::Pointer>() {
+							pointer.enter(client, surface, x, y).unwrap();
+							pointer.frame(client).unwrap();
+						}
+					}
+				} else if old.map(|x| x.2) != current.map(|x| x.2) {
+					let (fd, _, (x, y)) = current.unwrap();
+					let client = clients.get_mut(&fd).unwrap();
+
+					for pointer in client.objects_mut::<wl::Pointer>() {
+						pointer.motion(client, x, y).unwrap();
+						pointer.frame(client).unwrap();
 					}
 				}
 			}
@@ -419,7 +418,10 @@ pub async fn render() -> Result<()> {
 						winit::event::ElementState::Released => 0,
 					};
 
-					for client in state::clients().values_mut() {
+					if let Some((fd, ..)) = *state::pointer_over() {
+						let mut clients = state::clients();
+						let client = clients.get_mut(&fd).unwrap();
+
 						for pointer in client.objects_mut::<wl::Pointer>() {
 							pointer.button(client, 0x110, input_state).unwrap();
 							pointer.frame(client).unwrap();

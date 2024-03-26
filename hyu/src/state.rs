@@ -35,6 +35,15 @@ pub fn changes() -> std::sync::MutexGuard<'static, Vec<Change>> {
 	CHANGES.get_or_init(Default::default).lock().unwrap()
 }
 
+static POINTER_OVER: std::sync::OnceLock<
+	std::sync::Mutex<Option<(std::os::fd::RawFd, wl::Id<wl::Surface>, (i32, i32))>>,
+> = std::sync::OnceLock::new();
+
+pub fn pointer_over(
+) -> std::sync::MutexGuard<'static, Option<(std::os::fd::RawFd, wl::Id<wl::Surface>, (i32, i32))>> {
+	POINTER_OVER.get_or_init(Default::default).lock().unwrap()
+}
+
 pub fn process_focus_changes() -> Result<bool> {
 	let mut has_pending_messages = false;
 

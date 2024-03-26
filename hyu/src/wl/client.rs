@@ -13,7 +13,6 @@ pub struct Client<'object> {
 	pub start_position: (i32, i32),
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
-	pub surface_cursor_is_over: Option<(wl::Id<wl::Surface>, (i32, i32))>,
 	_phantom: std::marker::PhantomData<&'object ()>,
 }
 
@@ -27,7 +26,6 @@ impl<'object> Client<'object> {
 			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
-			surface_cursor_is_over: None,
 			_phantom: std::marker::PhantomData,
 		}
 	}

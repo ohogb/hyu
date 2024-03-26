@@ -56,6 +56,15 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 						clients.remove(&stream.as_raw_fd());
 						state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
 
+						// TODO: temp fix for pointer focus
+						let mut lock = state::pointer_over();
+
+						if let Some((fd, ..)) = *lock {
+							if fd == stream.as_raw_fd() {
+								*lock = None;
+							}
+						}
+
 						return Ok(());
 					}
 					_ => {
@@ -97,6 +106,15 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		if len == 0 {
 			clients.remove(&stream.as_raw_fd());
 			state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
+
+			// TODO: temp fix for pointer focus
+			let mut lock = state::pointer_over();
+
+			if let Some((fd, ..)) = *lock {
+				if fd == stream.as_raw_fd() {
+					*lock = None;
+				}
+			}
 
 			return Ok(());
 		}
