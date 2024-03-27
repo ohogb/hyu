@@ -73,6 +73,7 @@ impl wl::Object for ShmPool {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:destroy
+				client.queue_remove_object(self.object_id);
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize
