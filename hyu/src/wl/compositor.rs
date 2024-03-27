@@ -20,7 +20,7 @@ impl wl::Object for Compositor {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_compositor:request:create_region
 				let id: wl::Id<wl::Region> = wlm::decode::from_slice(&params)?;
-				client.queue_new_object(id, wl::Region::new());
+				client.queue_new_object(id, wl::Region::new(id));
 			}
 			_ => Err(format!("unknown op '{op}' in Compositor"))?,
 		}
