@@ -313,8 +313,7 @@ pub async fn render() -> Result<()> {
 						surface: &wl::Surface,
 					) -> (i32, i32) {
 						None.or_else(|| {
-							let region = client.get_object(surface.current_input_region?).unwrap();
-							if region.areas.is_empty() {
+							if surface.current_input_region.as_ref()?.areas.is_empty() {
 								Some((0, 0))
 							} else {
 								None

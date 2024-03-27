@@ -1,5 +1,6 @@
 use crate::{wl, Result};
 
+#[derive(Clone)]
 pub struct Region {
 	object_id: wl::Id<Self>,
 	pub areas: Vec<(u32, u32, u32, u32)>,

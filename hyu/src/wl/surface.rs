@@ -22,8 +22,8 @@ pub struct Surface {
 	// TODO: callback type
 	pending_frame_callbacks: Vec<wl::Id<()>>,
 	current_frame_callbacks: Vec<wl::Id<()>>,
-	pending_input_region: Option<wl::Id<wl::Region>>,
-	pub current_input_region: Option<wl::Id<wl::Region>>,
+	pending_input_region: Option<wl::Region>,
+	pub current_input_region: Option<wl::Region>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
 	pub role: Option<SurfaceRole>,
 }
@@ -187,8 +187,8 @@ impl Surface {
 
 		self.pending_frame_callbacks.clear();
 
-		if let Some(region) = self.pending_input_region {
-			self.current_input_region = if region.is_null() { None } else { Some(region) };
+		if let Some(region) = &self.pending_input_region {
+			self.current_input_region = Some(region.clone());
 			self.pending_input_region = None;
 		}
 
@@ -197,7 +197,7 @@ impl Surface {
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
@@ -232,6 +232,13 @@ impl wl::Object for Surface {
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
 				let region: wl::Id<wl::Region> = wlm::decode::from_slice(&params)?;
+
+				let region = if region.is_null() {
+					wl::Region::new(wl::Id::null())
+				} else {
+					client.get_object(region)?.clone()
+				};
+
 				self.pending_input_region = Some(region);
 			}
 			6 => {
