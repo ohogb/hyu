@@ -105,7 +105,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				return Err(format!("unknown object '{object}'"))?;
 			};
 
-			object.handle(client, op, params)?;
+			object.handle(client, op, &params)?;
 			client.process_queue()?;
 		}
 

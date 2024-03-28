@@ -88,7 +88,7 @@ impl Pointer {
 }
 
 impl wl::Object for Pointer {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:set_cursor

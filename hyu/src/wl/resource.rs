@@ -7,7 +7,7 @@ macro_rules! implement {
         }
 
         impl crate::wl::Object for Resource {
-            fn handle(&mut self, client: &mut crate::wl::Client, op: u16, params: Vec<u8>) -> crate::Result<()> {
+            fn handle(&mut self, client: &mut crate::wl::Client, op: u16, params: &[u8]) -> crate::Result<()> {
                 match self {
                     $(
                         Self::$children(x) => x.handle(client, op, params),

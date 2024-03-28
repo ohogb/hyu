@@ -26,7 +26,7 @@ impl Registry {
 }
 
 impl wl::Object for Registry {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: Vec<u8>) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_registry:request:bind
