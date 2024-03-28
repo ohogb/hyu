@@ -31,126 +31,126 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 
 	client.queue_new_object(wl::Id::new(1), display);
+	client.process_queue()?;
 
 	state::clients().insert(stream.as_raw_fd(), client);
 
 	loop {
-		{
-			let mut clients = state::clients();
-			state::process_focus_changes(&mut clients)?;
+		let mut clients = state::clients();
 
-			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
-			client.process_queue()?;
+		loop {
+			let mut cmsg_buffer = [0u8; 0x20];
+			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
 
-			if !client.buffer.is_empty() {
-				let mut cmsg_buffer = [0u8; 0x20];
-				let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+			let mut obj = [0u8; 4];
 
-				cmsg.add_fds(&client.to_send_fds);
-				client.to_send_fds.clear();
+			let len = stream
+				.recv_vectored_with_ancillary(&mut [std::io::IoSliceMut::new(&mut obj)], &mut cmsg);
 
-				let ret = stream.send_vectored_with_ancillary(
-					&[std::io::IoSlice::new(&client.buffer)],
-					&mut cmsg,
-				);
+			let len = match len {
+				Ok(len) => len,
+				Err(x) => match x.kind() {
+					std::io::ErrorKind::WouldBlock => {
+						break;
+					}
+					_ => {
+						return Err(x)?;
+					}
+				},
+			};
 
-				if let Err(e) = ret {
-					match e.kind() {
-						std::io::ErrorKind::BrokenPipe => {
-							state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
+			if len == 0 {
+				state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
 
-							// TODO: temp fix for pointer focus
-							let mut lock = state::pointer_over();
+				// TODO: temp fix for pointer focus
+				let mut lock = state::pointer_over();
 
-							if let Some((fd, ..)) = *lock {
-								if fd == stream.as_raw_fd() {
-									*lock = None;
-								}
-							}
-
-							return Ok(());
-						}
-						_ => {
-							Err(e)?;
-						}
+				if let Some((fd, ..)) = *lock {
+					if fd == stream.as_raw_fd() {
+						*lock = None;
 					}
 				}
 
-				client.buffer.clear();
+				return Ok(());
 			}
-		}
 
-		let mut cmsg_buffer = [0u8; 0x20];
-		let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
-		let mut obj = [0u8; 4];
-
-		let len = stream
-			.recv_vectored_with_ancillary(&mut [std::io::IoSliceMut::new(&mut obj)], &mut cmsg);
-
-		let len = match len {
-			Ok(len) => len,
-			Err(x) => match x.kind() {
-				std::io::ErrorKind::WouldBlock => {
-					std::thread::sleep(std::time::Duration::from_millis(10));
+			for i in cmsg.messages() {
+				let std::os::unix::net::AncillaryData::ScmRights(scm_rights) = i.unwrap() else {
 					continue;
-				}
-				_ => {
-					return Err(x)?;
-				}
-			},
-		};
+				};
 
-		let mut clients = state::clients();
-
-		if len == 0 {
-			state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
-
-			// TODO: temp fix for pointer focus
-			let mut lock = state::pointer_over();
-
-			if let Some((fd, ..)) = *lock {
-				if fd == stream.as_raw_fd() {
-					*lock = None;
-				}
+				client.received_fds.extend(scm_rights.into_iter());
 			}
 
-			return Ok(());
-		}
+			let mut op = [0u8; 2];
+			stream.read_exact(&mut op).unwrap();
 
-		let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
+			let mut size = [0u8; 2];
+			stream.read_exact(&mut size).unwrap();
 
-		for i in cmsg.messages() {
-			let std::os::unix::net::AncillaryData::ScmRights(scm_rights) = i.unwrap() else {
-				continue;
+			let size = u16::from_ne_bytes(size) - 0x8;
+
+			let mut params = Vec::new();
+			let _ = (&mut stream)
+				.take(size as _)
+				.read_to_end(&mut params)
+				.unwrap();
+
+			let object = u32::from_ne_bytes(obj);
+			let op = u16::from_ne_bytes(op);
+
+			let Some(object) = client.get_resource_mut(object) else {
+				return Err(format!("unknown object '{object}'"))?;
 			};
 
-			client.received_fds.extend(scm_rights.into_iter());
+			object.handle(client, op, params)?;
+			client.process_queue()?;
 		}
 
-		let mut op = [0u8; 2];
-		stream.read_exact(&mut op).unwrap();
+		state::process_focus_changes(&mut clients).unwrap();
 
-		let mut size = [0u8; 2];
-		stream.read_exact(&mut size).unwrap();
-
-		let size = u16::from_ne_bytes(size) - 0x8;
-
-		let mut params = Vec::new();
-		let _ = (&mut stream)
-			.take(size as _)
-			.read_to_end(&mut params)
-			.unwrap();
-
-		let object = u32::from_ne_bytes(obj);
-		let op = u16::from_ne_bytes(op);
-
-		let Some(object) = client.get_resource_mut(object) else {
-			return Err(format!("unknown object '{object}'"))?;
-		};
-
-		object.handle(client, op, params)?;
+		let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 		client.process_queue()?;
+
+		if !client.buffer.is_empty() {
+			let mut cmsg_buffer = [0u8; 0x20];
+			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+
+			cmsg.add_fds(&client.to_send_fds);
+			client.to_send_fds.clear();
+
+			let ret = stream
+				.send_vectored_with_ancillary(&[std::io::IoSlice::new(&client.buffer)], &mut cmsg);
+
+			if let Err(e) = ret {
+				match e.kind() {
+					std::io::ErrorKind::BrokenPipe => {
+						state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
+
+						// TODO: temp fix for pointer focus
+						let mut lock = state::pointer_over();
+
+						if let Some((fd, ..)) = *lock {
+							if fd == stream.as_raw_fd() {
+								*lock = None;
+							}
+						}
+
+						return Ok(());
+					}
+					_ => {
+						Err(e)?;
+					}
+				}
+			}
+
+			client.buffer.clear();
+		}
+
+		drop(clients);
+		std::thread::sleep(std::time::Duration::from_millis(10));
 	}
 }
 
