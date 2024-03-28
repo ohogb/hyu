@@ -26,7 +26,7 @@ pub fn window_stack() -> std::sync::MutexGuard<
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 	Remove(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
-	RemoveAll(std::os::fd::RawFd),
+	RemoveClient(std::os::fd::RawFd),
 }
 
 static CHANGES: std::sync::OnceLock<std::sync::Mutex<Vec<Change>>> = std::sync::OnceLock::new();
@@ -44,9 +44,12 @@ pub fn pointer_over(
 	POINTER_OVER.get_or_init(Default::default).lock().unwrap()
 }
 
-pub fn process_focus_changes() -> Result<bool> {
-	let mut has_pending_messages = false;
-
+pub fn process_focus_changes(
+	clients: &mut std::sync::MutexGuard<
+		'_,
+		std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
+	>,
+) -> Result<()> {
 	for change in std::mem::take(&mut *changes()) {
 		let mut lock = window_stack();
 		let old = lock.iter().next().cloned();
@@ -58,23 +61,16 @@ pub fn process_focus_changes() -> Result<bool> {
 			Change::Remove(fd, id) => {
 				lock.retain(|&x| x != (fd, id));
 			}
-			Change::RemoveAll(fd) => {
+			Change::RemoveClient(fd) => {
 				lock.retain(|&(x, _)| x != fd);
+				clients.remove(&fd);
 			}
 		}
 
 		let current = lock.iter().next().cloned();
 
-		let mut clients = clients();
-
-		eprintln!(
-			"{:?}, {:?}",
-			old.map(|x| (x.0, *x.1)),
-			current.map(|x| (x.0, *x.1))
-		);
-
 		if old == current {
-			return Ok(has_pending_messages);
+			return Ok(());
 		}
 
 		if let Some((fd, id)) = old {
@@ -89,8 +85,6 @@ pub fn process_focus_changes() -> Result<bool> {
 			}
 
 			xdg_toplevel.configure(client, 0, 0, &[])?;
-
-			has_pending_messages = true;
 		}
 
 		if let Some((fd, id)) = current {
@@ -105,12 +99,10 @@ pub fn process_focus_changes() -> Result<bool> {
 			}
 
 			xdg_toplevel.configure(client, 0, 0, &[4])?;
-
-			has_pending_messages = true;
 		}
 	}
 
-	Ok(has_pending_messages)
+	Ok(())
 }
 
 pub fn add_change(change: Change) {

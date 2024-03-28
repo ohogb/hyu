@@ -37,47 +37,47 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	loop {
 		{
 			let mut clients = state::clients();
-			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
+			state::process_focus_changes(&mut clients)?;
 
+			let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 			client.process_queue()?;
 
-			let mut cmsg_buffer = [0u8; 0x20];
-			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+			if !client.buffer.is_empty() {
+				let mut cmsg_buffer = [0u8; 0x20];
+				let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
 
-			cmsg.add_fds(&client.to_send_fds);
-			client.to_send_fds.clear();
+				cmsg.add_fds(&client.to_send_fds);
+				client.to_send_fds.clear();
 
-			let ret = stream
-				.send_vectored_with_ancillary(&[std::io::IoSlice::new(&client.buffer)], &mut cmsg);
+				let ret = stream.send_vectored_with_ancillary(
+					&[std::io::IoSlice::new(&client.buffer)],
+					&mut cmsg,
+				);
 
-			if let Err(e) = ret {
-				match e.kind() {
-					std::io::ErrorKind::BrokenPipe => {
-						clients.remove(&stream.as_raw_fd());
-						state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
+				if let Err(e) = ret {
+					match e.kind() {
+						std::io::ErrorKind::BrokenPipe => {
+							state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
 
-						// TODO: temp fix for pointer focus
-						let mut lock = state::pointer_over();
+							// TODO: temp fix for pointer focus
+							let mut lock = state::pointer_over();
 
-						if let Some((fd, ..)) = *lock {
-							if fd == stream.as_raw_fd() {
-								*lock = None;
+							if let Some((fd, ..)) = *lock {
+								if fd == stream.as_raw_fd() {
+									*lock = None;
+								}
 							}
-						}
 
-						return Ok(());
-					}
-					_ => {
-						Err(e)?;
+							return Ok(());
+						}
+						_ => {
+							Err(e)?;
+						}
 					}
 				}
+
+				client.buffer.clear();
 			}
-
-			client.buffer.clear();
-		}
-
-		if state::process_focus_changes().unwrap() {
-			continue;
 		}
 
 		let mut cmsg_buffer = [0u8; 0x20];
@@ -104,8 +104,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		let mut clients = state::clients();
 
 		if len == 0 {
-			clients.remove(&stream.as_raw_fd());
-			state::add_change(state::Change::RemoveAll(stream.as_raw_fd()));
+			state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
 
 			// TODO: temp fix for pointer focus
 			let mut lock = state::pointer_over();
@@ -151,6 +150,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		};
 
 		object.handle(client, op, params)?;
+		client.process_queue()?;
 	}
 }
 
