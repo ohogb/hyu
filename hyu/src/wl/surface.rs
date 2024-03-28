@@ -201,6 +201,7 @@ impl wl::Object for Surface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
+				client.queue_remove_object(self.object_id);
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
