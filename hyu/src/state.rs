@@ -54,18 +54,21 @@ pub fn process_focus_changes(
 		let mut lock = window_stack();
 		let old = lock.iter().next().cloned();
 
-		match change {
+		let should_leave_from_old = match change {
 			Change::Push(fd, id) => {
 				lock.push_front((fd, id));
+				true
 			}
 			Change::Remove(fd, id) => {
 				lock.retain(|&x| x != (fd, id));
+				false
 			}
 			Change::RemoveClient(fd) => {
 				lock.retain(|&(x, _)| x != fd);
 				clients.remove(&fd);
+				false
 			}
-		}
+		};
 
 		let current = lock.iter().next().cloned();
 
@@ -73,18 +76,20 @@ pub fn process_focus_changes(
 			return Ok(());
 		}
 
-		if let Some((fd, id)) = old {
-			let client = clients.get_mut(&fd).unwrap();
+		if should_leave_from_old {
+			if let Some((fd, id)) = old {
+				let client = clients.get_mut(&fd).unwrap();
 
-			let xdg_toplevel = client.get_object(id)?;
-			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-			let surface = client.get_object(xdg_surface.surface)?;
+				let xdg_toplevel = client.get_object(id)?;
+				let xdg_surface = client.get_object(xdg_toplevel.surface)?;
+				let surface = client.get_object(xdg_surface.surface).unwrap();
 
-			for keyboard in client.objects_mut::<wl::Keyboard>() {
-				keyboard.leave(client, surface.object_id)?;
+				for keyboard in client.objects_mut::<wl::Keyboard>() {
+					keyboard.leave(client, surface.object_id)?;
+				}
+
+				xdg_toplevel.configure(client, 0, 0, &[])?;
 			}
-
-			xdg_toplevel.configure(client, 0, 0, &[])?;
 		}
 
 		if let Some((fd, id)) = current {
