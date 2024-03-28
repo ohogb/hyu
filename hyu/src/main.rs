@@ -35,6 +35,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 	state::clients().insert(stream.as_raw_fd(), client);
 
+	let mut params = Vec::new();
+
 	loop {
 		let mut clients = state::clients();
 
@@ -92,7 +94,6 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 			let size = u16::from_ne_bytes(size) - 0x8;
 
-			let mut params = Vec::new();
 			let _ = (&mut stream)
 				.take(size as _)
 				.read_to_end(&mut params)
@@ -106,6 +107,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			};
 
 			object.handle(client, op, &params)?;
+			params.clear();
+
 			client.process_queue()?;
 		}
 
