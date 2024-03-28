@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{state, wl, Result};
 
 pub enum SubSurfaceMode {
 	Sync,
@@ -202,6 +202,15 @@ impl wl::Object for Surface {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
 				client.queue_remove_object(self.object_id);
+
+				// TODO: temp fix for pointer focus
+				let mut lock = state::pointer_over();
+
+				if let Some((fd, surface, ..)) = *lock {
+					if (fd, surface) == (client.fd, self.object_id) {
+						*lock = None;
+					}
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
