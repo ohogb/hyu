@@ -21,6 +21,7 @@ impl wl::Object for SubSurface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy
+				client.queue_remove_object(self.object_id);
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position
