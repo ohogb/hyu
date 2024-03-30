@@ -158,7 +158,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 }
 
 fn main() -> Result<()> {
-	std::thread::spawn(move || pollster::block_on(backend::wgpu::render()).unwrap());
+	std::thread::spawn(|| backend::winit::run(backend::wgpu::RendererSetup).unwrap());
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
