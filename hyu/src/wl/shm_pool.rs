@@ -64,7 +64,7 @@ impl wl::Object for ShmPool {
 					i32,
 					i32,
 					u32,
-				) = wlm::decode::from_slice(&params)?;
+				) = wlm::decode::from_slice(params)?;
 
 				client.queue_new_object(
 					id,
@@ -77,7 +77,7 @@ impl wl::Object for ShmPool {
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize
-				let size: u32 = wlm::decode::from_slice(&params)?;
+				let size: u32 = wlm::decode::from_slice(params)?;
 
 				self.size = size;
 				self.remap()?;

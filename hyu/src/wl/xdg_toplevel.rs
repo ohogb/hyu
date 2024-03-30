@@ -65,25 +65,25 @@ impl wl::Object for XdgToplevel {
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent
-				let _parent: u32 = wlm::decode::from_slice(&params)?;
+				let _parent: u32 = wlm::decode::from_slice(params)?;
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_title
-				let title: String = wlm::decode::from_slice(&params)?;
+				let title: String = wlm::decode::from_slice(params)?;
 				self.title = title;
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_app_id
-				let app_id: String = wlm::decode::from_slice(&params)?;
+				let app_id: String = wlm::decode::from_slice(params)?;
 				self.app_id = app_id;
 			}
 			7 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_max_size
-				let (_width, _height): (i32, i32) = wlm::decode::from_slice(&params)?;
+				let (_width, _height): (i32, i32) = wlm::decode::from_slice(params)?;
 			}
 			8 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_min_size
-				let (_width, _height): (u32, u32) = wlm::decode::from_slice(&params)?;
+				let (_width, _height): (u32, u32) = wlm::decode::from_slice(params)?;
 			}
 			10 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_maximized

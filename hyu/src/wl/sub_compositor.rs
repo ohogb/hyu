@@ -21,7 +21,7 @@ impl wl::Object for SubCompositor {
 					wl::Id<wl::SubSurface>,
 					wl::Id<wl::Surface>,
 					wl::Id<wl::Surface>,
-				) = wlm::decode::from_slice(&params)?;
+				) = wlm::decode::from_slice(params)?;
 
 				let parent = client.get_object_mut(parent_id)?;
 				parent.push(id);

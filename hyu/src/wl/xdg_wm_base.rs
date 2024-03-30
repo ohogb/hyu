@@ -28,13 +28,13 @@ impl wl::Object for XdgWmBase {
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (wl::Id<wl::XdgSurface>, wl::Id<wl::Surface>) =
-					wlm::decode::from_slice(&params)?;
+					wlm::decode::from_slice(params)?;
 
 				client.queue_new_object(id, wl::XdgSurface::new(id, surface));
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:pong
-				let _serial: u32 = wlm::decode::from_slice(&params)?;
+				let _serial: u32 = wlm::decode::from_slice(params)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgWmBase"))?,
 		}

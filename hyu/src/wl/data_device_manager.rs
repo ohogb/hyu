@@ -15,7 +15,7 @@ impl wl::Object for DataDeviceManager {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:get_data_device
 				let (id, seat): (wl::Id<wl::DataDevice>, wl::Id<wl::Seat>) =
-					wlm::decode::from_slice(&params)?;
+					wlm::decode::from_slice(params)?;
 
 				client.queue_new_object(id, wl::DataDevice::new(seat));
 			}

@@ -26,12 +26,12 @@ impl wl::Object for Seat {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_pointer
-				let id: wl::Id<wl::Pointer> = wlm::decode::from_slice(&params)?;
+				let id: wl::Id<wl::Pointer> = wlm::decode::from_slice(params)?;
 				client.queue_new_object(id, wl::Pointer::new(id, self.object_id));
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_keyboard
-				let id: wl::Id<wl::Keyboard> = wlm::decode::from_slice(&params)?;
+				let id: wl::Id<wl::Keyboard> = wlm::decode::from_slice(params)?;
 
 				let mut keyboard = wl::Keyboard::new(id, self.object_id);
 				keyboard.keymap(client)?;

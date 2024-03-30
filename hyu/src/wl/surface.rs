@@ -215,7 +215,7 @@ impl wl::Object for Surface {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
 				let (buffer, x, y): (wl::Id<wl::Buffer>, u32, u32) =
-					wlm::decode::from_slice(&params)?;
+					wlm::decode::from_slice(params)?;
 
 				assert!(x == 0);
 				assert!(y == 0);
@@ -233,7 +233,7 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 
 				// TODO: callback type
-				let callback: wl::Id<()> = wlm::decode::from_slice(&params)?;
+				let callback: wl::Id<()> = wlm::decode::from_slice(params)?;
 				self.pending_frame_callbacks.push(callback);
 			}
 			4 => {
@@ -241,7 +241,7 @@ impl wl::Object for Surface {
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
-				let region: wl::Id<wl::Region> = wlm::decode::from_slice(&params)?;
+				let region: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
 
 				let region = if region.is_null() {
 					wl::Region::new(wl::Id::null())
@@ -259,12 +259,12 @@ impl wl::Object for Surface {
 			}
 			8 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
-				let _scale: u32 = wlm::decode::from_slice(&params)?;
+				let _scale: u32 = wlm::decode::from_slice(params)?;
 			}
 			9 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage_buffer
 				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
-					wlm::decode::from_slice(&params)?;
+					wlm::decode::from_slice(params)?;
 			}
 			_ => Err(format!("unknown op '{op}' in Surface"))?,
 		}

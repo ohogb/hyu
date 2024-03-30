@@ -45,7 +45,7 @@ impl wl::Object for XdgSurface {
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
-				let id: wl::Id<wl::XdgToplevel> = wlm::decode::from_slice(&params)?;
+				let id: wl::Id<wl::XdgToplevel> = wlm::decode::from_slice(params)?;
 				let start_position = client.start_position;
 
 				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
@@ -60,7 +60,7 @@ impl wl::Object for XdgSurface {
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry
-				let (x, y, width, height): (i32, i32, i32, i32) = wlm::decode::from_slice(&params)?;
+				let (x, y, width, height): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 
 				// TODO: double buffer
 				self.position = (x, y);
@@ -68,7 +68,7 @@ impl wl::Object for XdgSurface {
 			}
 			4 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:ack_configure
-				let _serial: u32 = wlm::decode::from_slice(&params)?;
+				let _serial: u32 = wlm::decode::from_slice(params)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgSurface"))?,
 		}

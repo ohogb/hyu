@@ -31,7 +31,7 @@ impl wl::Object for Registry {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_registry:request:bind
 				let (name, interface, _version, client_object): (u32, String, u32, u32) =
-					wlm::decode::from_slice(&params)?;
+					wlm::decode::from_slice(params)?;
 
 				println!(" {client_object}, {name}, {interface:?} {_version}");
 

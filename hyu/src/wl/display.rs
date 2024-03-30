@@ -29,7 +29,7 @@ impl wl::Object for Display {
 				// https://wayland.app/protocols/wayland#wl_display:request:sync
 
 				// TODO: callback type
-				let callback: wl::Id<()> = wlm::decode::from_slice(&params)?;
+				let callback: wl::Id<()> = wlm::decode::from_slice(params)?;
 
 				client.send_message(wlm::Message {
 					object_id: *callback,
@@ -41,7 +41,7 @@ impl wl::Object for Display {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry
-				let registry_index: wl::Id<wl::Registry> = wlm::decode::from_slice(&params)?;
+				let registry_index: wl::Id<wl::Registry> = wlm::decode::from_slice(params)?;
 				let registry = wl::Registry::new(registry_index, self.object_id);
 
 				for (index, global) in self.globals.iter().enumerate() {

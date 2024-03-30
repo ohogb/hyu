@@ -25,7 +25,7 @@ impl wl::Object for SubSurface {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position
-				let (x, y): (i32, i32) = wlm::decode::from_slice(&params)?;
+				let (x, y): (i32, i32) = wlm::decode::from_slice(params)?;
 				self.position = (x, y);
 			}
 			4 => {
