@@ -153,7 +153,7 @@ pub struct Renderer<'a> {
 
 impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 	fn render(&mut self) -> Result<()> {
-		let frame = self.surface.get_current_texture().unwrap();
+		let frame = self.surface.get_current_texture()?;
 
 		let view = frame.texture.create_view(&wgpu::TextureViewDescriptor {
 			..Default::default()
@@ -187,27 +187,23 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 		for (client, window) in state::window_stack().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
-			let window = client.get_object(*window).unwrap();
+			let window = client.get_object(*window)?;
 
-			let xdg_surface = client.get_object(window.surface).unwrap();
-			let surface = client.get_object_mut(xdg_surface.surface).unwrap();
+			let xdg_surface = client.get_object(window.surface)?;
+			let surface = client.get_object_mut(xdg_surface.surface)?;
 
-			surface
-				.wgpu_do_textures(
-					client,
-					&self.device,
-					&self.queue,
-					&self.sampler,
-					&self.bind_group_layout,
-				)
-				.unwrap();
+			surface.wgpu_do_textures(
+				client,
+				&self.device,
+				&self.queue,
+				&self.sampler,
+				&self.bind_group_layout,
+			)?;
 
-			surface
-				.frame(self.start_time.elapsed().as_millis() as u32, client)
-				.unwrap();
+			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
 
 			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
-				let surface = client.get_object(surface_id).unwrap();
+				let surface = client.get_object(surface_id)?;
 
 				let Some((.., (_, bind_group))) = &surface.data else {
 					panic!();

@@ -66,10 +66,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 					let client = clients.get_mut(client).unwrap();
 
-					fn get_surface_input_size(
-						client: &wl::Client,
-						surface: &wl::Surface,
-					) -> (i32, i32) {
+					fn get_surface_input_size(surface: &wl::Surface) -> (i32, i32) {
 						None.or_else(|| {
 							if surface.current_input_region.as_ref()?.areas.is_empty() {
 								Some((0, 0))
@@ -124,7 +121,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 									surface_position.0 + sub_surface.position.0,
 									surface_position.1 + sub_surface.position.1,
 								),
-								get_surface_input_size(client, surface),
+								get_surface_input_size(surface),
 							);
 						}
 					}
@@ -143,7 +140,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						surface,
 						cursor_position.into(),
 						position,
-						get_surface_input_size(client, surface),
+						get_surface_input_size(surface),
 					);
 				}
 
