@@ -62,6 +62,7 @@ impl wl::Object for XdgToplevel {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
 				state::add_change(state::Change::Remove(client.fd, self.object_id));
+				client.queue_remove_object(self.object_id);
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent
