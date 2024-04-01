@@ -19,9 +19,8 @@ pub struct Surface {
 	pub children: Vec<wl::Id<wl::SubSurface>>,
 	pending_buffer: Option<wl::Id<wl::Buffer>>,
 	current_buffer: Option<wl::Id<wl::Buffer>>,
-	// TODO: callback type
-	pending_frame_callbacks: Vec<wl::Id<()>>,
-	current_frame_callbacks: Vec<wl::Id<()>>,
+	pending_frame_callbacks: Vec<wl::Id<wl::Callback>>,
+	current_frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pending_input_region: Option<wl::Region>,
 	pub current_input_region: Option<wl::Region>,
 	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
@@ -78,13 +77,8 @@ impl Surface {
 
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
 		for &callback in &self.current_frame_callbacks {
-			client.send_message(wlm::Message {
-				object_id: *callback,
-				op: 0,
-				args: ms,
-			})?;
-
-			client.remove_object(callback)?;
+			let callback = client.get_object(callback)?.clone();
+			callback.done(client, ms)?;
 		}
 
 		self.current_frame_callbacks.clear();
@@ -231,9 +225,9 @@ impl wl::Object for Surface {
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
+				let callback: wl::Id<wl::Callback> = wlm::decode::from_slice(params)?;
+				client.new_object(callback, wl::Callback::new(callback));
 
-				// TODO: callback type
-				let callback: wl::Id<()> = wlm::decode::from_slice(params)?;
 				self.pending_frame_callbacks.push(callback);
 			}
 			4 => {

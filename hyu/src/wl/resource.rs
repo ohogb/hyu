@@ -55,6 +55,7 @@ macro_rules! implement {
 
 implement![
 	Buffer,
+	Callback,
 	Compositor,
 	DataDevice,
 	DataDeviceManager,

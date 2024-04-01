@@ -27,17 +27,13 @@ impl wl::Object for Display {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:sync
+				let callback: wl::Id<wl::Callback> = wlm::decode::from_slice(params)?;
 
-				// TODO: callback type
-				let callback: wl::Id<()> = wlm::decode::from_slice(params)?;
+				let callback = client
+					.new_object(callback, wl::Callback::new(callback))
+					.clone();
 
-				client.send_message(wlm::Message {
-					object_id: *callback,
-					op: 0,
-					args: 0u32,
-				})?;
-
-				client.remove_object(callback)?;
+				callback.done(client, 0)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry

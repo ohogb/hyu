@@ -1,5 +1,6 @@
 use crate::{wl, Result};
 
+#[derive(Clone)]
 pub struct Callback {
 	object_id: wl::Id<Self>,
 }
