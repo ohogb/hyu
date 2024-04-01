@@ -4,7 +4,7 @@ pub struct Id<T> {
 }
 
 impl<T> Id<T> {
-	pub fn new(id: u32) -> Self {
+	pub const fn new(id: u32) -> Self {
 		Self {
 			id,
 			_phantom: std::marker::PhantomData,
