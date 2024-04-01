@@ -58,12 +58,10 @@ impl<'object> Client<'object> {
 		// TODO: check that it's type T
 
 		self.objects[*id as usize] = None;
+		const DISPLAY_ID: wl::Id<wl::Display> = wl::Id::new(1);
 
-		self.send_message(wlm::Message {
-			object_id: 1,
-			op: 1,
-			args: id,
-		})
+		let display = self.get_object(DISPLAY_ID)?;
+		display.delete_id(self, id)
 	}
 
 	pub fn get_object<T>(&self, id: wl::Id<T>) -> Result<&'object T>
