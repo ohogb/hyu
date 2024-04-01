@@ -1,18 +1,13 @@
 use crate::{wl, Result};
 
-enum ObjectChange {
-	Add { id: u32, resource: wl::Resource },
-	Remove { id: u32 },
-}
-
 pub struct Client<'object> {
 	pub fd: std::os::fd::RawFd,
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
-	object_queue: Vec<Option<ObjectChange>>,
 	pub buffer: Vec<u8>,
 	pub start_position: (i32, i32),
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
+	highest_index: u32,
 	_phantom: std::marker::PhantomData<&'object ()>,
 }
 
@@ -21,62 +16,54 @@ impl<'object> Client<'object> {
 		Self {
 			fd,
 			objects: Vec::new(),
-			object_queue: Vec::new(),
 			buffer: Vec::new(),
 			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
+			highest_index: 0,
 			_phantom: std::marker::PhantomData,
 		}
 	}
 
-	pub fn queue_new_object<T: Into<wl::Resource>>(&mut self, id: wl::Id<T>, object: T) {
-		self.object_queue.push(Some(ObjectChange::Add {
-			id: *id,
-			resource: object.into(),
-		}));
+	pub fn ensure_objects_capacity(&mut self) {
+		// TODO: cleanup this mess
+		const THRESHOLD: isize = 10;
+
+		if ((self.objects.len() as isize - self.highest_index as isize) - THRESHOLD) < 0 {
+			self.objects.resize_with(
+				(self.objects.len() + THRESHOLD as usize) * 2,
+				Default::default,
+			);
+		}
 	}
 
-	pub fn queue_remove_object<T>(&mut self, id: wl::Id<T>) {
-		self.object_queue
-			.push(Some(ObjectChange::Remove { id: *id }));
-	}
+	pub fn new_object<T: Into<wl::Resource>>(&mut self, id: wl::Id<T>, object: T) -> &'object mut T
+	where
+		Result<&'object mut T>: From<&'object mut wl::Resource>,
+	{
+		assert!((*id as usize) < self.objects.len());
+		assert!(self.objects[*id as usize].is_none());
 
-	pub fn process_queue(&mut self) -> Result<()> {
-		let mut changes = std::mem::take(&mut self.object_queue);
+		self.objects[*id as usize] = Some(std::cell::UnsafeCell::new(object.into()));
 
-		for change in &mut changes {
-			let change = std::mem::take(change);
-			let change = change.expect("`None` shouldn't exist in `object_changes`");
-
-			match change {
-				ObjectChange::Add { id, resource } => {
-					if self.objects.len() < (id + 1) as usize {
-						self.objects.resize_with((id + 1) as _, Default::default);
-					}
-
-					self.objects[id as usize] = Some(std::cell::UnsafeCell::new(resource));
-				}
-				ObjectChange::Remove { id } => {
-					// TODO: make sure `id` exists
-
-					if let Some(a) = self.objects.get_mut(id as usize) {
-						*a = None;
-					}
-
-					self.send_message(wlm::Message {
-						object_id: 1,
-						op: 1,
-						args: id,
-					})?;
-				}
-			}
+		if self.highest_index < *id {
+			self.highest_index = *id;
 		}
 
-		self.object_queue = changes;
-		self.object_queue.clear();
+		self.get_object_mut(id).unwrap()
+	}
 
-		Ok(())
+	pub fn remove_object<T>(&mut self, id: wl::Id<T>) -> Result<()> {
+		// assert!(self.objects[id].is_some());
+		// TODO: check that it's type T
+
+		self.objects[*id as usize] = None;
+
+		self.send_message(wlm::Message {
+			object_id: 1,
+			op: 1,
+			args: id,
+		})
 	}
 
 	pub fn get_object<T>(&self, id: wl::Id<T>) -> Result<&'object T>

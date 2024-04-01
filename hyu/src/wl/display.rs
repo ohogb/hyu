@@ -37,7 +37,7 @@ impl wl::Object for Display {
 					args: 0u32,
 				})?;
 
-				client.queue_remove_object(callback);
+				client.remove_object(callback)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry
@@ -53,7 +53,7 @@ impl wl::Object for Display {
 					)?;
 				}
 
-				client.queue_new_object(registry_index, registry);
+				client.new_object(registry_index, registry);
 			}
 			_ => Err(format!("unknown op '{op}' in Display"))?,
 		}

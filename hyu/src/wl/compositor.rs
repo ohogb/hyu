@@ -15,12 +15,12 @@ impl wl::Object for Compositor {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_compositor:request:create_surface
 				let id: wl::Id<wl::Surface> = wlm::decode::from_slice(params)?;
-				client.queue_new_object(id, wl::Surface::new(id));
+				client.new_object(id, wl::Surface::new(id));
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_compositor:request:create_region
 				let id: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
-				client.queue_new_object(id, wl::Region::new(id));
+				client.new_object(id, wl::Region::new(id));
 			}
 			_ => Err(format!("unknown op '{op}' in Compositor"))?,
 		}
@@ -39,7 +39,7 @@ impl wl::Global for Compositor {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(wl::Id::new(object_id), Self::new());
+		client.new_object(wl::Id::new(object_id), Self::new());
 		Ok(())
 	}
 }

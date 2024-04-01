@@ -30,8 +30,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::Output::new());
 	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 
-	client.queue_new_object(wl::Id::new(1), display);
-	client.process_queue()?;
+	client.ensure_objects_capacity();
+	client.new_object(wl::Id::new(1), display);
 
 	state::clients().insert(stream.as_raw_fd(), client);
 
@@ -102,20 +102,19 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
 
+			client.ensure_objects_capacity();
+
 			let Some(object) = client.get_resource_mut(object) else {
 				return Err(format!("unknown object '{object}'"))?;
 			};
 
 			object.handle(client, op, &params)?;
 			params.clear();
-
-			client.process_queue()?;
 		}
 
 		state::process_focus_changes(&mut clients).unwrap();
 
 		let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
-		client.process_queue()?;
 
 		if !client.buffer.is_empty() {
 			let mut cmsg_buffer = [0u8; 0x20];

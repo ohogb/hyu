@@ -66,14 +66,14 @@ impl wl::Object for ShmPool {
 					u32,
 				) = wlm::decode::from_slice(params)?;
 
-				client.queue_new_object(
+				client.new_object(
 					id,
 					wl::Buffer::new(id, self.object_id, offset, width, height, stride, format),
 				);
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:destroy
-				client.queue_remove_object(self.object_id);
+				client.remove_object(self.object_id)?;
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize

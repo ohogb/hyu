@@ -30,7 +30,7 @@ impl wl::Object for XdgWmBase {
 				let (id, surface): (wl::Id<wl::XdgSurface>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
-				client.queue_new_object(id, wl::XdgSurface::new(id, surface));
+				client.new_object(id, wl::XdgSurface::new(id, surface));
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:pong
@@ -53,7 +53,7 @@ impl wl::Global for XdgWmBase {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 		Ok(())
 	}
 }

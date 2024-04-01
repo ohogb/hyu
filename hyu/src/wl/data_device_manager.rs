@@ -17,7 +17,7 @@ impl wl::Object for DataDeviceManager {
 				let (id, seat): (wl::Id<wl::DataDevice>, wl::Id<wl::Seat>) =
 					wlm::decode::from_slice(params)?;
 
-				client.queue_new_object(id, wl::DataDevice::new(seat));
+				client.new_object(id, wl::DataDevice::new(seat));
 			}
 			_ => Err(format!("unknown op '{op}' in DataDeviceManager"))?,
 		}
@@ -36,7 +36,7 @@ impl wl::Global for DataDeviceManager {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(wl::Id::new(object_id), Self::new());
+		client.new_object(wl::Id::new(object_id), Self::new());
 		Ok(())
 	}
 }

@@ -84,7 +84,7 @@ impl Surface {
 				args: ms,
 			})?;
 
-			client.queue_remove_object(callback);
+			client.remove_object(callback)?;
 		}
 
 		self.current_frame_callbacks.clear();
@@ -201,7 +201,7 @@ impl wl::Object for Surface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
-				client.queue_remove_object(self.object_id);
+				client.remove_object(self.object_id)?;
 
 				// TODO: temp fix for pointer focus
 				let mut lock = state::pointer_over();

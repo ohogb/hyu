@@ -56,7 +56,7 @@ impl wl::Object for XdgSurface {
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
 
-				client.queue_new_object(id, xdg_toplevel);
+				client.new_object(id, xdg_toplevel);
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry

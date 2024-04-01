@@ -27,7 +27,7 @@ impl wl::Object for Seat {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_pointer
 				let id: wl::Id<wl::Pointer> = wlm::decode::from_slice(params)?;
-				client.queue_new_object(id, wl::Pointer::new(id, self.object_id));
+				client.new_object(id, wl::Pointer::new(id, self.object_id));
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_keyboard
@@ -37,7 +37,7 @@ impl wl::Object for Seat {
 				keyboard.keymap(client)?;
 				keyboard.repeat_info(client, 500, 500)?;
 
-				client.queue_new_object(id, keyboard);
+				client.new_object(id, keyboard);
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:release
@@ -59,7 +59,7 @@ impl wl::Global for Seat {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.queue_new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
 		client.send_message(wlm::Message {
 			object_id,
