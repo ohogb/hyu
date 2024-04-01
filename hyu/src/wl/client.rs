@@ -54,7 +54,7 @@ impl<'object> Client<'object> {
 	}
 
 	pub fn remove_object<T>(&mut self, id: wl::Id<T>) -> Result<()> {
-		// assert!(self.objects[id].is_some());
+		assert!(self.objects[*id as usize].is_some());
 		// TODO: check that it's type T
 
 		self.objects[*id as usize] = None;
