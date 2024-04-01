@@ -13,6 +13,15 @@ impl Display {
 		}
 	}
 
+	// https://wayland.app/protocols/wayland#wl_display:event:delete_id
+	pub fn delete_id<T>(&self, client: &mut wl::Client, id: wl::Id<T>) -> Result<()> {
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 1,
+			args: id,
+		})
+	}
+
 	pub fn get_global(&self, key: u32) -> Option<&(dyn wl::Global + Send + Sync)> {
 		self.globals.get(key as usize - 1).map(|x| &**x)
 	}
