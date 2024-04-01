@@ -11,6 +11,7 @@ impl Callback {
 	}
 
 	pub fn done(self, client: &mut wl::Client, data: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_callback:event:done
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,

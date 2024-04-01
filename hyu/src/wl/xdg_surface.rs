@@ -20,13 +20,12 @@ impl XdgSurface {
 	}
 
 	pub fn configure(&mut self, client: &mut wl::Client) -> Result<()> {
+		// https://wayland.app/protocols/xdg-shell#xdg_surface:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: self.serial(),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	fn serial(&mut self) -> u32 {

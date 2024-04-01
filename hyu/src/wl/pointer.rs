@@ -17,9 +17,9 @@ impl Pointer {
 		x: i32,
 		y: i32,
 	) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
@@ -29,22 +29,18 @@ impl Pointer {
 				fixed::types::I24F8::from_num(x),
 				fixed::types::I24F8::from_num(y),
 			),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (seat.serial(), surface),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn motion(&mut self, client: &mut wl::Client, x: i32, y: i32) -> Result<()> {
@@ -57,22 +53,18 @@ impl Pointer {
 				fixed::types::I24F8::from_num(x),
 				fixed::types::I24F8::from_num(y),
 			),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn button(&mut self, client: &mut wl::Client, button: u32, state: u32) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_pointer:event:button
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_pointer:event:button
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
 			args: (seat.serial(), 0, button, state),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
@@ -81,9 +73,7 @@ impl Pointer {
 			object_id: *self.object_id,
 			op: 5,
 			args: (),
-		})?;
-
-		Ok(())
+		})
 	}
 }
 

@@ -41,9 +41,7 @@ impl XdgToplevel {
 		})?;
 
 		let xdg_surface = client.get_object_mut(self.surface)?;
-		xdg_surface.configure(client)?;
-
-		Ok(())
+		xdg_surface.configure(client)
 	}
 
 	pub fn configure_bounds(&self, client: &mut wl::Client, width: i32, height: i32) -> Result<()> {

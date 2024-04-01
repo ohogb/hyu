@@ -13,8 +13,8 @@ impl Display {
 		}
 	}
 
-	// https://wayland.app/protocols/wayland#wl_display:event:delete_id
 	pub fn delete_id<T>(&self, client: &mut wl::Client, id: wl::Id<T>) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_display:event:delete_id
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,

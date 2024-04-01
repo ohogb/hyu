@@ -18,9 +18,9 @@ impl Keyboard {
 	}
 
 	pub fn keymap(&mut self, client: &mut wl::Client) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_keyboard:event:keymap
 		let file = Box::leak(Box::new(std::fs::File::open("xkb")?));
 
+		// https://wayland.app/protocols/wayland#wl_keyboard:event:keymap
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
@@ -33,57 +33,49 @@ impl Keyboard {
 	}
 
 	pub fn enter(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (seat.serial(), surface, &[] as &[i32]),
 		})?;
 
-		self.modifiers(client)?;
-
-		Ok(())
+		self.modifiers(client)
 	}
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (seat.serial(), surface),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn key(&mut self, client: &mut wl::Client, key: u32, state: u32) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
 			args: (seat.serial(), 100, key, state),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn modifiers(&mut self, client: &mut wl::Client) -> Result<()> {
-		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
 		let seat = client.get_object_mut(self.seat_id)?;
 
+		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 4,
 			args: (seat.serial(), 0, 0, 0, 0),
-		})?;
-
-		Ok(())
+		})
 	}
 
 	pub fn repeat_info(&mut self, client: &mut wl::Client, rate: i32, delay: i32) -> Result<()> {
@@ -92,9 +84,7 @@ impl Keyboard {
 			object_id: *self.object_id,
 			op: 5,
 			args: (rate, delay),
-		})?;
-
-		Ok(())
+		})
 	}
 }
 
