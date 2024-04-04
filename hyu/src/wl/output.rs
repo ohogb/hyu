@@ -1,11 +1,41 @@
 use crate::{wl, Result};
 
-#[derive(Debug)]
-pub struct Output {}
+pub struct Output {
+	object_id: wl::Id<Self>,
+}
 
 impl Output {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: wl::Id<Self>) -> Self {
+		Self { object_id }
+	}
+
+	fn geometry(
+		&self,
+		client: &mut wl::Client,
+		x: i32,
+		y: i32,
+		physical_width: i32,
+		physical_height: i32,
+		subpixel: i32,
+		make: &str,
+		model: &str,
+		transform: i32,
+	) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_output:event:geometry
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 0,
+			args: (
+				x,
+				y,
+				physical_width,
+				physical_height,
+				subpixel,
+				make,
+				model,
+				transform,
+			),
+		})
 	}
 }
 
@@ -32,13 +62,9 @@ impl wl::Global for Output {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new());
+		let output = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
-		client.send_message(wlm::Message {
-			object_id,
-			op: 0,
-			args: (0u32, 0u32, 600u32, 340u32, 0u32, "AUS", "ROG XG27AQM", 0u32),
-		})?;
+		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;
 
 		client.send_message(wlm::Message {
 			object_id,
