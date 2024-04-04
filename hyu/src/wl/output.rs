@@ -62,6 +62,15 @@ impl Output {
 			args: (),
 		})
 	}
+
+	fn scale(&self, client: &mut wl::Client, factor: i32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_output:event:scale
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 3,
+			args: factor,
+		})
+	}
 }
 
 impl wl::Object for Output {
@@ -91,13 +100,7 @@ impl wl::Global for Output {
 
 		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;
 		output.mode(client, 3, 2560, 1440, 270000)?;
-
-		client.send_message(wlm::Message {
-			object_id,
-			op: 3,
-			args: 1u32,
-		})?;
-
+		output.scale(client, 1)?;
 		output.done(client)?;
 
 		Ok(())
