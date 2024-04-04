@@ -53,6 +53,15 @@ impl Output {
 			args: (flags, width, height, refresh),
 		})
 	}
+
+	fn done(&self, client: &mut wl::Client) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_output:event:done
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 2,
+			args: (),
+		})
+	}
 }
 
 impl wl::Object for Output {
@@ -89,11 +98,7 @@ impl wl::Global for Output {
 			args: 1u32,
 		})?;
 
-		client.send_message(wlm::Message {
-			object_id,
-			op: 2,
-			args: (),
-		})?;
+		output.done(client)?;
 
 		Ok(())
 	}
