@@ -37,6 +37,22 @@ impl Output {
 			),
 		})
 	}
+
+	fn mode(
+		&self,
+		client: &mut wl::Client,
+		flags: u32,
+		width: i32,
+		height: i32,
+		refresh: i32,
+	) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_output:event:mode
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 1,
+			args: (flags, width, height, refresh),
+		})
+	}
 }
 
 impl wl::Object for Output {
@@ -65,12 +81,7 @@ impl wl::Global for Output {
 		let output = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
 		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;
-
-		client.send_message(wlm::Message {
-			object_id,
-			op: 1,
-			args: (3u32, 2560u32, 1440u32, 270000u32),
-		})?;
+		output.mode(client, 3, 2560, 1440, 270000)?;
 
 		client.send_message(wlm::Message {
 			object_id,
