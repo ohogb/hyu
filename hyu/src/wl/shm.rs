@@ -1,11 +1,21 @@
 use crate::{wl, Result};
 
-#[derive(Debug, Clone)]
-pub struct Shm {}
+pub struct Shm {
+	object_id: wl::Id<Self>,
+}
 
 impl Shm {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: wl::Id<Self>) -> Self {
+		Self { object_id }
+	}
+
+	fn format(&self, client: &mut wl::Client, format: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_shm:event:format
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 0,
+			args: format,
+		})
 	}
 }
 
@@ -36,19 +46,10 @@ impl wl::Global for Shm {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new());
+		let shm = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
-		client.send_message(wlm::Message {
-			object_id,
-			op: 0,
-			args: 0u32,
-		})?;
-
-		client.send_message(wlm::Message {
-			object_id,
-			op: 0,
-			args: 1u32,
-		})?;
+		shm.format(client, 0)?;
+		shm.format(client, 1)?;
 
 		Ok(())
 	}

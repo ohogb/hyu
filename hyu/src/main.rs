@@ -22,7 +22,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 	let mut display = wl::Display::new(wl::Id::new(1));
 
-	display.push_global(wl::Shm::new());
+	display.push_global(wl::Shm::new(wl::Id::null()));
 	display.push_global(wl::Compositor::new());
 	display.push_global(wl::SubCompositor::new());
 	display.push_global(wl::DataDeviceManager::new());
