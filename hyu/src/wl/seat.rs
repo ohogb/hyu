@@ -13,6 +13,15 @@ impl Seat {
 		}
 	}
 
+	fn capabilities(&self, client: &mut wl::Client, capabilities: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_seat:event:capabilities
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 0,
+			args: capabilities,
+		})
+	}
+
 	pub fn serial(&mut self) -> u32 {
 		let ret = self.serial;
 		self.serial += 1;
@@ -59,14 +68,8 @@ impl wl::Global for Seat {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		let seat = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
-		client.send_message(wlm::Message {
-			object_id,
-			op: 0,
-			args: 3u32,
-		})?;
-
-		Ok(())
+		seat.capabilities(client, 3)
 	}
 }
