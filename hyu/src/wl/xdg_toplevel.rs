@@ -93,6 +93,9 @@ impl wl::Object for XdgToplevel {
 			12 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_fullscreen
 			}
+			13 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_minimized
+			}
 			_ => Err(format!("unknown op '{op}' in XdgToplevel"))?,
 		}
 
