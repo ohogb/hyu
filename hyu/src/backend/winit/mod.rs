@@ -83,6 +83,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 					fn do_stuff(
 						client: &mut wl::Client,
+						toplevel: &wl::XdgToplevel,
 						surface: &wl::Surface,
 						cursor_position: (i32, i32),
 						surface_position: (i32, i32),
@@ -99,14 +100,15 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						}
 
 						if is_point_inside_area(cursor_position, surface_position, surface_size) {
-							*state::pointer_over() = Some((
-								client.fd,
-								surface.object_id,
-								(
+							*state::pointer_over() = Some(state::PointerOver {
+								fd: client.fd,
+								toplevel: toplevel.object_id,
+								surface: surface.object_id,
+								position: (
 									cursor_position.0 - surface_position.0,
 									cursor_position.1 - surface_position.1,
 								),
-							));
+							});
 						}
 
 						for child in &surface.children {
@@ -115,6 +117,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 							do_stuff(
 								client,
+								toplevel,
 								surface,
 								cursor_position,
 								(
@@ -137,6 +140,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 					do_stuff(
 						client,
+						toplevel,
 						surface,
 						cursor_position.into(),
 						position,
@@ -150,8 +154,8 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					return;
 				}
 
-				if old.map(|x| (x.0, x.1)) != current.map(|x| (x.0, x.1)) {
-					if let Some((fd, surface, ..)) = old {
+				if old.map(|x| (x.fd, x.surface)) != current.map(|x| (x.fd, x.surface)) {
+					if let Some(state::PointerOver { fd, surface, .. }) = old {
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {
@@ -160,7 +164,13 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						}
 					}
 
-					if let Some((fd, surface, (x, y))) = current {
+					if let Some(state::PointerOver {
+						fd,
+						surface,
+						position: (x, y),
+						..
+					}) = current
+					{
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {
@@ -168,8 +178,13 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 							pointer.frame(client).unwrap();
 						}
 					}
-				} else if old.map(|x| x.2) != current.map(|x| x.2) {
-					let (fd, _, (x, y)) = current.unwrap();
+				} else if old.map(|x| x.position) != current.map(|x| x.position) {
+					let state::PointerOver {
+						fd,
+						position: (x, y),
+						..
+					} = current.unwrap();
+
 					let client = clients.get_mut(&fd).unwrap();
 
 					for pointer in client.objects_mut::<wl::Pointer>() {
@@ -185,13 +200,21 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						winit::event::ElementState::Released => 0,
 					};
 
-					if let Some((fd, ..)) = *state::pointer_over() {
+					if let Some(state::PointerOver { fd, toplevel, .. }) = *state::pointer_over() {
 						let mut clients = state::clients();
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {
 							pointer.button(client, 0x110, input_state).unwrap();
 							pointer.frame(client).unwrap();
+						}
+
+						let Some(&topmost) = state::window_stack().front() else {
+							panic!();
+						};
+
+						if topmost != (fd, toplevel) {
+							state::add_change(state::Change::Pick(fd, toplevel));
 						}
 					}
 				}

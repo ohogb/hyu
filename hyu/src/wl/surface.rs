@@ -198,7 +198,7 @@ impl wl::Object for Surface {
 				// TODO: temp fix for pointer focus
 				let mut lock = state::pointer_over();
 
-				if let Some((fd, surface, ..)) = *lock {
+				if let Some(state::PointerOver { fd, surface, .. }) = *lock {
 					if (fd, surface) == (client.fd, self.object_id) {
 						*lock = None;
 					}

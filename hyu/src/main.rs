@@ -67,8 +67,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				// TODO: temp fix for pointer focus
 				let mut lock = state::pointer_over();
 
-				if let Some((fd, ..)) = *lock {
-					if fd == stream.as_raw_fd() {
+				if let Some(x) = *lock {
+					if x.fd == stream.as_raw_fd() {
 						*lock = None;
 					}
 				}
@@ -134,8 +134,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 						// TODO: temp fix for pointer focus
 						let mut lock = state::pointer_over();
 
-						if let Some((fd, ..)) = *lock {
-							if fd == stream.as_raw_fd() {
+						if let Some(x) = *lock {
+							if x.fd == stream.as_raw_fd() {
 								*lock = None;
 							}
 						}

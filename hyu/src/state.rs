@@ -27,6 +27,7 @@ pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 	Remove(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 	RemoveClient(std::os::fd::RawFd),
+	Pick(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 }
 
 static CHANGES: std::sync::OnceLock<std::sync::Mutex<Vec<Change>>> = std::sync::OnceLock::new();
@@ -35,12 +36,18 @@ pub fn changes() -> std::sync::MutexGuard<'static, Vec<Change>> {
 	CHANGES.get_or_init(Default::default).lock().unwrap()
 }
 
-static POINTER_OVER: std::sync::OnceLock<
-	std::sync::Mutex<Option<(std::os::fd::RawFd, wl::Id<wl::Surface>, (i32, i32))>>,
-> = std::sync::OnceLock::new();
+#[derive(Clone, Copy)]
+pub struct PointerOver {
+	pub fd: std::os::fd::RawFd,
+	pub toplevel: wl::Id<wl::XdgToplevel>,
+	pub surface: wl::Id<wl::Surface>,
+	pub position: (i32, i32),
+}
 
-pub fn pointer_over(
-) -> std::sync::MutexGuard<'static, Option<(std::os::fd::RawFd, wl::Id<wl::Surface>, (i32, i32))>> {
+static POINTER_OVER: std::sync::OnceLock<std::sync::Mutex<Option<PointerOver>>> =
+	std::sync::OnceLock::new();
+
+pub fn pointer_over() -> std::sync::MutexGuard<'static, Option<PointerOver>> {
 	POINTER_OVER.get_or_init(Default::default).lock().unwrap()
 }
 
@@ -67,6 +74,14 @@ pub fn process_focus_changes(
 				lock.retain(|&(x, _)| x != fd);
 				clients.remove(&fd);
 				false
+			}
+			Change::Pick(fd, toplevel) => {
+				let size_before = lock.len();
+				lock.retain(|&x| x != (fd, toplevel));
+				assert!(lock.len() == (size_before - 1));
+
+				lock.push_front((fd, toplevel));
+				true
 			}
 		};
 

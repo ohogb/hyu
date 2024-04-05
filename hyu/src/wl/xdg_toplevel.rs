@@ -1,7 +1,7 @@
 use crate::{state, wl, Result};
 
 pub struct XdgToplevel {
-	object_id: wl::Id<Self>,
+	pub object_id: wl::Id<Self>,
 	pub surface: wl::Id<wl::XdgSurface>,
 	app_id: String,
 	title: String,
