@@ -76,6 +76,10 @@ impl wl::Object for XdgToplevel {
 				let app_id: String = wlm::decode::from_slice(params)?;
 				self.app_id = app_id;
 			}
+			5 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:move
+				let (_seat, _serial): (wl::Id<wl::Seat>, u32) = wlm::decode::from_slice(params)?;
+			}
 			7 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_max_size
 				let (_width, _height): (i32, i32) = wlm::decode::from_slice(params)?;
