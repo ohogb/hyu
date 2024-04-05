@@ -84,6 +84,9 @@ impl wl::Object for XdgToplevel {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_min_size
 				let (_width, _height): (u32, u32) = wlm::decode::from_slice(params)?;
 			}
+			9 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_maximized
+			}
 			10 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_maximized
 			}
