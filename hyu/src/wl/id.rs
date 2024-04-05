@@ -67,3 +67,6 @@ impl<'de, T> serde::Deserialize<'de> for Id<T> {
 		Ok(Self::new(deserializer.deserialize_u32(Visitor)?))
 	}
 }
+
+unsafe impl<T> Send for Id<T> {}
+unsafe impl<T> Sync for Id<T> {}

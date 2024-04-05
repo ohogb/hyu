@@ -51,6 +51,12 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 			} => {
 				let mut clients = state::clients();
 
+				for client in clients.values_mut() {
+					for seat in client.objects_mut::<wl::Seat>() {
+						seat.pointer_position = cursor_position.into();
+					}
+				}
+
 				let old = {
 					let mut lock = state::pointer_over();
 					let ret = *lock;
@@ -59,12 +65,25 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					ret
 				};
 
+				let mut moving = None;
+
 				for (client, window) in state::window_stack().iter() {
 					if state::pointer_over().is_some() {
 						break;
 					}
 
 					let client = clients.get_mut(client).unwrap();
+
+					for seat in client.objects_mut::<wl::Seat>() {
+						if seat.moving_toplevel.is_some() {
+							moving = Some((client.fd, seat.object_id));
+							break;
+						}
+					}
+
+					if moving.is_some() {
+						break;
+					}
 
 					fn get_surface_input_size(surface: &wl::Surface) -> (i32, i32) {
 						None.or_else(|| {
@@ -148,6 +167,22 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					);
 				}
 
+				if let Some((fd, seat)) = moving {
+					let client = clients.get_mut(&fd).unwrap();
+					let seat = client.get_object_mut(seat).unwrap();
+
+					if let Some((toplevel, window_start_pos, pointer_start_pos)) =
+						&seat.moving_toplevel
+					{
+						let toplevel = client.get_object_mut(*toplevel).unwrap();
+
+						toplevel.position = (
+							window_start_pos.0 + (seat.pointer_position.0 - pointer_start_pos.0),
+							window_start_pos.1 + (seat.pointer_position.1 - pointer_start_pos.1),
+						);
+					}
+				}
+
 				let current = *state::pointer_over();
 
 				if old.is_none() && current.is_none() {
@@ -200,8 +235,20 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						winit::event::ElementState::Released => 0,
 					};
 
+					let mut clients = state::clients();
+
+					for client in clients.values_mut() {
+						for seat in client.objects_mut::<wl::Seat>() {
+							if seat.moving_toplevel.is_some() {
+								assert!(input_state == 0);
+								seat.moving_toplevel = None;
+
+								return;
+							}
+						}
+					}
+
 					if let Some(state::PointerOver { fd, toplevel, .. }) = *state::pointer_over() {
-						let mut clients = state::clients();
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {

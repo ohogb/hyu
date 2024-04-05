@@ -78,7 +78,10 @@ impl wl::Object for XdgToplevel {
 			}
 			5 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:move
-				let (_seat, _serial): (wl::Id<wl::Seat>, u32) = wlm::decode::from_slice(params)?;
+				let (seat, _serial): (wl::Id<wl::Seat>, u32) = wlm::decode::from_slice(params)?;
+
+				let seat = client.get_object_mut(seat)?;
+				seat.start_moving_toplevel(self);
 			}
 			6 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:resize

@@ -1,8 +1,10 @@
 use crate::{wl, Result};
 
 pub struct Seat {
-	object_id: wl::Id<Self>,
+	pub object_id: wl::Id<Self>,
 	serial: u32,
+	pub pointer_position: (i32, i32),
+	pub moving_toplevel: Option<(wl::Id<wl::XdgToplevel>, (i32, i32), (i32, i32))>,
 }
 
 impl Seat {
@@ -10,6 +12,8 @@ impl Seat {
 		Self {
 			object_id,
 			serial: 0,
+			pointer_position: (0, 0),
+			moving_toplevel: None,
 		}
 	}
 
@@ -27,6 +31,10 @@ impl Seat {
 		self.serial += 1;
 
 		ret
+	}
+
+	pub fn start_moving_toplevel(&mut self, toplevel: &wl::XdgToplevel) {
+		self.moving_toplevel = Some((toplevel.object_id, toplevel.position, self.pointer_position));
 	}
 }
 
