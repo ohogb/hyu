@@ -6,6 +6,7 @@ pub struct Keyboard {
 	object_id: wl::Id<Self>,
 	seat_id: wl::Id<wl::Seat>,
 	pub key_states: [bool; 0x100],
+	pub modifiers: u32,
 }
 
 impl Keyboard {
@@ -14,6 +15,7 @@ impl Keyboard {
 			object_id,
 			seat_id,
 			key_states: [false; _],
+			modifiers: 0,
 		}
 	}
 
@@ -42,7 +44,7 @@ impl Keyboard {
 			args: (seat.serial(), surface, &[] as &[i32]),
 		})?;
 
-		self.modifiers(client)
+		self.modifiers(client, 0)
 	}
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
@@ -67,14 +69,14 @@ impl Keyboard {
 		})
 	}
 
-	pub fn modifiers(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn modifiers(&mut self, client: &mut wl::Client, depressed: u32) -> Result<()> {
 		let seat = client.get_object_mut(self.seat_id)?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 4,
-			args: (seat.serial(), 0, 0, 0, 0),
+			args: (seat.serial(), depressed, 0, 0, 0),
 		})
 	}
 

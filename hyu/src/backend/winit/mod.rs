@@ -285,6 +285,22 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 							keyboard.key_states[code as usize] = input_state != 0;
 							keyboard.key(client, code, input_state).unwrap();
 						}
+
+						// TODO: xkb
+						let modifier = match code {
+							42 => 1,
+							29 => 4,
+							_ => {
+								continue;
+							}
+						};
+
+						match event.state {
+							winit::event::ElementState::Pressed => keyboard.modifiers |= modifier,
+							winit::event::ElementState::Released => keyboard.modifiers &= !modifier,
+						}
+
+						keyboard.modifiers(client, keyboard.modifiers).unwrap();
 					}
 				}
 			}
