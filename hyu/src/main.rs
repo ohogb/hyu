@@ -87,17 +87,15 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			}
 
 			let mut op = [0u8; 2];
-			stream.read_exact(&mut op).unwrap();
+			stream.read_exact(&mut op)?;
 
 			let mut size = [0u8; 2];
-			stream.read_exact(&mut size).unwrap();
+			stream.read_exact(&mut size)?;
 
 			let size = u16::from_ne_bytes(size) - 0x8;
 
-			let _ = (&mut stream)
-				.take(size as _)
-				.read_to_end(&mut params)
-				.unwrap();
+			params.resize(size as _, 0);
+			stream.read_exact(&mut params)?;
 
 			let object = u32::from_ne_bytes(obj);
 			let op = u16::from_ne_bytes(op);
@@ -112,7 +110,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			params.clear();
 		}
 
-		state::process_focus_changes(&mut clients).unwrap();
+		state::process_focus_changes(&mut clients)?;
 
 		let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
 
