@@ -7,7 +7,12 @@ use crate::{backend, Result};
 pub struct Setup;
 
 impl backend::winit::WinitRendererSetup for Setup {
-	fn setup(&self, window: &winit::window::Window) -> Result<impl backend::winit::WinitRenderer> {
+	fn setup(
+		&self,
+		window: &winit::window::Window,
+		width: usize,
+		height: usize,
+	) -> Result<impl backend::winit::WinitRenderer> {
 		let (surface, context, glow) = unsafe {
 			let display = glutin::display::Display::new(
 				window.raw_display_handle(),
@@ -30,8 +35,8 @@ impl backend::winit::WinitRendererSetup for Setup {
 				&glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new()
 					.build(
 						window.raw_window_handle(),
-						std::num::NonZeroU32::new(1280).unwrap(),
-						std::num::NonZeroU32::new(720).unwrap(),
+						std::num::NonZeroU32::new(width as _).unwrap(),
+						std::num::NonZeroU32::new(height as _).unwrap(),
 					),
 			)?;
 

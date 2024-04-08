@@ -4,13 +4,15 @@ use vertex::Vertex;
 
 use crate::{backend, state, Result};
 
-const WIDTH: usize = 1280;
-const HEIGHT: usize = 720;
-
 pub struct RendererSetup;
 
 impl backend::winit::WinitRendererSetup for RendererSetup {
-	fn setup(&self, window: &winit::window::Window) -> Result<impl backend::winit::WinitRenderer> {
+	fn setup(
+		&self,
+		window: &winit::window::Window,
+		width: usize,
+		height: usize,
+	) -> Result<impl backend::winit::WinitRenderer> {
 		let instance = wgpu::Instance::default();
 		let surface = instance.create_surface(window)?;
 
@@ -82,7 +84,7 @@ impl backend::winit::WinitRendererSetup for RendererSetup {
 
 		let vertex_buffer = device.create_buffer(&wgpu::BufferDescriptor {
 			label: None,
-			size: (std::mem::size_of::<Vertex>() * WIDTH * HEIGHT * 8) as u64,
+			size: (std::mem::size_of::<Vertex>() * width * height * 8) as u64,
 			usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
 			mapped_at_creation: false,
 		});
@@ -132,8 +134,10 @@ impl backend::winit::WinitRendererSetup for RendererSetup {
 			vertex_buffer,
 			sampler,
 			render_pipeline,
-			vertices: Vec::with_capacity(WIDTH * HEIGHT),
+			vertices: Vec::with_capacity(width * height),
 			start_time: std::time::Instant::now(),
+			width,
+			height,
 		})
 	}
 }
@@ -149,6 +153,8 @@ pub struct Renderer<'a> {
 	render_pipeline: wgpu::RenderPipeline,
 	vertices: Vec<Vertex>,
 	start_time: std::time::Instant,
+	width: usize,
+	height: usize,
 }
 
 impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
@@ -209,12 +215,12 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 					panic!();
 				};
 
-				fn pixels_to_float(input: [i32; 2]) -> [f32; 2] {
+				let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
 					[
-						input[0] as f32 / WIDTH as f32 * 2.0 - 1.0,
-						(input[1] as f32 / HEIGHT as f32 * 2.0 - 1.0) * -1.0,
+						input[0] as f32 / self.width as f32 * 2.0 - 1.0,
+						(input[1] as f32 / self.height as f32 * 2.0 - 1.0) * -1.0,
 					]
-				}
+				};
 
 				let x = window.position.0 - xdg_surface.position.0 + x;
 				let y = window.position.1 - xdg_surface.position.1 + y;

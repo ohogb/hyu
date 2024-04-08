@@ -6,7 +6,12 @@ use winit::platform::{
 use crate::{state, wl, Result};
 
 pub trait WinitRendererSetup {
-	fn setup(&self, window: &winit::window::Window) -> Result<impl WinitRenderer>;
+	fn setup(
+		&self,
+		window: &winit::window::Window,
+		width: usize,
+		height: usize,
+	) -> Result<impl WinitRenderer>;
 }
 
 pub trait WinitRenderer {
@@ -27,7 +32,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 		.with_fullscreen(None)
 		.build(&event_loop)?;
 
-	let mut renderer = renderer_setup.setup(&window)?;
+	let mut renderer = renderer_setup.setup(&window, WIDTH, HEIGHT)?;
 
 	event_loop.run(|event, target| {
 		let winit::event::Event::WindowEvent { window_id, event } = event else {
