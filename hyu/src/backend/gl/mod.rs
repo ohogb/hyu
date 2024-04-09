@@ -4,6 +4,12 @@ use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
 
 use crate::{backend, Result};
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+	pub position: [f32; 3],
+}
+
 pub struct Setup;
 
 impl backend::winit::WinitRendererSetup for Setup {
@@ -13,7 +19,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 		width: usize,
 		height: usize,
 	) -> Result<impl backend::winit::WinitRenderer> {
-		let (surface, context, glow) = unsafe {
+		unsafe {
 			let display = glutin::display::Display::new(
 				window.raw_display_handle(),
 				glutin::display::DisplayApiPreference::Egl,
@@ -42,16 +48,91 @@ impl backend::winit::WinitRendererSetup for Setup {
 
 			let context = context.make_current(&surface)?;
 
-			let glow = glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
-			(surface, context, glow)
-		};
+			surface.set_swap_interval(
+				&context,
+				glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(1).unwrap()),
+			)?;
 
-		Ok(Renderer {
-			window,
-			surface,
-			context,
-			glow,
-		})
+			let glow = glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
+
+			glow.clear_color(0.2, 0.2, 0.2, 1.0);
+
+			let vertex_shader = glow.create_shader(glow::VERTEX_SHADER)?;
+
+			glow.shader_source(vertex_shader, include_str!("vertex_shader.glsl"));
+			glow.compile_shader(vertex_shader);
+
+			if !glow.get_shader_compile_status(vertex_shader) {
+				Err(glow.get_shader_info_log(vertex_shader))?
+			}
+
+			let fragment_shader = glow.create_shader(glow::FRAGMENT_SHADER)?;
+
+			glow.shader_source(fragment_shader, include_str!("fragment_shader.glsl"));
+			glow.compile_shader(fragment_shader);
+
+			if !glow.get_shader_compile_status(fragment_shader) {
+				Err(glow.get_shader_info_log(fragment_shader))?
+			}
+
+			let program = glow.create_program()?;
+
+			glow.attach_shader(program, vertex_shader);
+			glow.attach_shader(program, fragment_shader);
+
+			glow.link_program(program);
+
+			if !glow.get_program_link_status(program) {
+				Err(glow.get_program_info_log(program))?
+			}
+
+			glow.delete_shader(vertex_shader);
+			glow.delete_shader(fragment_shader);
+
+			glow.use_program(Some(program));
+
+			let vertex_array = glow.create_vertex_array()?;
+			let vertex_buffer = glow.create_buffer()?;
+
+			glow.bind_vertex_array(Some(vertex_array));
+			glow.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
+
+			let vertices = &[
+				Vertex {
+					position: [-0.5, -0.5, 0.0],
+				},
+				Vertex {
+					position: [0.5, -0.5, 0.0],
+				},
+				Vertex {
+					position: [0.0, 0.5, 0.0],
+				},
+			];
+
+			glow.buffer_data_u8_slice(
+				glow::ARRAY_BUFFER,
+				bytemuck::cast_slice(vertices),
+				glow::DYNAMIC_DRAW,
+			);
+
+			glow.vertex_attrib_pointer_f32(
+				0,
+				3,
+				glow::FLOAT,
+				false,
+				std::mem::size_of::<Vertex>() as _,
+				0,
+			);
+
+			glow.enable_vertex_attrib_array(0);
+
+			Ok(Renderer {
+				window,
+				surface,
+				context,
+				glow,
+			})
+		}
 	}
 }
 
@@ -68,7 +149,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 		unsafe {
 			self.glow.clear(glow::COLOR_BUFFER_BIT);
-			self.glow.clear_color(0.2, 0.2, 0.2, 1.0);
+			self.glow.draw_arrays(glow::TRIANGLES, 0, 3);
 		}
 
 		self.surface.swap_buffers(&self.context)?;
