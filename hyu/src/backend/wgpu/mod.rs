@@ -2,7 +2,7 @@ mod vertex;
 
 use vertex::Vertex;
 
-use crate::{backend, state, Result};
+use crate::{backend, state, wl, Result};
 
 pub struct RendererSetup;
 
@@ -211,7 +211,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
 				let surface = client.get_object(surface_id)?;
 
-				let Some((.., (_, bind_group))) = &surface.data else {
+				let Some((.., wl::SurfaceTexture::Wgpu(_, bind_group))) = &surface.data else {
 					panic!();
 				};
 

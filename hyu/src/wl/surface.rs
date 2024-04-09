@@ -14,6 +14,11 @@ pub enum SurfaceRole {
 	Cursor,
 }
 
+pub enum SurfaceTexture {
+	Wgpu(wgpu::Texture, wgpu::BindGroup),
+	Gl(),
+}
+
 pub struct Surface {
 	pub object_id: wl::Id<Self>,
 	pub children: Vec<wl::Id<wl::SubSurface>>,
@@ -23,7 +28,7 @@ pub struct Surface {
 	current_frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pending_input_region: Option<wl::Region>,
 	pub current_input_region: Option<wl::Region>,
-	pub data: Option<(i32, i32, (wgpu::Texture, wgpu::BindGroup))>,
+	pub data: Option<(i32, i32, SurfaceTexture)>,
 	pub role: Option<SurfaceRole>,
 }
 
@@ -108,7 +113,7 @@ impl Surface {
 				assert!(buffer.width == *width && buffer.height == *height);
 			}
 
-			let (_, _, (texture, _)) = self.data.get_or_insert_with(|| {
+			let (_, _, texture) = self.data.get_or_insert_with(|| {
 				let texture = device.create_texture(&wgpu::TextureDescriptor {
 					size: wgpu::Extent3d {
 						width: buffer.width as _,
@@ -141,8 +146,16 @@ impl Surface {
 					label: None,
 				});
 
-				(buffer.width, buffer.height, (texture, bind_group))
+				(
+					buffer.width,
+					buffer.height,
+					SurfaceTexture::Wgpu(texture, bind_group),
+				)
 			});
+
+			let SurfaceTexture::Wgpu(texture, _) = texture else {
+				panic!();
+			};
 
 			buffer.wgpu_get_pixels(client, queue, texture)?;
 
@@ -155,6 +168,34 @@ impl Surface {
 			let surface = client.get_object_mut(sub_surface.surface)?;
 
 			surface.wgpu_do_textures(client, device, queue, sampler, bind_group_layout)?;
+		}
+
+		Ok(())
+	}
+
+	pub fn gl_do_textures(&mut self, client: &mut wl::Client) -> Result<()> {
+		if let Some(buffer_id) = self.current_buffer {
+			let buffer = client.get_object_mut(buffer_id)?;
+
+			if let Some((width, height, ..)) = &self.data {
+				assert!(buffer.width == *width && buffer.height == *height);
+			}
+
+			let (_, _, _texture) = self
+				.data
+				.get_or_insert_with(|| (buffer.width, buffer.height, SurfaceTexture::Gl()));
+
+			// buffer.wgpu_get_pixels(client, queue, texture)?;
+
+			buffer.release(client)?;
+			self.current_buffer = None;
+		}
+
+		for i in &self.children {
+			let sub_surface = client.get_object(*i)?;
+			let surface = client.get_object_mut(sub_surface.surface)?;
+
+			surface.gl_do_textures(client)?;
 		}
 
 		Ok(())
