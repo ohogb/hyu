@@ -1,3 +1,5 @@
+use glow::HasContext;
+
 use crate::{state, wl, Result};
 
 pub enum SubSurfaceMode {
@@ -16,7 +18,7 @@ pub enum SurfaceRole {
 
 pub enum SurfaceTexture {
 	Wgpu(wgpu::Texture, wgpu::BindGroup),
-	Gl(),
+	Gl(glow::NativeTexture),
 }
 
 pub struct Surface {
@@ -173,7 +175,7 @@ impl Surface {
 		Ok(())
 	}
 
-	pub fn gl_do_textures(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn gl_do_textures(&mut self, client: &mut wl::Client, glow: &glow::Context) -> Result<()> {
 		if let Some(buffer_id) = self.current_buffer {
 			let buffer = client.get_object_mut(buffer_id)?;
 
@@ -181,11 +183,16 @@ impl Surface {
 				assert!(buffer.width == *width && buffer.height == *height);
 			}
 
-			let (_, _, _texture) = self
-				.data
-				.get_or_insert_with(|| (buffer.width, buffer.height, SurfaceTexture::Gl()));
+			let (_, _, texture) = self.data.get_or_insert_with(|| {
+				let texture = unsafe { glow.create_texture().unwrap() };
+				(buffer.width, buffer.height, SurfaceTexture::Gl(texture))
+			});
 
-			// buffer.wgpu_get_pixels(client, queue, texture)?;
+			let SurfaceTexture::Gl(texture) = texture else {
+				panic!();
+			};
+
+			buffer.gl_get_pixels(client, glow, *texture)?;
 
 			buffer.release(client)?;
 			self.current_buffer = None;
@@ -195,7 +202,7 @@ impl Surface {
 			let sub_surface = client.get_object(*i)?;
 			let surface = client.get_object_mut(sub_surface.surface)?;
 
-			surface.gl_do_textures(client)?;
+			surface.gl_do_textures(client, glow)?;
 		}
 
 		Ok(())

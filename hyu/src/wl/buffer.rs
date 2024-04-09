@@ -1,3 +1,5 @@
+use glow::HasContext;
+
 use crate::{wl, Result};
 
 pub struct Buffer {
@@ -64,6 +66,41 @@ impl Buffer {
 				depth_or_array_layers: 1,
 			},
 		);
+
+		Ok(())
+	}
+
+	pub fn gl_get_pixels(
+		&self,
+		client: &wl::Client,
+		glow: &glow::Context,
+		texture: glow::NativeTexture,
+	) -> Result<()> {
+		let pool = client.get_object(self.pool_id)?;
+		let map = pool.get_map().ok_or("pool is not mapped")?;
+
+		let start = self.offset as usize;
+		let end = start + (self.stride * self.height) as usize;
+
+		let buffer = &map[start..end];
+
+		unsafe {
+			glow.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+			glow.tex_image_2d(
+				glow::TEXTURE_2D,
+				0,
+				glow::RGBA as _,
+				self.width,
+				self.height,
+				0,
+				glow::BGRA,
+				glow::UNSIGNED_BYTE,
+				Some(buffer),
+			);
+
+			glow.generate_mipmap(glow::TEXTURE_2D);
+		};
 
 		Ok(())
 	}

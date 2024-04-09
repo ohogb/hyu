@@ -8,6 +8,7 @@ use crate::{backend, state, wl, Result};
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
 	pub position: [f32; 2],
+	pub uv: [f32; 2],
 }
 
 pub struct Setup;
@@ -33,6 +34,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 			let context = display.create_context(
 				&config,
 				&glutin::context::ContextAttributesBuilder::new()
+					.with_debug(true)
 					.build(Some(window.raw_window_handle())),
 			)?;
 
@@ -53,7 +55,15 @@ impl backend::winit::WinitRendererSetup for Setup {
 				glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(1).unwrap()),
 			)?;
 
-			let glow = glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
+			let mut glow =
+				glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
+
+			glow.debug_message_callback(|_, _, _, _, e| {
+				eprintln!("{e}");
+			});
+
+			glow.enable(glow::BLEND);
+			glow.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
 			glow.clear_color(0.2, 0.2, 0.2, 1.0);
 
@@ -108,6 +118,17 @@ impl backend::winit::WinitRendererSetup for Setup {
 
 			glow.enable_vertex_attrib_array(0);
 
+			glow.vertex_attrib_pointer_f32(
+				1,
+				2,
+				glow::FLOAT,
+				false,
+				std::mem::size_of::<Vertex>() as _,
+				std::mem::size_of::<[f32; 2]>() as _,
+			);
+
+			glow.enable_vertex_attrib_array(1);
+
 			Ok(Renderer {
 				window,
 				surface,
@@ -131,8 +152,6 @@ struct Renderer<'a> {
 
 impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 	fn render(&mut self) -> Result<()> {
-		self.window.request_redraw();
-
 		unsafe {
 			self.glow.clear(glow::COLOR_BUFFER_BIT);
 		}
@@ -148,14 +167,14 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			let xdg_surface = client.get_object(window.surface)?;
 			let surface = client.get_object_mut(xdg_surface.surface)?;
 
-			surface.gl_do_textures(client)?;
+			surface.gl_do_textures(client, &self.glow)?;
 
 			surface.frame(0, client)?;
 
 			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
 				let surface = client.get_object(surface_id)?;
 
-				let Some((.., wl::SurfaceTexture::Gl())) = &surface.data else {
+				let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
 					panic!();
 				};
 
@@ -171,26 +190,32 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x, y]),
+					uv: [0.0, 0.0],
 				});
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x + width, y]),
+					uv: [1.0, 0.0],
 				});
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x, y + height]),
+					uv: [0.0, 1.0],
 				});
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x, y + height]),
+					uv: [0.0, 1.0],
 				});
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x + width, y + height]),
+					uv: [1.0, 1.0],
 				});
 
 				vertices.push(Vertex {
 					position: pixels_to_float([x + width, y]),
+					uv: [1.0, 0.0],
 				});
 
 				unsafe {
@@ -200,13 +225,19 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 						glow::DYNAMIC_DRAW,
 					);
 
+					self.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
+
 					self.glow
 						.draw_arrays(glow::TRIANGLES, (vertices.len() - 6) as _, 6);
 				}
 			}
 		}
 
+		drop(clients);
+
 		self.surface.swap_buffers(&self.context)?;
+		self.window.request_redraw();
+
 		Ok(())
 	}
 }
