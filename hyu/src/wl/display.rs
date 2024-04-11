@@ -47,7 +47,11 @@ impl wl::Object for Display {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry
 				let registry_index: wl::Id<wl::Registry> = wlm::decode::from_slice(params)?;
-				let registry = wl::Registry::new(registry_index, self.object_id);
+
+				let registry = client.new_object(
+					registry_index,
+					wl::Registry::new(registry_index, self.object_id),
+				);
 
 				for (index, global) in self.globals.iter().enumerate() {
 					registry.global(
@@ -57,8 +61,6 @@ impl wl::Object for Display {
 						global.get_version(),
 					)?;
 				}
-
-				client.new_object(registry_index, registry);
 			}
 			_ => Err(format!("unknown op '{op}' in Display"))?,
 		}
