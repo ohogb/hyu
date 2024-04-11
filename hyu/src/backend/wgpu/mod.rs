@@ -4,9 +4,9 @@ use vertex::Vertex;
 
 use crate::{backend, state, wl, Result};
 
-pub struct RendererSetup;
+pub struct Setup;
 
-impl backend::winit::WinitRendererSetup for RendererSetup {
+impl backend::winit::WinitRendererSetup for Setup {
 	fn setup(
 		&self,
 		window: &winit::window::Window,
