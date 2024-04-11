@@ -134,6 +134,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 				surface,
 				context,
 				glow,
+				start_time: std::time::Instant::now(),
 				width,
 				height,
 			})
@@ -146,6 +147,7 @@ struct Renderer<'a> {
 	surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 	context: glutin::context::PossiblyCurrentContext,
 	glow: glow::Context,
+	start_time: std::time::Instant,
 	width: usize,
 	height: usize,
 }
@@ -169,7 +171,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 			surface.gl_do_textures(client, &self.glow)?;
 
-			surface.frame(0, client)?;
+			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
 
 			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
 				let surface = client.get_object(surface_id)?;
