@@ -134,6 +134,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 				surface,
 				context,
 				glow,
+				vertices: Vec::new(),
 				start_time: std::time::Instant::now(),
 				width,
 				height,
@@ -147,6 +148,7 @@ struct Renderer<'a> {
 	surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
 	context: glutin::context::PossiblyCurrentContext,
 	glow: glow::Context,
+	vertices: Vec<Vertex>,
 	start_time: std::time::Instant,
 	width: usize,
 	height: usize,
@@ -159,8 +161,6 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 		}
 
 		let mut clients = state::clients();
-
-		let mut vertices = Vec::new();
 
 		for (client, window) in state::window_stack().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
@@ -190,7 +190,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 				let x = window.position.0 - xdg_surface.position.0 + x;
 				let y = window.position.1 - xdg_surface.position.1 + y;
 
-				vertices.extend([
+				self.vertices.extend([
 					Vertex {
 						position: pixels_to_float([x, y]),
 						uv: [0.0, 0.0],
@@ -220,14 +220,14 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 				unsafe {
 					self.glow.buffer_data_u8_slice(
 						glow::ARRAY_BUFFER,
-						bytemuck::cast_slice(&vertices),
+						bytemuck::cast_slice(&self.vertices),
 						glow::DYNAMIC_DRAW,
 					);
 
 					self.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
 
 					self.glow
-						.draw_arrays(glow::TRIANGLES, (vertices.len() - 6) as _, 6);
+						.draw_arrays(glow::TRIANGLES, (self.vertices.len() - 6) as _, 6);
 				}
 			}
 		}
@@ -236,6 +236,8 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 		self.surface.swap_buffers(&self.context)?;
 		self.window.request_redraw();
+
+		self.vertices.clear();
 
 		Ok(())
 	}
