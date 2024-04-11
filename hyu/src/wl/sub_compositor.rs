@@ -1,11 +1,12 @@
 use crate::{wl, Result};
 
-#[derive(Debug)]
-pub struct SubCompositor {}
+pub struct SubCompositor {
+	object_id: wl::Id<Self>,
+}
 
 impl SubCompositor {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(object_id: wl::Id<Self>) -> Self {
+		Self { object_id }
 	}
 }
 
@@ -14,6 +15,7 @@ impl wl::Object for SubCompositor {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:destroy
+				client.remove_object(self.object_id)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface
@@ -51,7 +53,7 @@ impl wl::Global for SubCompositor {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new());
+		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 		Ok(())
 	}
 }
