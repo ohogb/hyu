@@ -225,35 +225,32 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 				let x = window.position.0 - xdg_surface.position.0 + x;
 				let y = window.position.1 - xdg_surface.position.1 + y;
 
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x, y]),
-					uv: [0.0, 0.0],
-				});
-
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x + width, y]),
-					uv: [1.0, 0.0],
-				});
-
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x, y + height]),
-					uv: [0.0, 1.0],
-				});
-
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x, y + height]),
-					uv: [0.0, 1.0],
-				});
-
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x + width, y + height]),
-					uv: [1.0, 1.0],
-				});
-
-				self.vertices.push(Vertex {
-					position: pixels_to_float([x + width, y]),
-					uv: [1.0, 0.0],
-				});
+				self.vertices.extend([
+					Vertex {
+						position: pixels_to_float([x, y]),
+						uv: [0.0, 0.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y]),
+						uv: [1.0, 0.0],
+					},
+					Vertex {
+						position: pixels_to_float([x, y + height]),
+						uv: [0.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x, y + height]),
+						uv: [0.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y + height]),
+						uv: [1.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y]),
+						uv: [1.0, 0.0],
+					},
+				]);
 
 				let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
 					label: None,

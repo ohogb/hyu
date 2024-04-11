@@ -190,35 +190,32 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 				let x = window.position.0 - xdg_surface.position.0 + x;
 				let y = window.position.1 - xdg_surface.position.1 + y;
 
-				vertices.push(Vertex {
-					position: pixels_to_float([x, y]),
-					uv: [0.0, 0.0],
-				});
-
-				vertices.push(Vertex {
-					position: pixels_to_float([x + width, y]),
-					uv: [1.0, 0.0],
-				});
-
-				vertices.push(Vertex {
-					position: pixels_to_float([x, y + height]),
-					uv: [0.0, 1.0],
-				});
-
-				vertices.push(Vertex {
-					position: pixels_to_float([x, y + height]),
-					uv: [0.0, 1.0],
-				});
-
-				vertices.push(Vertex {
-					position: pixels_to_float([x + width, y + height]),
-					uv: [1.0, 1.0],
-				});
-
-				vertices.push(Vertex {
-					position: pixels_to_float([x + width, y]),
-					uv: [1.0, 0.0],
-				});
+				vertices.extend([
+					Vertex {
+						position: pixels_to_float([x, y]),
+						uv: [0.0, 0.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y]),
+						uv: [1.0, 0.0],
+					},
+					Vertex {
+						position: pixels_to_float([x, y + height]),
+						uv: [0.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x, y + height]),
+						uv: [0.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y + height]),
+						uv: [1.0, 1.0],
+					},
+					Vertex {
+						position: pixels_to_float([x + width, y]),
+						uv: [1.0, 0.0],
+					},
+				]);
 
 				unsafe {
 					self.glow.buffer_data_u8_slice(
