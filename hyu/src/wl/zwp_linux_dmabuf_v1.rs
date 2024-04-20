@@ -17,6 +17,11 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:destroy
 				client.remove_object(self.object_id)?;
 			}
+			1 => {
+				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:create_params
+				let id: wl::Id<wl::ZwpLinuxBufferParamsV1> = wlm::decode::from_slice(params)?;
+				client.new_object(id, wl::ZwpLinuxBufferParamsV1::new(id));
+			}
 			2 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_default_feedback
 				let id: wl::Id<wl::ZwpLinuxDmabufFeedbackV1> = wlm::decode::from_slice(params)?;
