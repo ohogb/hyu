@@ -2,34 +2,30 @@ use glow::HasContext;
 
 use crate::{wl, Result};
 
+pub enum BufferStorage {
+	Shm {
+		pool_id: wl::Id<wl::ShmPool>,
+		offset: i32,
+		stride: i32,
+		format: u32,
+	},
+	Dmabuf {},
+}
+
 pub struct Buffer {
 	object_id: wl::Id<Self>,
-	pool_id: wl::Id<wl::ShmPool>,
-	offset: i32,
 	pub width: i32,
 	pub height: i32,
-	pub stride: i32,
-	format: u32,
+	pub storage: BufferStorage,
 }
 
 impl Buffer {
-	pub fn new(
-		object_id: wl::Id<Self>,
-		pool_id: wl::Id<wl::ShmPool>,
-		offset: i32,
-		width: i32,
-		height: i32,
-		stride: i32,
-		format: u32,
-	) -> Self {
+	pub fn new(object_id: wl::Id<Self>, width: i32, height: i32, storage: BufferStorage) -> Self {
 		Self {
 			object_id,
-			pool_id,
-			offset,
 			width,
 			height,
-			stride,
-			format,
+			storage,
 		}
 	}
 
@@ -39,33 +35,43 @@ impl Buffer {
 		queue: &wgpu::Queue,
 		texture: &wgpu::Texture,
 	) -> Result<()> {
-		let pool = client.get_object(self.pool_id)?;
-		let map = pool.get_map().ok_or("pool is not mapped")?;
+		match self.storage {
+			BufferStorage::Shm {
+				pool_id,
+				offset,
+				stride,
+				..
+			} => {
+				let pool = client.get_object(pool_id)?;
+				let map = pool.get_map().ok_or("pool is not mapped")?;
 
-		let start = self.offset as usize;
-		let end = start + (self.stride * self.height) as usize;
+				let start = offset as usize;
+				let end = start + (stride * self.height) as usize;
 
-		let buffer = &map[start..end];
+				let buffer = &map[start..end];
 
-		queue.write_texture(
-			wgpu::ImageCopyTexture {
-				texture,
-				mip_level: 0,
-				origin: wgpu::Origin3d::ZERO,
-				aspect: wgpu::TextureAspect::All,
-			},
-			buffer,
-			wgpu::ImageDataLayout {
-				offset: 0,
-				bytes_per_row: Some(self.stride as _),
-				rows_per_image: Some(self.height as _),
-			},
-			wgpu::Extent3d {
-				width: self.width as _,
-				height: self.height as _,
-				depth_or_array_layers: 1,
-			},
-		);
+				queue.write_texture(
+					wgpu::ImageCopyTexture {
+						texture,
+						mip_level: 0,
+						origin: wgpu::Origin3d::ZERO,
+						aspect: wgpu::TextureAspect::All,
+					},
+					buffer,
+					wgpu::ImageDataLayout {
+						offset: 0,
+						bytes_per_row: Some(stride as _),
+						rows_per_image: Some(self.height as _),
+					},
+					wgpu::Extent3d {
+						width: self.width as _,
+						height: self.height as _,
+						depth_or_array_layers: 1,
+					},
+				);
+			}
+			BufferStorage::Dmabuf {} => todo!(),
+		}
 
 		Ok(())
 	}
@@ -76,31 +82,41 @@ impl Buffer {
 		glow: &glow::Context,
 		texture: glow::NativeTexture,
 	) -> Result<()> {
-		let pool = client.get_object(self.pool_id)?;
-		let map = pool.get_map().ok_or("pool is not mapped")?;
+		match self.storage {
+			BufferStorage::Shm {
+				pool_id,
+				offset,
+				stride,
+				..
+			} => {
+				let pool = client.get_object(pool_id)?;
+				let map = pool.get_map().ok_or("pool is not mapped")?;
 
-		let start = self.offset as usize;
-		let end = start + (self.stride * self.height) as usize;
+				let start = offset as usize;
+				let end = start + (stride * self.height) as usize;
 
-		let buffer = &map[start..end];
+				let buffer = &map[start..end];
 
-		unsafe {
-			glow.bind_texture(glow::TEXTURE_2D, Some(texture));
+				unsafe {
+					glow.bind_texture(glow::TEXTURE_2D, Some(texture));
 
-			glow.tex_image_2d(
-				glow::TEXTURE_2D,
-				0,
-				glow::RGBA as _,
-				self.width,
-				self.height,
-				0,
-				glow::BGRA,
-				glow::UNSIGNED_BYTE,
-				Some(buffer),
-			);
+					glow.tex_image_2d(
+						glow::TEXTURE_2D,
+						0,
+						glow::RGBA as _,
+						self.width,
+						self.height,
+						0,
+						glow::BGRA,
+						glow::UNSIGNED_BYTE,
+						Some(buffer),
+					);
 
-			glow.generate_mipmap(glow::TEXTURE_2D);
-		};
+					glow.generate_mipmap(glow::TEXTURE_2D);
+				};
+			}
+			BufferStorage::Dmabuf {} => todo!(),
+		}
 
 		Ok(())
 	}

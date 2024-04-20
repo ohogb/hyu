@@ -68,7 +68,17 @@ impl wl::Object for ShmPool {
 
 				client.new_object(
 					id,
-					wl::Buffer::new(id, self.object_id, offset, width, height, stride, format),
+					wl::Buffer::new(
+						id,
+						width,
+						height,
+						wl::BufferStorage::Shm {
+							pool_id: self.object_id,
+							offset,
+							stride,
+							format,
+						},
+					),
 				);
 			}
 			1 => {
