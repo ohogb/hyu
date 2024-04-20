@@ -13,6 +13,10 @@ impl ZwpLinuxBufferParamsV1 {
 impl wl::Object for ZwpLinuxBufferParamsV1 {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_buffer_params_v1:request:destroy
+				client.remove_object(self.object_id)?;
+			}
 			1 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_buffer_params_v1:request:add
 				let (plane_idx, offset, stride, modifier_hi, modifier_lo): (
