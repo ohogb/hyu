@@ -22,6 +22,13 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 				let id: wl::Id<wl::ZwpLinuxDmabufFeedbackV1> = wlm::decode::from_slice(params)?;
 				client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
 			}
+			3 => {
+				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_surface_feedback
+				let (id, surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
+					wlm::decode::from_slice(params)?;
+
+				client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+			}
 			_ => Err(format!("unknown op '{op}' in ZwpLinuxDmabufV1"))?,
 		}
 
