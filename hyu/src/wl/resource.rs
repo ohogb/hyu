@@ -74,4 +74,5 @@ implement![
 	XdgSurface,
 	XdgToplevel,
 	XdgWmBase,
+	ZwpLinuxDmabufV1,
 ];
