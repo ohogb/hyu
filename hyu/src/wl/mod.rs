@@ -21,6 +21,7 @@ mod surface;
 mod xdg_surface;
 mod xdg_toplevel;
 mod xdg_wm_base;
+mod zwp_linux_buffer_params_v1;
 mod zwp_linux_dmabuf_feedback_v1;
 mod zwp_linux_dmabuf_v1;
 
@@ -47,6 +48,7 @@ pub use surface::*;
 pub use xdg_surface::*;
 pub use xdg_toplevel::*;
 pub use xdg_wm_base::*;
+pub use zwp_linux_buffer_params_v1::*;
 pub use zwp_linux_dmabuf_feedback_v1::*;
 pub use zwp_linux_dmabuf_v1::*;
 
