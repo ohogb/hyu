@@ -53,7 +53,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 			}
 			3 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_surface_feedback
-				let (id, surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
+				let (id, _surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
 				client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
@@ -76,7 +76,10 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		client.new_object(id, Self::new(id));
+		let object = client.new_object(id, Self::new(id));
+
+		object.format(client, 0x41523234)?;
+		object.modifier(client, 0x41523234, 0, 0)?;
 
 		Ok(())
 	}
