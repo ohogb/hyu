@@ -8,6 +8,30 @@ impl ZwpLinuxDmabufV1 {
 	pub fn new(object_id: wl::Id<Self>) -> Self {
 		Self { object_id }
 	}
+
+	pub fn format(&self, client: &mut wl::Client, format: u32) -> Result<()> {
+		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:event:format
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 0,
+			args: format,
+		})
+	}
+
+	pub fn modifier(
+		&self,
+		client: &mut wl::Client,
+		format: u32,
+		modifier_hi: u32,
+		modifier_lo: u32,
+	) -> Result<()> {
+		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:event:modifier
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 1,
+			args: (format, modifier_hi, modifier_lo),
+		})
+	}
 }
 
 impl wl::Object for ZwpLinuxDmabufV1 {
