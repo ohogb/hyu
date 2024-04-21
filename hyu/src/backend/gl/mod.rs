@@ -34,6 +34,9 @@ impl backend::winit::WinitRendererSetup for Setup {
 			let context = display.create_context(
 				&config,
 				&glutin::context::ContextAttributesBuilder::new()
+					.with_context_api(glutin::context::ContextApi::Gles(Some(
+						glutin::context::Version::new(3, 2),
+					)))
 					.with_debug(true)
 					.build(Some(window.raw_window_handle())),
 			)?;
