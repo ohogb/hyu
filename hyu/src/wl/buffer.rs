@@ -9,7 +9,9 @@ pub enum BufferStorage {
 		stride: i32,
 		format: u32,
 	},
-	Dmabuf {},
+	Dmabuf {
+		image: usize,
+	},
 }
 
 pub struct Buffer {
@@ -70,7 +72,7 @@ impl Buffer {
 					},
 				);
 			}
-			BufferStorage::Dmabuf {} => todo!(),
+			BufferStorage::Dmabuf { .. } => todo!(),
 		}
 
 		Ok(())
@@ -100,6 +102,18 @@ impl Buffer {
 				unsafe {
 					glow.bind_texture(glow::TEXTURE_2D, Some(texture));
 
+					glow.tex_parameter_i32(
+						glow::TEXTURE_2D,
+						glow::TEXTURE_MIN_FILTER,
+						glow::LINEAR as _,
+					);
+
+					glow.tex_parameter_i32(
+						glow::TEXTURE_2D,
+						glow::TEXTURE_MAG_FILTER,
+						glow::LINEAR as _,
+					);
+
 					glow.tex_image_2d(
 						glow::TEXTURE_2D,
 						0,
@@ -112,10 +126,32 @@ impl Buffer {
 						Some(buffer),
 					);
 
-					glow.generate_mipmap(glow::TEXTURE_2D);
+					glow.bind_texture(glow::TEXTURE_2D, None);
 				};
 			}
-			BufferStorage::Dmabuf {} => todo!(),
+			BufferStorage::Dmabuf { image } => unsafe {
+				glow.active_texture(glow::TEXTURE0);
+				glow.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+				glow.tex_parameter_i32(
+					glow::TEXTURE_2D,
+					glow::TEXTURE_MIN_FILTER,
+					glow::LINEAR as _,
+				);
+
+				glow.tex_parameter_i32(
+					glow::TEXTURE_2D,
+					glow::TEXTURE_MAG_FILTER,
+					glow::LINEAR as _,
+				);
+
+				crate::backend::gl::egl_wrapper::image_target_texture_2d_oes(
+					glow::TEXTURE_2D as _,
+					image,
+				);
+
+				glow.bind_texture(glow::TEXTURE_2D, None);
+			},
 		}
 
 		Ok(())
