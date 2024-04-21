@@ -1,8 +1,14 @@
 use glow::HasContext;
-use glutin::{context::NotCurrentGlContext, display::GlDisplay, surface::GlSurface};
+use glutin::{
+	context::NotCurrentGlContext,
+	display::{AsRawDisplay, GlDisplay},
+	surface::GlSurface,
+};
 use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
 
 use crate::{backend, state, wl, Result};
+
+pub mod egl_wrapper;
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -60,6 +66,21 @@ impl backend::winit::WinitRendererSetup for Setup {
 
 			let mut glow =
 				glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
+
+			let raw_display = match display.raw_display() {
+				glutin::display::RawDisplay::Egl(x) => x,
+			};
+
+			egl_wrapper::init(raw_display as _, |name| {
+				let name_as_cstring = std::ffi::CString::new(name)?;
+				let ret = display.get_proc_address(name_as_cstring.as_c_str());
+
+				if ret.is_null() {
+					Err(format!("cannot find function '{name}'"))?;
+				}
+
+				Ok(ret as _)
+			})?;
 
 			glow.debug_message_callback(|_, _, _, _, e| {
 				eprintln!("{e}");
