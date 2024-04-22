@@ -9,6 +9,7 @@ pub enum SubSurfaceMode {
 
 pub enum SurfaceRole {
 	XdgToplevel,
+	XdgPopup,
 	SubSurface {
 		mode: SubSurfaceMode,
 		parent: wl::Id<wl::Surface>,
