@@ -31,6 +31,15 @@ impl XdgPopup {
 		let xdg_surface = client.get_object_mut(self.xdg_surface)?;
 		xdg_surface.configure(client)
 	}
+
+	pub fn repositioned(&self, client: &mut wl::Client, token: u32) -> Result<()> {
+		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:repositioned
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 2,
+			args: token,
+		})
+	}
 }
 
 impl wl::Object for XdgPopup {
@@ -38,8 +47,11 @@ impl wl::Object for XdgPopup {
 		match op {
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:reposition
-				let (_positioner, _token): (wl::Id<wl::XdgPositioner>, u32) =
+				let (_positioner, token): (wl::Id<wl::XdgPositioner>, u32) =
 					wlm::decode::from_slice(params)?;
+
+				self.repositioned(client, token)?;
+				self.configure(client, 100, 100, 50, 50)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgPopup"))?,
 		}
