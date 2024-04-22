@@ -57,6 +57,16 @@ impl wl::Object for XdgSurface {
 
 				client.new_object(id, xdg_toplevel);
 			}
+			2 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_popup
+				let (id, _parent, _positioner): (
+					wl::Id<wl::XdgPopup>,
+					wl::Id<wl::XdgSurface>,
+					wl::Id<wl::XdgPositioner>,
+				) = wlm::decode::from_slice(params)?;
+
+				client.new_object(id, wl::XdgPopup::new(id));
+			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry
 				let (x, y, width, height): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
