@@ -30,6 +30,10 @@ impl wl::Object for XdgPositioner {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_gravity
 				let _gravity: u32 = wlm::decode::from_slice(params)?;
 			}
+			5 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_constraint_adjustment
+				let _constraint_adjustment: u32 = wlm::decode::from_slice(params)?;
+			}
 			6 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_offset
 				let (_x, _y): (i32, i32) = wlm::decode::from_slice(params)?;
