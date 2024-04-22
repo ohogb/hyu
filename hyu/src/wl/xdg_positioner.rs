@@ -22,6 +22,10 @@ impl wl::Object for XdgPositioner {
 				let (_x, _y, _width, _height): (i32, i32, i32, i32) =
 					wlm::decode::from_slice(params)?;
 			}
+			3 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_anchor
+				let _anchor: u32 = wlm::decode::from_slice(params)?;
+			}
 			6 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_offset
 				let (_x, _y): (i32, i32) = wlm::decode::from_slice(params)?;
