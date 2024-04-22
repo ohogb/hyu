@@ -10,12 +10,12 @@ pub struct XdgToplevel {
 
 impl XdgToplevel {
 	pub fn new(
-		client: &mut wl::Client,
 		object_id: wl::Id<Self>,
 		surface: wl::Id<wl::XdgSurface>,
 		position: (i32, i32),
+		fd: std::os::fd::RawFd,
 	) -> Self {
-		state::add_change(state::Change::Push(client.fd, object_id));
+		state::add_change(state::Change::Push(fd, object_id));
 
 		Self {
 			object_id,

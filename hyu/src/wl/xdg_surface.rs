@@ -45,17 +45,17 @@ impl wl::Object for XdgSurface {
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
 				let id: wl::Id<wl::XdgToplevel> = wlm::decode::from_slice(params)?;
-				let start_position = client.start_position;
 
-				let xdg_toplevel = wl::XdgToplevel::new(client, id, self.object_id, start_position);
+				let xdg_toplevel = client.new_object(
+					id,
+					wl::XdgToplevel::new(id, self.object_id, client.start_position, client.fd),
+				);
 
 				xdg_toplevel.configure_bounds(client, 1280, 720)?;
 				xdg_toplevel.configure(client, 0, 0, &[])?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
-
-				client.new_object(id, xdg_toplevel);
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_popup
