@@ -71,6 +71,7 @@ implement![
 	SubCompositor,
 	SubSurface,
 	Surface,
+	XdgPopup,
 	XdgPositioner,
 	XdgSurface,
 	XdgToplevel,
