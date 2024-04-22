@@ -36,6 +36,11 @@ impl XdgPopup {
 impl wl::Object for XdgPopup {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
+			2 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:reposition
+				let (_positioner, _token): (wl::Id<wl::XdgPositioner>, u32) =
+					wlm::decode::from_slice(params)?;
+			}
 			_ => Err(format!("unknown op '{op}' in XdgPopup"))?,
 		}
 
