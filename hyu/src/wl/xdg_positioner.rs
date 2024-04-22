@@ -49,6 +49,10 @@ impl wl::Object for XdgPositioner {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_parent_size
 				let (_parent_width, _parent_height): (i32, i32) = wlm::decode::from_slice(params)?;
 			}
+			9 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_parent_configure
+				let _serial: u32 = wlm::decode::from_slice(params)?;
+			}
 			_ => Err(format!("unknown op '{op}' in XdgPositioner"))?,
 		}
 
