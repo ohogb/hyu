@@ -13,6 +13,10 @@ impl XdgPositioner {
 impl wl::Object for XdgPositioner {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:destroy
+				client.remove_object(self.object_id)?;
+			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_size
 				let (_width, _height): (i32, i32) = wlm::decode::from_slice(params)?;
