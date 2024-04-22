@@ -65,7 +65,8 @@ impl wl::Object for XdgSurface {
 					wl::Id<wl::XdgPositioner>,
 				) = wlm::decode::from_slice(params)?;
 
-				client.new_object(id, wl::XdgPopup::new(id));
+				let xdg_popup = client.new_object(id, wl::XdgPopup::new(id, self.object_id));
+				xdg_popup.configure(client, 100, 100, 50, 50)?;
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:set_window_geometry
