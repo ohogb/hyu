@@ -71,6 +71,7 @@ implement![
 	SubCompositor,
 	SubSurface,
 	Surface,
+	XdgPositioner,
 	XdgSurface,
 	XdgToplevel,
 	XdgWmBase,
