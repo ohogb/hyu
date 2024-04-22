@@ -25,6 +25,11 @@ impl wl::Object for XdgWmBase {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:destroy
 			}
+			1 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:create_positioner
+				let id: wl::Id<wl::XdgPositioner> = wlm::decode::from_slice(params)?;
+				client.new_object(id, wl::XdgPositioner::new(id));
+			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (wl::Id<wl::XdgSurface>, wl::Id<wl::Surface>) =
