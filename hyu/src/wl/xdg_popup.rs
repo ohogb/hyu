@@ -45,6 +45,10 @@ impl XdgPopup {
 impl wl::Object for XdgPopup {
 	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
+			0 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:destroy
+				client.remove_object(self.object_id)?;
+			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:reposition
 				let (_positioner, token): (wl::Id<wl::XdgPositioner>, u32) =
