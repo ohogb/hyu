@@ -38,6 +38,9 @@ impl wl::Object for XdgPositioner {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_offset
 				let (_x, _y): (i32, i32) = wlm::decode::from_slice(params)?;
 			}
+			7 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_reactive
+			}
 			_ => Err(format!("unknown op '{op}' in XdgPositioner"))?,
 		}
 
