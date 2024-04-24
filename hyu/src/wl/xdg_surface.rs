@@ -41,6 +41,7 @@ impl wl::Object for XdgSurface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:destroy
+				client.remove_object(self.object_id)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
