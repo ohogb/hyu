@@ -118,7 +118,7 @@ pub fn process_focus_changes(
 		let current = lock.iter().next().cloned();
 
 		if old == current {
-			return Ok(());
+			continue;
 		}
 
 		if should_leave_from_old {
