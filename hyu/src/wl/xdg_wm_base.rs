@@ -24,6 +24,7 @@ impl wl::Object for XdgWmBase {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:destroy
+				client.remove_object(self.object_id)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:create_positioner
