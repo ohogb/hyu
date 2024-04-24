@@ -58,11 +58,13 @@ pub fn process_focus_changes(
 		std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
 	>,
 ) -> Result<()> {
-	for change in std::mem::take(&mut *changes()) {
-		let mut lock = window_stack();
-		let old = lock.iter().next().cloned();
+	let mut lock = window_stack();
+	let old = lock.iter().next().cloned();
 
-		let should_leave_from_old = match change {
+	let mut should_leave_from_old = false;
+
+	for (i, change) in std::mem::take(&mut *changes()).into_iter().enumerate() {
+		let x = match change {
 			Change::Push(fd, id) => {
 				lock.push_front((fd, id));
 				true
@@ -115,41 +117,45 @@ pub fn process_focus_changes(
 			}
 		};
 
-		let current = lock.iter().next().cloned();
-
-		if old == current {
-			continue;
+		if i == 0 {
+			should_leave_from_old = x;
 		}
+	}
 
-		if should_leave_from_old {
-			if let Some((fd, id)) = old {
-				let client = clients.get_mut(&fd).unwrap();
+	let current = lock.iter().next().cloned();
 
-				let xdg_toplevel = client.get_object(id)?;
-				let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-				let surface = client.get_object(xdg_surface.surface).unwrap();
+	if old == current {
+		return Ok(());
+	}
 
-				for keyboard in client.objects_mut::<wl::Keyboard>() {
-					keyboard.leave(client, surface.object_id)?;
-				}
-
-				xdg_toplevel.configure(client, 0, 0, &[])?;
-			}
-		}
-
-		if let Some((fd, id)) = current {
+	if should_leave_from_old {
+		if let Some((fd, id)) = old {
 			let client = clients.get_mut(&fd).unwrap();
 
-			let xdg_toplevel = client.get_object(id)?;
+			let xdg_toplevel = client.get_object(id).unwrap();
 			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-			let surface = client.get_object(xdg_surface.surface)?;
+			let surface = client.get_object(xdg_surface.surface).unwrap();
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
-				keyboard.enter(client, surface.object_id)?;
+				keyboard.leave(client, surface.object_id)?;
 			}
 
-			xdg_toplevel.configure(client, 0, 0, &[4])?;
+			xdg_toplevel.configure(client, 0, 0, &[])?;
 		}
+	}
+
+	if let Some((fd, id)) = current {
+		let client = clients.get_mut(&fd).unwrap();
+
+		let xdg_toplevel = client.get_object(id).unwrap();
+		let xdg_surface = client.get_object(xdg_toplevel.surface)?;
+		let surface = client.get_object(xdg_surface.surface)?;
+
+		for keyboard in client.objects_mut::<wl::Keyboard>() {
+			keyboard.enter(client, surface.object_id)?;
+		}
+
+		xdg_toplevel.configure(client, 0, 0, &[4])?;
 	}
 
 	Ok(())
