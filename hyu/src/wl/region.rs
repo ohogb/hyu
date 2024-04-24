@@ -3,7 +3,7 @@ use crate::{wl, Result};
 #[derive(Clone)]
 pub struct Region {
 	object_id: wl::Id<Self>,
-	pub areas: Vec<(u32, u32, u32, u32)>,
+	pub areas: Vec<(i32, i32, i32, i32)>,
 }
 
 impl Region {
@@ -24,7 +24,7 @@ impl wl::Object for Region {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_region:request:add
-				let (x, y, w, h): (u32, u32, u32, u32) = wlm::decode::from_slice(params)?;
+				let (x, y, w, h): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 				self.areas.push((x, y, w, h));
 			}
 			_ => Err(format!("unknown op '{op}' in Region"))?,
