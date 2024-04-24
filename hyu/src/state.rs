@@ -25,7 +25,8 @@ pub fn window_stack() -> std::sync::MutexGuard<
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
-	Remove(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
+	RemoveToplevel(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
+	RemoveSurface(std::os::fd::RawFd, wl::Id<wl::Surface>),
 	RemoveClient(std::os::fd::RawFd),
 	Pick(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 }
@@ -66,13 +67,42 @@ pub fn process_focus_changes(
 				lock.push_front((fd, id));
 				true
 			}
-			Change::Remove(fd, id) => {
+			Change::RemoveToplevel(fd, id) => {
 				lock.retain(|&x| x != (fd, id));
+
+				let mut lock = pointer_over();
+
+				if let Some(value) = &mut *lock {
+					if value.fd == fd && value.toplevel == id {
+						*lock = None;
+					}
+				}
+
+				false
+			}
+			Change::RemoveSurface(fd, id) => {
+				let mut lock = pointer_over();
+
+				if let Some(value) = &mut *lock {
+					if value.fd == fd && value.surface == id {
+						*lock = None;
+					}
+				}
+
 				false
 			}
 			Change::RemoveClient(fd) => {
 				lock.retain(|&(x, _)| x != fd);
 				clients.remove(&fd);
+
+				let mut lock = pointer_over();
+
+				if let Some(value) = &mut *lock {
+					if value.fd == fd {
+						*lock = None;
+					}
+				}
+
 				false
 			}
 			Change::Pick(fd, toplevel) => {

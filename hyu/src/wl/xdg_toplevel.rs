@@ -59,7 +59,7 @@ impl wl::Object for XdgToplevel {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
-				state::add_change(state::Change::Remove(client.fd, self.object_id));
+				state::add_change(state::Change::RemoveToplevel(client.fd, self.object_id));
 				client.remove_object(self.object_id)?;
 			}
 			1 => {

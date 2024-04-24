@@ -53,7 +53,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			let len = match len {
 				Ok(len) => len,
 				Err(x) => match x.kind() {
-					std::io::ErrorKind::WouldBlock => {
+					std::io::ErrorKind::WouldBlock | std::io::ErrorKind::ConnectionReset => {
 						break;
 					}
 					_ => {
@@ -64,15 +64,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 			if len == 0 {
 				state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
-
-				// TODO: temp fix for pointer focus
-				let mut lock = state::pointer_over();
-
-				if let Some(x) = *lock {
-					if x.fd == stream.as_raw_fd() {
-						*lock = None;
-					}
-				}
+				state::process_focus_changes(&mut clients)?;
 
 				return Ok(());
 			}
@@ -129,15 +121,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 				match e.kind() {
 					std::io::ErrorKind::BrokenPipe => {
 						state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
-
-						// TODO: temp fix for pointer focus
-						let mut lock = state::pointer_over();
-
-						if let Some(x) = *lock {
-							if x.fd == stream.as_raw_fd() {
-								*lock = None;
-							}
-						}
+						state::process_focus_changes(&mut clients)?;
 
 						return Ok(());
 					}
