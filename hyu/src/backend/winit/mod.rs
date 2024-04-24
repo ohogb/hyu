@@ -90,19 +90,37 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						break;
 					}
 
-					fn get_surface_input_size(surface: &wl::Surface) -> (i32, i32) {
-						None.or_else(|| {
-							if surface.current_input_region.as_ref()?.areas.is_empty() {
-								Some((0, 0))
-							} else {
-								None
+					fn is_point_inside_area(
+						cursor: (i32, i32),
+						position: (i32, i32),
+						size: (i32, i32),
+					) -> bool {
+						cursor.0 > position.0
+							&& cursor.1 > position.1 && cursor.0 <= position.0 + size.0
+							&& cursor.1 <= position.1 + size.1
+					}
+
+					fn is_cursor_over_surface(
+						cursor_position: (i32, i32),
+						surface_position: (i32, i32),
+						surface: &wl::Surface,
+					) -> bool {
+						if let Some(input_region) = &surface.current_input_region {
+							for area in &input_region.areas {
+								let position =
+									(surface_position.0 + area.0, surface_position.1 + area.1);
+
+								let area = (area.2, area.3);
+
+								if is_point_inside_area(cursor_position, position, area) {
+									return true;
+								}
 							}
-						})
-						.or_else(|| {
-							let &(w, h, ..) = surface.data.as_ref()?;
-							Some((w, h))
-						})
-						.unwrap_or((0, 0))
+						} else if let Some(&(w, h, ..)) = surface.data.as_ref() {
+							return is_point_inside_area(cursor_position, surface_position, (w, h));
+						}
+
+						false
 					}
 
 					fn do_stuff(
@@ -111,19 +129,8 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						surface: &wl::Surface,
 						cursor_position: (i32, i32),
 						surface_position: (i32, i32),
-						surface_size: (i32, i32),
 					) {
-						fn is_point_inside_area(
-							cursor: (i32, i32),
-							position: (i32, i32),
-							size: (i32, i32),
-						) -> bool {
-							cursor.0 > position.0
-								&& cursor.1 > position.1 && cursor.0 <= position.0 + size.0
-								&& cursor.1 <= position.1 + size.1
-						}
-
-						if is_point_inside_area(cursor_position, surface_position, surface_size) {
+						if is_cursor_over_surface(cursor_position, surface_position, surface) {
 							*state::pointer_over() = Some(state::PointerOver {
 								fd: client.fd,
 								toplevel: toplevel.object_id,
@@ -148,7 +155,6 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 									surface_position.0 + sub_surface.position.0,
 									surface_position.1 + sub_surface.position.1,
 								),
-								get_surface_input_size(surface),
 							);
 						}
 					}
@@ -162,14 +168,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						toplevel.position.1 - xdg_surface.position.1,
 					);
 
-					do_stuff(
-						client,
-						toplevel,
-						surface,
-						cursor_position.into(),
-						position,
-						get_surface_input_size(surface),
-					);
+					do_stuff(client, toplevel, surface, cursor_position.into(), position);
 				}
 
 				if let Some((fd, seat)) = moving {
