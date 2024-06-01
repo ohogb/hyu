@@ -69,7 +69,13 @@ impl<'object> Client<'object> {
 		Result<&'object T>: From<&'object wl::Resource>,
 	{
 		self.get_resource(*id)
-			.ok_or_else(|| format!("object '{}' does not exist", *id))?
+			.ok_or_else(|| {
+				format!(
+					"object '{}@{}' does not exist",
+					std::any::type_name::<T>(),
+					*id
+				)
+			})?
 			.into()
 	}
 
@@ -78,7 +84,13 @@ impl<'object> Client<'object> {
 		Result<&'object mut T>: From<&'object mut wl::Resource>,
 	{
 		self.get_resource_mut(*id)
-			.ok_or_else(|| format!("object '{}' does not exist", *id))?
+			.ok_or_else(|| {
+				format!(
+					"object '{}@{}' does not exist",
+					std::any::type_name::<T>(),
+					*id
+				)
+			})?
 			.into()
 	}
 
