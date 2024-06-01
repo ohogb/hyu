@@ -180,8 +180,18 @@ impl Surface {
 		if let Some(buffer_id) = self.current_buffer {
 			let buffer = client.get_object_mut(buffer_id)?;
 
-			if let Some((width, height, ..)) = &self.data {
-				assert!(buffer.width == *width && buffer.height == *height);
+			if let Some((width, height, tex)) = &self.data {
+				if buffer.width != *width || buffer.height != *height {
+					let SurfaceTexture::Gl(tex) = tex else {
+						unreachable!();
+					};
+
+					unsafe {
+						glow.delete_texture(*tex);
+					}
+
+					self.data = None;
+				}
 			}
 
 			let (_, _, texture) = self.data.get_or_insert_with(|| {
