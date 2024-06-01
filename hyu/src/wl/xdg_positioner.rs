@@ -1,12 +1,45 @@
 use crate::{wl, Result};
 
+pub enum Anchor {
+	Top,
+	Bottom,
+	Left,
+	Right,
+	TopLeft,
+	BottomLeft,
+	TopRight,
+	BottomRight,
+}
+
+impl Anchor {
+	pub fn try_from_index(index: u32) -> Option<Anchor> {
+		Some(match index {
+			1 => Self::Top,
+			2 => Self::Bottom,
+			3 => Self::Left,
+			4 => Self::Right,
+			5 => Self::TopLeft,
+			6 => Self::BottomLeft,
+			7 => Self::TopRight,
+			8 => Self::BottomRight,
+			_ => return None,
+		})
+	}
+}
+
 pub struct XdgPositioner {
 	object_id: wl::Id<Self>,
+	pub size: Option<(i32, i32)>,
+	pub anchor: Option<Anchor>,
 }
 
 impl XdgPositioner {
 	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+		Self {
+			object_id,
+			size: None,
+			anchor: None,
+		}
 	}
 }
 
@@ -19,7 +52,8 @@ impl wl::Object for XdgPositioner {
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_size
-				let (_width, _height): (i32, i32) = wlm::decode::from_slice(params)?;
+				let (width, height): (i32, i32) = wlm::decode::from_slice(params)?;
+				self.size = Some((width, height));
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_anchor_rect
@@ -28,7 +62,8 @@ impl wl::Object for XdgPositioner {
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_anchor
-				let _anchor: u32 = wlm::decode::from_slice(params)?;
+				let anchor: u32 = wlm::decode::from_slice(params)?;
+				self.anchor = Anchor::try_from_index(anchor);
 			}
 			4 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_gravity
