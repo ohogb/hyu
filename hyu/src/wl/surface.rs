@@ -25,8 +25,8 @@ pub enum SurfaceTexture {
 pub struct Surface {
 	pub object_id: wl::Id<Self>,
 	pub children: Vec<wl::Id<wl::SubSurface>>,
-	pending_buffer: Option<wl::Id<wl::Buffer>>,
-	current_buffer: Option<wl::Id<wl::Buffer>>,
+	pending_buffer: Option<wl::Buffer>,
+	current_buffer: Option<wl::Buffer>,
 	pending_frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	current_frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pending_input_region: Option<wl::Region>,
@@ -109,9 +109,7 @@ impl Surface {
 		sampler: &wgpu::Sampler,
 		bind_group_layout: &wgpu::BindGroupLayout,
 	) -> Result<()> {
-		if let Some(buffer_id) = self.current_buffer {
-			let buffer = client.get_object_mut(buffer_id)?;
-
+		if let Some(buffer) = &self.current_buffer {
 			if let Some((width, height, ..)) = &self.data {
 				assert!(buffer.width == *width && buffer.height == *height);
 			}
@@ -177,9 +175,7 @@ impl Surface {
 	}
 
 	pub fn gl_do_textures(&mut self, client: &mut wl::Client, glow: &glow::Context) -> Result<()> {
-		if let Some(buffer_id) = self.current_buffer {
-			let buffer = client.get_object_mut(buffer_id)?;
-
+		if let Some(buffer) = &self.current_buffer {
 			if let Some((width, height, tex)) = &self.data {
 				if buffer.width != *width || buffer.height != *height {
 					let SurfaceTexture::Gl(tex) = tex else {
@@ -230,9 +226,8 @@ impl Surface {
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
 	pub fn commit(&mut self) -> Result<()> {
-		if let Some(buffer_id) = self.pending_buffer {
-			self.current_buffer = Some(buffer_id);
-			self.pending_buffer = None;
+		if let Some(buffer) = std::mem::take(&mut self.pending_buffer) {
+			self.current_buffer = Some(buffer);
 		}
 
 		self.current_frame_callbacks
@@ -269,7 +264,8 @@ impl wl::Object for Surface {
 				assert!(y == 0);
 
 				self.pending_buffer = if !buffer.is_null() {
-					Some(buffer)
+					let buffer = client.get_object(buffer)?;
+					Some(buffer.clone())
 				} else {
 					None
 				};

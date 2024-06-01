@@ -2,6 +2,7 @@ use glow::HasContext;
 
 use crate::{wl, Result};
 
+#[derive(Clone)]
 pub enum BufferStorage {
 	Shm {
 		pool_id: wl::Id<wl::ShmPool>,
@@ -14,6 +15,7 @@ pub enum BufferStorage {
 	},
 }
 
+#[derive(Clone)]
 pub struct Buffer {
 	object_id: wl::Id<Self>,
 	pub width: i32,
