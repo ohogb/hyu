@@ -112,17 +112,22 @@ pub fn process_focus_changes(
 		return Ok(());
 	}
 
+	const GAP: u32 = 10;
+
 	let get_pos_and_size = |index: u32, amount: u32| -> ((u32, u32), (u32, u32)) {
 		match amount {
 			0 => {
 				unreachable!();
 			}
-			1 => ((0, 0), (1280, 720)),
+			1 => ((0 + GAP, 0 + GAP), (1280 - GAP * 2, 720 - GAP * 2)),
 			2.. => match index {
-				0 => ((0, 0), (1280 / 2, 720)),
+				0 => ((0 + GAP, 0 + GAP), (1280 / 2 - GAP * 2, 720 - GAP * 2)),
 				1.. => {
 					let frac = ((1. / (amount - 1) as f32) * 720.0) as u32;
-					((1280 / 2, frac * (index - 1)), (1280 / 2, frac))
+					(
+						(1280 / 2 + GAP, frac * (index - 1) + GAP),
+						(1280 / 2 - GAP * 2, frac - GAP * 2),
+					)
 				}
 			},
 		}
