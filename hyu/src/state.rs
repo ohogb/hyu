@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub static CLIENTS: std::sync::LazyLock<
 	std::sync::Mutex<std::collections::HashMap<std::os::fd::RawFd, wl::Client>>,
@@ -24,7 +24,7 @@ pub struct PointerOver {
 	pub fd: std::os::fd::RawFd,
 	pub toplevel: wl::Id<wl::XdgToplevel>,
 	pub surface: wl::Id<wl::Surface>,
-	pub position: (i32, i32),
+	pub position: Point,
 }
 
 pub static POINTER_OVER: std::sync::LazyLock<std::sync::Mutex<Option<PointerOver>>> =
@@ -112,21 +112,27 @@ pub fn process_focus_changes(
 		return Ok(());
 	}
 
-	const GAP: u32 = 10;
+	const GAP: i32 = 10;
 
-	let get_pos_and_size = |index: u32, amount: u32| -> ((u32, u32), (u32, u32)) {
+	let get_pos_and_size = |index: u32, amount: u32| -> (Point, Point) {
 		match amount {
 			0 => {
 				unreachable!();
 			}
-			1 => ((0 + GAP, 0 + GAP), (1280 - GAP * 2, 720 - GAP * 2)),
+			1 => (
+				Point(0 + GAP, 0 + GAP),
+				Point(1280 - GAP * 2, 720 - GAP * 2),
+			),
 			2.. => match index {
-				0 => ((0 + GAP, 0 + GAP), (1280 / 2 - GAP * 2, 720 - GAP * 2)),
+				0 => (
+					Point(0 + GAP, 0 + GAP),
+					Point(1280 / 2 - GAP * 2, 720 - GAP * 2),
+				),
 				1.. => {
-					let frac = ((1. / (amount - 1) as f32) * 720.0) as u32;
+					let frac = ((1. / (amount - 1) as f32) * 720.0) as i32;
 					(
-						(1280 / 2 + GAP, frac * (index - 1) + GAP),
-						(1280 / 2 - GAP * 2, frac - GAP * 2),
+						Point(1280 / 2 + GAP, frac * (index as i32 - 1) + GAP),
+						Point(1280 / 2 - GAP * 2, frac - GAP * 2),
 					)
 				}
 			},
@@ -139,13 +145,13 @@ pub fn process_focus_changes(
 		for xdg_toplevel in client.objects_mut::<wl::XdgToplevel>() {
 			let (pos, size) = get_pos_and_size(index as _, lock.len() as _);
 
-			xdg_toplevel.position = (pos.0 as _, pos.1 as _);
-			xdg_toplevel.size = Some((size.0 as _, size.1 as _));
+			xdg_toplevel.position = pos;
+			xdg_toplevel.size = Some(size);
 
 			if Some((client.fd, xdg_toplevel.object_id)) != old
 				&& Some((client.fd, xdg_toplevel.object_id)) != current
 			{
-				xdg_toplevel.configure(client, size.0 as _, size.1 as _, &[1])?;
+				xdg_toplevel.configure(client, size, &[1])?;
 			}
 
 			index += 1;
@@ -164,8 +170,8 @@ pub fn process_focus_changes(
 				keyboard.leave(client, surface.object_id)?;
 			}
 
-			let (w, h) = xdg_toplevel.size.unwrap_or((0, 0));
-			xdg_toplevel.configure(client, w, h, &[1])?;
+			let size = xdg_toplevel.size.unwrap_or(Point(0, 0));
+			xdg_toplevel.configure(client, size, &[1])?;
 		}
 	}
 
@@ -180,8 +186,8 @@ pub fn process_focus_changes(
 			keyboard.enter(client, surface.object_id)?;
 		}
 
-		let (w, h) = xdg_toplevel.size.unwrap_or((0, 0));
-		xdg_toplevel.configure(client, w, h, &[1, 4])?;
+		let size = xdg_toplevel.size.unwrap_or(Point(0, 0));
+		xdg_toplevel.configure(client, size, &[1, 4])?;
 	}
 
 	Ok(())

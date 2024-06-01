@@ -1,11 +1,11 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct XdgPopup {
 	object_id: wl::Id<Self>,
 	pub xdg_surface: wl::Id<wl::XdgSurface>,
 	pub parent_xdg_surface: wl::Id<wl::XdgSurface>,
-	pub position: (i32, i32),
-	pub size: (i32, i32),
+	pub position: Point,
+	pub size: Point,
 }
 
 impl XdgPopup {
@@ -18,16 +18,16 @@ impl XdgPopup {
 			object_id,
 			xdg_surface,
 			parent_xdg_surface,
-			position: (0, 0),
-			size: (0, 0),
+			position: Point(0, 0),
+			size: Point(0, 0),
 		}
 	}
 
 	pub fn configure(
 		&mut self,
 		client: &mut wl::Client,
-		position: (i32, i32),
-		size: (i32, i32),
+		position: Point,
+		size: Point,
 	) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:configure
 		client.send_message(wlm::Message {

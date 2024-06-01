@@ -6,7 +6,7 @@ use glutin::{
 };
 use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
 
-use crate::{backend, state, wl, Result};
+use crate::{backend, state, wl, Point, Result};
 
 pub mod egl_wrapper;
 
@@ -192,7 +192,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			fn draw(
 				this: &mut Renderer,
 				client: &mut wl::Client,
-				position: (i32, i32),
+				toplevel_position: Point,
 				xdg_surface: &wl::XdgSurface,
 				surface: &mut wl::Surface,
 			) -> Result<()> {
@@ -200,7 +200,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 				surface.frame(this.start_time.elapsed().as_millis() as u32, client)?;
 
-				for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
+				for (position, size, surface_id) in surface.get_front_buffers(client) {
 					let surface = client.get_object(surface_id)?;
 
 					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
@@ -214,8 +214,8 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 						]
 					};
 
-					let x = position.0 - xdg_surface.position.0 + x;
-					let y = position.1 - xdg_surface.position.1 + y;
+					let Point(x, y) = toplevel_position - xdg_surface.position + position;
+					let Point(width, height) = size;
 
 					this.vertices.extend([
 						Vertex {
@@ -274,10 +274,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 				let xdg_surface = client.get_object(popup.xdg_surface)?;
 				let surface = client.get_object_mut(xdg_surface.surface)?;
 
-				let position = (
-					toplevel.position.0 + popup.position.0,
-					toplevel.position.1 + popup.position.1,
-				);
+				let position = toplevel.position + popup.position;
 
 				draw(self, client, position, xdg_surface, surface)?;
 			}

@@ -1,10 +1,10 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct Client<'object> {
 	pub fd: std::os::fd::RawFd,
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	pub buffer: Vec<u8>,
-	pub start_position: (i32, i32),
+	pub start_position: Point,
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
 	highest_index: u32,
@@ -12,7 +12,7 @@ pub struct Client<'object> {
 }
 
 impl<'object> Client<'object> {
-	pub fn new(fd: std::os::fd::RawFd, start_position: (i32, i32)) -> Self {
+	pub fn new(fd: std::os::fd::RawFd, start_position: Point) -> Self {
 		Self {
 			fd,
 			objects: Vec::new(),

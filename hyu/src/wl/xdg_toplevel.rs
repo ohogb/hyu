@@ -1,19 +1,19 @@
-use crate::{state, wl, Result};
+use crate::{state, wl, Point, Result};
 
 pub struct XdgToplevel {
 	pub object_id: wl::Id<Self>,
 	pub surface: wl::Id<wl::XdgSurface>,
 	app_id: String,
 	title: String,
-	pub position: (i32, i32),
-	pub size: Option<(i32, i32)>,
+	pub position: Point,
+	pub size: Option<Point>,
 }
 
 impl XdgToplevel {
 	pub fn new(
 		object_id: wl::Id<Self>,
 		surface: wl::Id<wl::XdgSurface>,
-		position: (i32, i32),
+		position: Point,
 		fd: std::os::fd::RawFd,
 	) -> Self {
 		state::CHANGES
@@ -31,18 +31,12 @@ impl XdgToplevel {
 		}
 	}
 
-	pub fn configure(
-		&self,
-		client: &mut wl::Client,
-		width: i32,
-		height: i32,
-		states: &[u32],
-	) -> Result<()> {
+	pub fn configure(&self, client: &mut wl::Client, size: Point, states: &[u32]) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: (width, height, states),
+			args: (size.0, size.1, states),
 		})?;
 
 		let xdg_surface = client.get_object_mut(self.surface)?;

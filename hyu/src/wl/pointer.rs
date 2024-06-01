@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct Pointer {
 	object_id: wl::Id<Self>,
@@ -14,8 +14,7 @@ impl Pointer {
 		&mut self,
 		client: &mut wl::Client,
 		surface: wl::Id<wl::Surface>,
-		x: i32,
-		y: i32,
+		position: Point,
 	) -> Result<()> {
 		let seat = client.get_object_mut(self.seat_id)?;
 
@@ -26,8 +25,8 @@ impl Pointer {
 			args: (
 				seat.serial(),
 				surface,
-				fixed::types::I24F8::from_num(x),
-				fixed::types::I24F8::from_num(y),
+				fixed::types::I24F8::from_num(position.0),
+				fixed::types::I24F8::from_num(position.1),
 			),
 		})
 	}
@@ -43,15 +42,15 @@ impl Pointer {
 		})
 	}
 
-	pub fn motion(&mut self, client: &mut wl::Client, x: i32, y: i32) -> Result<()> {
+	pub fn motion(&mut self, client: &mut wl::Client, position: Point) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:motion
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (
 				0,
-				fixed::types::I24F8::from_num(x),
-				fixed::types::I24F8::from_num(y),
+				fixed::types::I24F8::from_num(position.0),
+				fixed::types::I24F8::from_num(position.1),
 			),
 		})
 	}

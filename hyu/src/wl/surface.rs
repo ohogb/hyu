@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{state, wl, Result};
+use crate::{state, wl, Point, Result};
 
 pub enum SubSurfaceMode {
 	Sync,
@@ -31,7 +31,7 @@ pub struct Surface {
 	current_frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pending_input_region: Option<wl::Region>,
 	pub current_input_region: Option<wl::Region>,
-	pub data: Option<(i32, i32, SurfaceTexture)>,
+	pub data: Option<(Point, SurfaceTexture)>,
 	pub role: Option<SurfaceRole>,
 }
 
@@ -58,13 +58,13 @@ impl Surface {
 	pub fn get_front_buffers(
 		&self,
 		client: &wl::Client,
-	) -> Vec<(i32, i32, i32, i32, wl::Id<wl::Surface>)> {
+	) -> Vec<(Point, Point, wl::Id<wl::Surface>)> {
 		let Some(data) = self.data.as_ref() else {
 			return Vec::new();
 		};
 
 		let mut ret = Vec::new();
-		ret.push((0, 0, data.0, data.1, self.object_id));
+		ret.push((Point(0, 0), data.0, self.object_id));
 
 		for i in &self.children {
 			let sub_surface = client.get_object(*i).unwrap();
@@ -76,7 +76,7 @@ impl Surface {
 				surface
 					.get_front_buffers(client)
 					.into_iter()
-					.map(|x| (x.0 + position.0, x.1 + position.1, x.2, x.3, x.4)),
+					.map(|x| (x.0 + position, x.1, x.2)),
 			);
 		}
 
@@ -110,15 +110,15 @@ impl Surface {
 		bind_group_layout: &wgpu::BindGroupLayout,
 	) -> Result<()> {
 		if let Some(buffer) = &self.current_buffer {
-			if let Some((width, height, ..)) = &self.data {
-				assert!(buffer.width == *width && buffer.height == *height);
+			if let Some((size, ..)) = &self.data {
+				assert!(buffer.size == *size);
 			}
 
-			let (_, _, texture) = self.data.get_or_insert_with(|| {
+			let (_, texture) = self.data.get_or_insert_with(|| {
 				let texture = device.create_texture(&wgpu::TextureDescriptor {
 					size: wgpu::Extent3d {
-						width: buffer.width as _,
-						height: buffer.height as _,
+						width: buffer.size.0 as _,
+						height: buffer.size.1 as _,
 						depth_or_array_layers: 1,
 					},
 					mip_level_count: 1,
@@ -147,11 +147,7 @@ impl Surface {
 					label: None,
 				});
 
-				(
-					buffer.width,
-					buffer.height,
-					SurfaceTexture::Wgpu(texture, bind_group),
-				)
+				(buffer.size, SurfaceTexture::Wgpu(texture, bind_group))
 			});
 
 			let SurfaceTexture::Wgpu(texture, _) = texture else {
@@ -176,8 +172,8 @@ impl Surface {
 
 	pub fn gl_do_textures(&mut self, client: &mut wl::Client, glow: &glow::Context) -> Result<()> {
 		if let Some(buffer) = &self.current_buffer {
-			if let Some((width, height, tex)) = &self.data {
-				if buffer.width != *width || buffer.height != *height {
+			if let Some((size, tex)) = &self.data {
+				if buffer.size != *size {
 					let SurfaceTexture::Gl(tex) = tex else {
 						unreachable!();
 					};
@@ -190,9 +186,9 @@ impl Surface {
 				}
 			}
 
-			let (_, _, texture) = self.data.get_or_insert_with(|| {
+			let (_, texture) = self.data.get_or_insert_with(|| {
 				let texture = unsafe { glow.create_texture().unwrap() };
-				(buffer.width, buffer.height, SurfaceTexture::Gl(texture))
+				(buffer.size, SurfaceTexture::Gl(texture))
 			});
 
 			let SurfaceTexture::Gl(texture) = texture else {

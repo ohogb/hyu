@@ -3,7 +3,7 @@ use winit::platform::{
 	wayland::{EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _},
 };
 
-use crate::{state, wl, Result};
+use crate::{state, wl, Point, Result};
 
 pub trait WinitRendererSetup {
 	fn setup(
@@ -55,10 +55,12 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 				..
 			} => {
 				let mut clients = state::CLIENTS.lock().unwrap();
+				let cursor_position = <(i32, i32)>::from(cursor_position);
+				let cursor_position = Point(cursor_position.0, cursor_position.1);
 
 				for client in clients.values_mut() {
 					for seat in client.objects_mut::<wl::Seat>() {
-						seat.pointer_position = cursor_position.into();
+						seat.pointer_position = cursor_position;
 					}
 				}
 
@@ -90,34 +92,27 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						break;
 					}
 
-					fn is_point_inside_area(
-						cursor: (i32, i32),
-						position: (i32, i32),
-						size: (i32, i32),
-					) -> bool {
+					fn is_point_inside_area(cursor: Point, position: Point, size: Point) -> bool {
 						cursor.0 > position.0
 							&& cursor.1 > position.1 && cursor.0 <= position.0 + size.0
 							&& cursor.1 <= position.1 + size.1
 					}
 
 					fn is_cursor_over_surface(
-						cursor_position: (i32, i32),
-						surface_position: (i32, i32),
+						cursor_position: Point,
+						surface_position: Point,
 						surface: &wl::Surface,
 					) -> bool {
 						if let Some(input_region) = &surface.current_input_region {
 							for area in &input_region.areas {
-								let position =
-									(surface_position.0 + area.0, surface_position.1 + area.1);
+								let position = surface_position + area.0;
 
-								let area = (area.2, area.3);
-
-								if is_point_inside_area(cursor_position, position, area) {
+								if is_point_inside_area(cursor_position, position, area.1) {
 									return true;
 								}
 							}
-						} else if let Some(&(w, h, ..)) = surface.data.as_ref() {
-							return is_point_inside_area(cursor_position, surface_position, (w, h));
+						} else if let Some(&(size, ..)) = surface.data.as_ref() {
+							return is_point_inside_area(cursor_position, surface_position, size);
 						}
 
 						false
@@ -127,18 +122,15 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						client: &mut wl::Client,
 						toplevel: &wl::XdgToplevel,
 						surface: &wl::Surface,
-						cursor_position: (i32, i32),
-						surface_position: (i32, i32),
+						cursor_position: Point,
+						surface_position: Point,
 					) {
 						if is_cursor_over_surface(cursor_position, surface_position, surface) {
 							*state::POINTER_OVER.lock().unwrap() = Some(state::PointerOver {
 								fd: client.fd,
 								toplevel: toplevel.object_id,
 								surface: surface.object_id,
-								position: (
-									cursor_position.0 - surface_position.0,
-									cursor_position.1 - surface_position.1,
-								),
+								position: cursor_position - surface_position,
 							});
 						}
 
@@ -151,10 +143,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 								toplevel,
 								surface,
 								cursor_position,
-								(
-									surface_position.0 + sub_surface.position.0,
-									surface_position.1 + sub_surface.position.1,
-								),
+								surface_position + sub_surface.position,
 							);
 						}
 					}
@@ -163,29 +152,23 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					let xdg_surface = client.get_object(toplevel.surface).unwrap();
 					let surface = client.get_object(xdg_surface.surface).unwrap();
 
-					let position = (
-						toplevel.position.0 - xdg_surface.position.0,
-						toplevel.position.1 - xdg_surface.position.1,
-					);
+					let position = toplevel.position - xdg_surface.position;
 
 					for &popup in &xdg_surface.popups {
 						let popup = client.get_object(popup).unwrap();
 						let xdg_surface = client.get_object(popup.xdg_surface).unwrap();
 						let surface = client.get_object(xdg_surface.surface).unwrap();
 
-						let position = (
-							(position.0 - xdg_surface.position.0) + popup.position.0,
-							(position.1 - xdg_surface.position.1) + popup.position.1,
-						);
+						let position = (position - xdg_surface.position) + popup.position;
 
-						do_stuff(client, toplevel, surface, cursor_position.into(), position);
+						do_stuff(client, toplevel, surface, cursor_position, position);
 
 						if state::POINTER_OVER.lock().unwrap().is_some() {
 							break 'outer;
 						}
 					}
 
-					do_stuff(client, toplevel, surface, cursor_position.into(), position);
+					do_stuff(client, toplevel, surface, cursor_position, position);
 				}
 
 				if let Some((fd, seat)) = moving {
@@ -197,10 +180,8 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					{
 						let toplevel = client.get_object_mut(*toplevel).unwrap();
 
-						toplevel.position = (
-							window_start_pos.0 + (seat.pointer_position.0 - pointer_start_pos.0),
-							window_start_pos.1 + (seat.pointer_position.1 - pointer_start_pos.1),
-						);
+						toplevel.position =
+							*window_start_pos + (seat.pointer_position - *pointer_start_pos);
 					}
 				}
 
@@ -223,28 +204,24 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					if let Some(state::PointerOver {
 						fd,
 						surface,
-						position: (x, y),
+						position,
 						..
 					}) = current
 					{
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {
-							pointer.enter(client, surface, x, y).unwrap();
+							pointer.enter(client, surface, position).unwrap();
 							pointer.frame(client).unwrap();
 						}
 					}
 				} else if old.map(|x| x.position) != current.map(|x| x.position) {
-					let state::PointerOver {
-						fd,
-						position: (x, y),
-						..
-					} = current.unwrap();
+					let state::PointerOver { fd, position, .. } = current.unwrap();
 
 					let client = clients.get_mut(&fd).unwrap();
 
 					for pointer in client.objects_mut::<wl::Pointer>() {
-						pointer.motion(client, x, y).unwrap();
+						pointer.motion(client, position).unwrap();
 						pointer.frame(client).unwrap();
 					}
 				}

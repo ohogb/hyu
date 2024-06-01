@@ -1,10 +1,10 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct Seat {
 	pub object_id: wl::Id<Self>,
 	serial: u32,
-	pub pointer_position: (i32, i32),
-	pub moving_toplevel: Option<(wl::Id<wl::XdgToplevel>, (i32, i32), (i32, i32))>,
+	pub pointer_position: Point,
+	pub moving_toplevel: Option<(wl::Id<wl::XdgToplevel>, Point, Point)>,
 }
 
 impl Seat {
@@ -12,7 +12,7 @@ impl Seat {
 		Self {
 			object_id,
 			serial: 0,
-			pointer_position: (0, 0),
+			pointer_position: Point(0, 0),
 			moving_toplevel: None,
 		}
 	}

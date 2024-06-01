@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub enum Direction {
 	Top,
@@ -42,11 +42,11 @@ impl Direction {
 
 pub struct XdgPositioner {
 	object_id: wl::Id<Self>,
-	pub size: Option<(i32, i32)>,
+	pub size: Option<Point>,
 	pub anchor: Option<Direction>,
-	pub anchor_rect: Option<((i32, i32), (i32, i32))>,
+	pub anchor_rect: Option<(Point, Point)>,
 	pub gravity: Option<Direction>,
-	pub offset: Option<(i32, i32)>,
+	pub offset: Option<Point>,
 }
 
 impl XdgPositioner {
@@ -61,7 +61,7 @@ impl XdgPositioner {
 		}
 	}
 
-	pub fn finalize(&self, xdg_surface: &wl::XdgSurface) -> Result<((i32, i32), (i32, i32))> {
+	pub fn finalize(&self, xdg_surface: &wl::XdgSurface) -> Result<(Point, Point)> {
 		let Some(anchor) = &self.anchor else {
 			return Err("anchor not set")?;
 		};
@@ -74,33 +74,19 @@ impl XdgPositioner {
 			return Err("size not set")?;
 		};
 
-		let (sx, sy) = (
-			xdg_surface.position.0 + anchor_rect.0 .0,
-			xdg_surface.position.1 + anchor_rect.0 .1,
-		);
-
-		let (sw, sh) = (anchor_rect.1 .0, anchor_rect.1 .1);
-
 		let factor = anchor.translation_factor();
-		let mut pos = (
-			sx + (sw as f32 * factor.0) as i32,
-			sy + (sh as f32 * factor.1) as i32,
-		);
-
-		let offset = self.offset.unwrap_or((0, 0));
+		let mut pos = xdg_surface.position + anchor_rect.0 + anchor_rect.1.mul_f32(factor);
 
 		if let Some(gravity) = &self.gravity {
 			let factor = gravity.translation_factor();
 
-			pos.0 += (size.0 as f32 * factor.0) as i32;
-			pos.1 += (size.1 as f32 * factor.1) as i32;
-
-			pos.0 -= size.0;
-			pos.1 -= size.1;
+			pos += size.mul_f32(factor);
+			pos -= size;
 		}
 
-		pos.0 += offset.0;
-		pos.1 += offset.1;
+		if let Some(offset) = self.offset {
+			pos += offset;
+		}
 
 		Ok((pos, size))
 	}
@@ -116,12 +102,12 @@ impl wl::Object for XdgPositioner {
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_size
 				let (width, height): (i32, i32) = wlm::decode::from_slice(params)?;
-				self.size = Some((width, height));
+				self.size = Some(Point(width, height));
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_anchor_rect
 				let (x, y, width, height): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
-				self.anchor_rect = Some(((x, y), (width, height)));
+				self.anchor_rect = Some((Point(x, y), Point(width, height)));
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_anchor
@@ -140,7 +126,7 @@ impl wl::Object for XdgPositioner {
 			6 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_offset
 				let offset: (i32, i32) = wlm::decode::from_slice(params)?;
-				self.offset = Some(offset);
+				self.offset = Some(Point(offset.0, offset.1));
 			}
 			7 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_reactive

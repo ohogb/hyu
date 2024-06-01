@@ -4,8 +4,11 @@
 #![feature(sync_unsafe_cell)]
 
 pub mod backend;
+mod point;
 mod state;
 pub mod wl;
+
+pub use point::*;
 
 use wl::Object;
 
@@ -18,7 +21,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 	let mut client = wl::Client::new(
 		stream.as_raw_fd(),
-		((100 * index + 10) as i32, (100 * index + 10) as i32),
+		Point((100 * index + 10) as i32, (100 * index + 10) as i32),
 	);
 
 	let mut display = wl::Display::new(wl::Id::new(1));

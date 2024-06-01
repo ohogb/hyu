@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 #[derive(Clone)]
 pub enum BufferStorage {
@@ -18,17 +18,15 @@ pub enum BufferStorage {
 #[derive(Clone)]
 pub struct Buffer {
 	object_id: wl::Id<Self>,
-	pub width: i32,
-	pub height: i32,
+	pub size: Point,
 	pub storage: BufferStorage,
 }
 
 impl Buffer {
-	pub fn new(object_id: wl::Id<Self>, width: i32, height: i32, storage: BufferStorage) -> Self {
+	pub fn new(object_id: wl::Id<Self>, size: Point, storage: BufferStorage) -> Self {
 		Self {
 			object_id,
-			width,
-			height,
+			size,
 			storage,
 		}
 	}
@@ -49,7 +47,7 @@ impl Buffer {
 				let map = map.get().as_slice();
 
 				let start = *offset as usize;
-				let end = start + (stride * self.height) as usize;
+				let end = start + (stride * self.size.1) as usize;
 
 				let buffer = &map[start..end];
 
@@ -64,11 +62,11 @@ impl Buffer {
 					wgpu::ImageDataLayout {
 						offset: 0,
 						bytes_per_row: Some(*stride as _),
-						rows_per_image: Some(self.height as _),
+						rows_per_image: Some(self.size.1 as _),
 					},
 					wgpu::Extent3d {
-						width: self.width as _,
-						height: self.height as _,
+						width: self.size.0 as _,
+						height: self.size.1 as _,
 						depth_or_array_layers: 1,
 					},
 				);
@@ -95,7 +93,7 @@ impl Buffer {
 				let map = map.get().as_slice();
 
 				let start = *offset as usize;
-				let end = start + (stride * self.height) as usize;
+				let end = start + (stride * self.size.1) as usize;
 
 				let buffer = &map[start..end];
 
@@ -118,8 +116,8 @@ impl Buffer {
 						glow::TEXTURE_2D,
 						0,
 						glow::RGBA as _,
-						self.width,
-						self.height,
+						self.size.0,
+						self.size.1,
 						0,
 						glow::BGRA,
 						glow::UNSIGNED_BYTE,

@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,
@@ -88,8 +88,7 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 					buffer_id,
 					wl::Buffer::new(
 						buffer_id,
-						width,
-						height,
+						Point(width, height),
 						wl::BufferStorage::Dmabuf { image },
 					),
 				);

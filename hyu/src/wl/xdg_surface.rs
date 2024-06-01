@@ -1,10 +1,10 @@
-use crate::{wl, Result};
+use crate::{wl, Point, Result};
 
 pub struct XdgSurface {
 	object_id: wl::Id<Self>,
 	pub surface: wl::Id<wl::Surface>,
-	pub position: (i32, i32),
-	pub size: (i32, i32),
+	pub position: Point,
+	pub size: Point,
 	serial: u32,
 	pub popups: Vec<wl::Id<wl::XdgPopup>>,
 }
@@ -14,8 +14,8 @@ impl XdgSurface {
 		Self {
 			object_id,
 			surface,
-			position: (0, 0),
-			size: (0, 0),
+			position: Point(0, 0),
+			size: Point(0, 0),
 			serial: 0,
 			popups: Vec::new(),
 		}
@@ -55,7 +55,7 @@ impl wl::Object for XdgSurface {
 				);
 
 				xdg_toplevel.configure_bounds(client, 1280, 720)?;
-				xdg_toplevel.configure(client, 0, 0, &[])?;
+				xdg_toplevel.configure(client, Point(0, 0), &[])?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
@@ -88,8 +88,8 @@ impl wl::Object for XdgSurface {
 				let (x, y, width, height): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 
 				// TODO: double buffer
-				self.position = (x, y);
-				self.size = (width, height);
+				self.position = Point(x, y);
+				self.size = Point(width, height);
 			}
 			4 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:ack_configure

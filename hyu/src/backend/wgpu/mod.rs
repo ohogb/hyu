@@ -2,7 +2,7 @@ mod vertex;
 
 use vertex::Vertex;
 
-use crate::{backend, state, wl, Result};
+use crate::{backend, state, wl, Point, Result};
 
 pub struct Setup;
 
@@ -208,7 +208,7 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
 
-			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
+			for (position, size, surface_id) in surface.get_front_buffers(client) {
 				let surface = client.get_object(surface_id)?;
 
 				let Some((.., wl::SurfaceTexture::Wgpu(_, bind_group))) = &surface.data else {
@@ -222,8 +222,8 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 					]
 				};
 
-				let x = window.position.0 - xdg_surface.position.0 + x;
-				let y = window.position.1 - xdg_surface.position.1 + y;
+				let Point(x, y) = window.position - xdg_surface.position + position;
+				let Point(width, height) = size;
 
 				self.vertices.extend([
 					Vertex {
