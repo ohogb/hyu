@@ -6,6 +6,7 @@ pub struct XdgToplevel {
 	app_id: String,
 	title: String,
 	pub position: (i32, i32),
+	pub size: Option<(i32, i32)>,
 }
 
 impl XdgToplevel {
@@ -23,6 +24,7 @@ impl XdgToplevel {
 			app_id: String::new(),
 			title: String::new(),
 			position,
+			size: None,
 		}
 	}
 

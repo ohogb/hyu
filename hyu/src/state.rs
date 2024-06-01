@@ -62,8 +62,11 @@ pub fn process_focus_changes(
 	let old = lock.iter().next().cloned();
 
 	let mut should_leave_from_old = false;
+	let mut should_recompute_size_and_pos = false;
 
 	for (i, change) in std::mem::take(&mut *changes()).into_iter().enumerate() {
+		should_recompute_size_and_pos = true;
+
 		let x = match change {
 			Change::Push(fd, id) => {
 				lock.push_front((fd, id));
@@ -124,8 +127,33 @@ pub fn process_focus_changes(
 
 	let current = lock.iter().next().cloned();
 
-	if old == current {
+	if old == current && !should_recompute_size_and_pos {
 		return Ok(());
+	}
+
+	let get_pos_and_size = |index: u32, amount: u32| -> ((u32, u32), (u32, u32)) {
+		match amount {
+			0 => {
+				unreachable!();
+			}
+			1 => ((0, 0), (1280, 720)),
+			2.. => match index {
+				0 => ((0, 0), (1280 / 2, 720)),
+				1.. => {
+					let frac = ((1. / (amount - 1) as f32) * 720.0) as u32;
+					((1280 / 2, frac * (index - 1)), (1280 / 2, frac))
+				}
+			},
+		}
+	};
+
+	for (index, client) in clients.values_mut().enumerate() {
+		for xdg_toplevel in client.objects_mut::<wl::XdgToplevel>() {
+			let (pos, size) = get_pos_and_size(index as _, lock.len() as _);
+			xdg_toplevel.configure(client, size.0 as _, size.1 as _, &[1])?;
+			xdg_toplevel.position = (pos.0 as _, pos.1 as _);
+			xdg_toplevel.size = Some((size.0 as _, size.1 as _));
+		}
 	}
 
 	if should_leave_from_old {
@@ -140,7 +168,8 @@ pub fn process_focus_changes(
 				keyboard.leave(client, surface.object_id)?;
 			}
 
-			xdg_toplevel.configure(client, 0, 0, &[])?;
+			let (w, h) = xdg_toplevel.size.unwrap_or((0, 0));
+			xdg_toplevel.configure(client, w, h, &[1])?;
 		}
 	}
 
@@ -155,7 +184,8 @@ pub fn process_focus_changes(
 			keyboard.enter(client, surface.object_id)?;
 		}
 
-		xdg_toplevel.configure(client, 0, 0, &[4])?;
+		let (w, h) = xdg_toplevel.size.unwrap_or((0, 0));
+		xdg_toplevel.configure(client, w, h, &[1, 4])?;
 	}
 
 	Ok(())
