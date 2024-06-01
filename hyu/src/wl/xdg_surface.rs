@@ -71,21 +71,14 @@ impl wl::Object for XdgSurface {
 				let xdg_popup =
 					client.new_object(id, wl::XdgPopup::new(id, self.object_id, parent));
 
-				let parent = client.get_object_mut(parent)?;
-				parent.popups.push(id);
-
 				let positioner = client.get_object(positioner)?;
-				let (width, height) = positioner
-					.size
-					.ok_or_else(|| format!("invalid positioner"))?;
 
-				xdg_popup.configure(
-					client,
-					xdg_popup.position.0,
-					xdg_popup.position.1,
-					width,
-					height,
-				)?;
+				let parent_xdg_surface = client.get_object_mut(parent)?;
+				parent_xdg_surface.popups.push(id);
+
+				let (position, size) = positioner.finalize(parent_xdg_surface)?;
+
+				xdg_popup.configure(client, position, size)?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgPopup)?;

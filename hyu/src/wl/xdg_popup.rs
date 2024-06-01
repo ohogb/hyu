@@ -5,6 +5,7 @@ pub struct XdgPopup {
 	pub xdg_surface: wl::Id<wl::XdgSurface>,
 	pub parent_xdg_surface: wl::Id<wl::XdgSurface>,
 	pub position: (i32, i32),
+	pub size: (i32, i32),
 }
 
 impl XdgPopup {
@@ -17,24 +18,26 @@ impl XdgPopup {
 			object_id,
 			xdg_surface,
 			parent_xdg_surface,
-			position: (200, 200),
+			position: (0, 0),
+			size: (0, 0),
 		}
 	}
 
 	pub fn configure(
-		&self,
+		&mut self,
 		client: &mut wl::Client,
-		x: i32,
-		y: i32,
-		width: i32,
-		height: i32,
+		position: (i32, i32),
+		size: (i32, i32),
 	) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: (x, y, width, height),
+			args: (position.0, position.1, size.0, size.1),
 		})?;
+
+		self.position = position;
+		self.size = size;
 
 		let xdg_surface = client.get_object_mut(self.xdg_surface)?;
 		xdg_surface.configure(client)
@@ -72,11 +75,10 @@ impl wl::Object for XdgPopup {
 				self.repositioned(client, token)?;
 
 				let positioner = client.get_object(positioner)?;
-				let (width, height) = positioner
-					.size
-					.ok_or_else(|| format!("invalid positioner"))?;
+				let parent_xdg_surface = client.get_object(self.parent_xdg_surface)?;
 
-				self.configure(client, self.position.0, self.position.1, width, height)?;
+				let (position, size) = positioner.finalize(parent_xdg_surface)?;
+				self.configure(client, position, size)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgPopup"))?,
 		}
