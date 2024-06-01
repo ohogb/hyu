@@ -34,7 +34,7 @@ impl wl::Object for SubCompositor {
 					parent: parent_id,
 				})?;
 
-				client.new_object(id, wl::SubSurface::new(id, surface_id));
+				client.new_object(id, wl::SubSurface::new(id, surface_id, parent_id));
 			}
 			_ => Err(format!("unknown op '{op}' in SubCompositor"))?,
 		}

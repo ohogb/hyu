@@ -3,14 +3,20 @@ use crate::{wl, Result};
 pub struct SubSurface {
 	object_id: wl::Id<Self>,
 	pub surface: wl::Id<wl::Surface>,
+	pub parent_surface: wl::Id<wl::Surface>,
 	pub position: (i32, i32),
 }
 
 impl SubSurface {
-	pub fn new(object_id: wl::Id<Self>, surface: wl::Id<wl::Surface>) -> Self {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		surface: wl::Id<wl::Surface>,
+		parent_surface: wl::Id<wl::Surface>,
+	) -> Self {
 		Self {
 			object_id,
 			surface,
+			parent_surface,
 			position: (0, 0),
 		}
 	}
@@ -22,6 +28,9 @@ impl wl::Object for SubSurface {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy
 				client.remove_object(self.object_id)?;
+
+				let parent = client.get_object_mut(self.parent_surface)?;
+				parent.children.retain(|&x| x != self.object_id);
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position
