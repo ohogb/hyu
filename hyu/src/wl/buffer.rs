@@ -5,7 +5,7 @@ use crate::{wl, Result};
 #[derive(Clone)]
 pub enum BufferStorage {
 	Shm {
-		pool_id: wl::Id<wl::ShmPool>,
+		map: wl::SharedMap,
 		offset: i32,
 		stride: i32,
 		format: u32,
@@ -39,17 +39,16 @@ impl Buffer {
 		queue: &wgpu::Queue,
 		texture: &wgpu::Texture,
 	) -> Result<()> {
-		match self.storage {
+		match &self.storage {
 			BufferStorage::Shm {
-				pool_id,
+				map,
 				offset,
 				stride,
 				..
 			} => {
-				let pool = client.get_object(pool_id)?;
-				let map = pool.get_map().ok_or("pool is not mapped")?;
+				let map = map.get().as_slice();
 
-				let start = offset as usize;
+				let start = *offset as usize;
 				let end = start + (stride * self.height) as usize;
 
 				let buffer = &map[start..end];
@@ -64,7 +63,7 @@ impl Buffer {
 					buffer,
 					wgpu::ImageDataLayout {
 						offset: 0,
-						bytes_per_row: Some(stride as _),
+						bytes_per_row: Some(*stride as _),
 						rows_per_image: Some(self.height as _),
 					},
 					wgpu::Extent3d {
@@ -86,17 +85,16 @@ impl Buffer {
 		glow: &glow::Context,
 		texture: glow::NativeTexture,
 	) -> Result<()> {
-		match self.storage {
+		match &self.storage {
 			BufferStorage::Shm {
-				pool_id,
+				map,
 				offset,
 				stride,
 				..
 			} => {
-				let pool = client.get_object(pool_id)?;
-				let map = pool.get_map().ok_or("pool is not mapped")?;
+				let map = map.get().as_slice();
 
-				let start = offset as usize;
+				let start = *offset as usize;
 				let end = start + (stride * self.height) as usize;
 
 				let buffer = &map[start..end];
@@ -149,7 +147,7 @@ impl Buffer {
 
 				crate::backend::gl::egl_wrapper::image_target_texture_2d_oes(
 					glow::TEXTURE_2D as _,
-					image,
+					*image,
 				);
 
 				glow.bind_texture(glow::TEXTURE_2D, None);

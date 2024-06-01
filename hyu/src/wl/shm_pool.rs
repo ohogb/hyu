@@ -3,52 +3,73 @@ use crate::{wl, Result};
 struct Ptr(std::ptr::NonNull<std::ffi::c_void>);
 
 unsafe impl Send for Ptr {}
+unsafe impl Sync for Ptr {}
+
+pub struct Map {
+	ptr: Ptr,
+	size: usize,
+}
+
+impl Map {
+	pub fn new(size: usize, fd: std::os::fd::RawFd) -> Result<Self> {
+		Ok(Self {
+			ptr: Ptr(unsafe {
+				nix::sys::mman::mmap(
+					None,
+					std::num::NonZeroUsize::new(size).unwrap(),
+					nix::sys::mman::ProtFlags::PROT_READ | nix::sys::mman::ProtFlags::PROT_WRITE,
+					nix::sys::mman::MapFlags::MAP_SHARED,
+					std::os::fd::BorrowedFd::borrow_raw(fd),
+					0,
+				)?
+			}),
+			size,
+		})
+	}
+
+	pub fn as_slice(&self) -> &[u8] {
+		unsafe { std::slice::from_raw_parts(self.ptr.0.as_ptr() as *const u8, self.size) }
+	}
+}
+
+impl Drop for Map {
+	fn drop(&mut self) {
+		unsafe { nix::sys::mman::munmap(self.ptr.0, self.size).unwrap() };
+	}
+}
+
+#[derive(Clone)]
+pub struct SharedMap(std::sync::Arc<std::cell::SyncUnsafeCell<Map>>);
+
+impl SharedMap {
+	pub fn new(map: Map) -> Self {
+		Self(std::sync::Arc::new(std::cell::SyncUnsafeCell::new(map)))
+	}
+
+	pub fn get(&self) -> &mut Map {
+		unsafe { &mut *self.0.get() }
+	}
+}
 
 pub struct ShmPool {
 	object_id: wl::Id<Self>,
 	fd: std::os::fd::RawFd,
 	size: u32,
-	map: Option<(Ptr, usize)>,
+	map: SharedMap,
 }
 
 impl ShmPool {
 	pub fn new(object_id: wl::Id<Self>, fd: std::os::fd::RawFd, size: u32) -> Result<Self> {
-		let mut ret = Self {
+		Ok(Self {
 			object_id,
 			fd,
 			size,
-			map: None,
-		};
-
-		ret.remap()?;
-		Ok(ret)
+			map: SharedMap::new(Map::new(size as _, fd)?),
+		})
 	}
 
-	fn remap(&mut self) -> Result<()> {
-		if let Some((map, size)) = &self.map {
-			unsafe { nix::sys::mman::munmap(map.0, *size)? };
-		}
-
-		self.map = Some((
-			Ptr(unsafe {
-				nix::sys::mman::mmap(
-					None,
-					std::num::NonZeroUsize::new(self.size as _).unwrap(),
-					nix::sys::mman::ProtFlags::PROT_READ | nix::sys::mman::ProtFlags::PROT_WRITE,
-					nix::sys::mman::MapFlags::MAP_SHARED,
-					std::os::fd::BorrowedFd::borrow_raw(self.fd),
-					0,
-				)?
-			}),
-			self.size as _,
-		));
-
-		Ok(())
-	}
-
-	pub fn get_map(&self) -> Option<&[u8]> {
-		let (map, size) = self.map.as_ref()?;
-		Some(unsafe { std::slice::from_raw_parts(map.0.as_ptr() as *const u8, *size) })
+	pub fn get_map(&self) -> &[u8] {
+		self.map.get().as_slice()
 	}
 }
 
@@ -73,7 +94,7 @@ impl wl::Object for ShmPool {
 						width,
 						height,
 						wl::BufferStorage::Shm {
-							pool_id: self.object_id,
+							map: self.map.clone(),
 							offset,
 							stride,
 							format,
@@ -90,7 +111,7 @@ impl wl::Object for ShmPool {
 				let size: u32 = wlm::decode::from_slice(params)?;
 
 				self.size = size;
-				self.remap()?;
+				*self.map.get() = Map::new(size as _, self.fd)?;
 			}
 			_ => Err(format!("unknown op '{op}' in ShmPool"))?,
 		}
