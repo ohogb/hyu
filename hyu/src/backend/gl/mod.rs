@@ -188,71 +188,98 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 
 		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
-			let window = client.get_object(*window)?;
 
-			let xdg_surface = client.get_object(window.surface)?;
+			fn draw(
+				this: &mut Renderer,
+				client: &mut wl::Client,
+				position: (i32, i32),
+				xdg_surface: &wl::XdgSurface,
+				surface: &mut wl::Surface,
+			) -> Result<()> {
+				surface.gl_do_textures(client, &this.glow)?;
+
+				surface.frame(this.start_time.elapsed().as_millis() as u32, client)?;
+
+				for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
+					let surface = client.get_object(surface_id)?;
+
+					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
+						panic!();
+					};
+
+					let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
+						[
+							input[0] as f32 / this.width as f32 * 2.0 - 1.0,
+							(input[1] as f32 / this.height as f32 * 2.0 - 1.0) * -1.0,
+						]
+					};
+
+					let x = position.0 - xdg_surface.position.0 + x;
+					let y = position.1 - xdg_surface.position.1 + y;
+
+					this.vertices.extend([
+						Vertex {
+							position: pixels_to_float([x, y]),
+							uv: [0.0, 0.0],
+						},
+						Vertex {
+							position: pixels_to_float([x + width, y]),
+							uv: [1.0, 0.0],
+						},
+						Vertex {
+							position: pixels_to_float([x, y + height]),
+							uv: [0.0, 1.0],
+						},
+						Vertex {
+							position: pixels_to_float([x, y + height]),
+							uv: [0.0, 1.0],
+						},
+						Vertex {
+							position: pixels_to_float([x + width, y + height]),
+							uv: [1.0, 1.0],
+						},
+						Vertex {
+							position: pixels_to_float([x + width, y]),
+							uv: [1.0, 0.0],
+						},
+					]);
+
+					unsafe {
+						this.glow.buffer_data_u8_slice(
+							glow::ARRAY_BUFFER,
+							bytemuck::cast_slice(&this.vertices),
+							glow::DYNAMIC_DRAW,
+						);
+
+						this.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
+
+						this.glow
+							.draw_arrays(glow::TRIANGLES, (this.vertices.len() - 6) as _, 6);
+					}
+				}
+
+				Ok(())
+			}
+
+			let toplevel = client.get_object(*window)?;
+
+			let xdg_surface = client.get_object(toplevel.surface)?;
 			let surface = client.get_object_mut(xdg_surface.surface)?;
 
-			surface.gl_do_textures(client, &self.glow)?;
+			draw(self, client, toplevel.position, xdg_surface, surface)?;
 
-			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
+			for &popup in &xdg_surface.popups {
+				let popup = client.get_object(popup)?;
 
-			for (x, y, width, height, surface_id) in surface.get_front_buffers(client) {
-				let surface = client.get_object(surface_id)?;
+				let xdg_surface = client.get_object(popup.xdg_surface)?;
+				let surface = client.get_object_mut(xdg_surface.surface)?;
 
-				let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
-					panic!();
-				};
+				let position = (
+					toplevel.position.0 + popup.position.0,
+					toplevel.position.1 + popup.position.1,
+				);
 
-				let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
-					[
-						input[0] as f32 / self.width as f32 * 2.0 - 1.0,
-						(input[1] as f32 / self.height as f32 * 2.0 - 1.0) * -1.0,
-					]
-				};
-
-				let x = window.position.0 - xdg_surface.position.0 + x;
-				let y = window.position.1 - xdg_surface.position.1 + y;
-
-				self.vertices.extend([
-					Vertex {
-						position: pixels_to_float([x, y]),
-						uv: [0.0, 0.0],
-					},
-					Vertex {
-						position: pixels_to_float([x + width, y]),
-						uv: [1.0, 0.0],
-					},
-					Vertex {
-						position: pixels_to_float([x, y + height]),
-						uv: [0.0, 1.0],
-					},
-					Vertex {
-						position: pixels_to_float([x, y + height]),
-						uv: [0.0, 1.0],
-					},
-					Vertex {
-						position: pixels_to_float([x + width, y + height]),
-						uv: [1.0, 1.0],
-					},
-					Vertex {
-						position: pixels_to_float([x + width, y]),
-						uv: [1.0, 0.0],
-					},
-				]);
-
-				unsafe {
-					self.glow.buffer_data_u8_slice(
-						glow::ARRAY_BUFFER,
-						bytemuck::cast_slice(&self.vertices),
-						glow::DYNAMIC_DRAW,
-					);
-
-					self.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
-
-					self.glow
-						.draw_arrays(glow::TRIANGLES, (self.vertices.len() - 6) as _, 6);
-				}
+				draw(self, client, position, xdg_surface, surface)?;
 			}
 		}
 

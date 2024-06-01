@@ -128,12 +128,22 @@ pub fn process_focus_changes(
 		}
 	};
 
-	for (index, client) in clients.values_mut().enumerate() {
+	let mut index = 0;
+
+	for client in clients.values_mut() {
 		for xdg_toplevel in client.objects_mut::<wl::XdgToplevel>() {
 			let (pos, size) = get_pos_and_size(index as _, lock.len() as _);
-			xdg_toplevel.configure(client, size.0 as _, size.1 as _, &[1])?;
+
 			xdg_toplevel.position = (pos.0 as _, pos.1 as _);
 			xdg_toplevel.size = Some((size.0 as _, size.1 as _));
+
+			if Some((client.fd, xdg_toplevel.object_id)) != old
+				&& Some((client.fd, xdg_toplevel.object_id)) != current
+			{
+				xdg_toplevel.configure(client, size.0 as _, size.1 as _, &[1])?;
+			}
+
+			index += 1;
 		}
 	}
 
@@ -143,7 +153,7 @@ pub fn process_focus_changes(
 
 			let xdg_toplevel = client.get_object(id).unwrap();
 			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-			let surface = client.get_object(xdg_surface.surface).unwrap();
+			let surface = client.get_object(xdg_surface.surface)?;
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				keyboard.leave(client, surface.object_id)?;

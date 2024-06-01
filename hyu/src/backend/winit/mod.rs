@@ -72,7 +72,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 				let mut moving = None;
 
-				for (client, window) in state::WINDOW_STACK.lock().unwrap().iter() {
+				'outer: for (client, window) in state::WINDOW_STACK.lock().unwrap().iter() {
 					if state::POINTER_OVER.lock().unwrap().is_some() {
 						break;
 					}
@@ -167,6 +167,23 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						toplevel.position.0 - xdg_surface.position.0,
 						toplevel.position.1 - xdg_surface.position.1,
 					);
+
+					for &popup in &xdg_surface.popups {
+						let popup = client.get_object(popup).unwrap();
+						let xdg_surface = client.get_object(popup.xdg_surface).unwrap();
+						let surface = client.get_object(xdg_surface.surface).unwrap();
+
+						let position = (
+							(position.0 - xdg_surface.position.0) + popup.position.0,
+							(position.1 - xdg_surface.position.1) + popup.position.1,
+						);
+
+						do_stuff(client, toplevel, surface, cursor_position.into(), position);
+
+						if state::POINTER_OVER.lock().unwrap().is_some() {
+							break 'outer;
+						}
+					}
 
 					do_stuff(client, toplevel, surface, cursor_position.into(), position);
 				}

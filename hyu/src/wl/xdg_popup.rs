@@ -2,14 +2,22 @@ use crate::{wl, Result};
 
 pub struct XdgPopup {
 	object_id: wl::Id<Self>,
-	xdg_surface: wl::Id<wl::XdgSurface>,
+	pub xdg_surface: wl::Id<wl::XdgSurface>,
+	pub parent_xdg_surface: wl::Id<wl::XdgSurface>,
+	pub position: (i32, i32),
 }
 
 impl XdgPopup {
-	pub fn new(object_id: wl::Id<Self>, xdg_surface: wl::Id<wl::XdgSurface>) -> Self {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		xdg_surface: wl::Id<wl::XdgSurface>,
+		parent_xdg_surface: wl::Id<wl::XdgSurface>,
+	) -> Self {
 		Self {
 			object_id,
 			xdg_surface,
+			parent_xdg_surface,
+			position: (200, 200),
 		}
 	}
 
@@ -47,15 +55,28 @@ impl wl::Object for XdgPopup {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:destroy
+				let parent = client.get_object_mut(self.parent_xdg_surface)?;
+				parent.popups.retain(|&x| x != self.object_id);
+
 				client.remove_object(self.object_id)?;
+			}
+			1 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:grab
+				let (_seat, _serial): (wl::Id<wl::Seat>, u32) = wlm::decode::from_slice(params)?;
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:reposition
-				let (_positioner, token): (wl::Id<wl::XdgPositioner>, u32) =
+				let (positioner, token): (wl::Id<wl::XdgPositioner>, u32) =
 					wlm::decode::from_slice(params)?;
 
 				self.repositioned(client, token)?;
-				self.configure(client, 100, 100, 50, 50)?;
+
+				let positioner = client.get_object(positioner)?;
+				let (width, height) = positioner
+					.size
+					.ok_or_else(|| format!("invalid positioner"))?;
+
+				self.configure(client, self.position.0, self.position.1, width, height)?;
 			}
 			_ => Err(format!("unknown op '{op}' in XdgPopup"))?,
 		}

@@ -217,7 +217,7 @@ impl Surface {
 
 	pub fn set_role(&mut self, role: SurfaceRole) -> Result<()> {
 		if self.role.is_some() {
-			Err("surface already has a role")?;
+			Err(format!("surface '{}' already has a role", *self.object_id))?;
 		}
 
 		self.role = Some(role);

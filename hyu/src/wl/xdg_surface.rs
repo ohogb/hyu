@@ -6,6 +6,7 @@ pub struct XdgSurface {
 	pub position: (i32, i32),
 	pub size: (i32, i32),
 	serial: u32,
+	pub popups: Vec<wl::Id<wl::XdgPopup>>,
 }
 
 impl XdgSurface {
@@ -16,6 +17,7 @@ impl XdgSurface {
 			position: (0, 0),
 			size: (0, 0),
 			serial: 0,
+			popups: Vec::new(),
 		}
 	}
 
@@ -60,14 +62,30 @@ impl wl::Object for XdgSurface {
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_popup
-				let (id, _parent, _positioner): (
+				let (id, parent, positioner): (
 					wl::Id<wl::XdgPopup>,
 					wl::Id<wl::XdgSurface>,
 					wl::Id<wl::XdgPositioner>,
 				) = wlm::decode::from_slice(params)?;
 
-				let xdg_popup = client.new_object(id, wl::XdgPopup::new(id, self.object_id));
-				xdg_popup.configure(client, 100, 100, 50, 50)?;
+				let xdg_popup =
+					client.new_object(id, wl::XdgPopup::new(id, self.object_id, parent));
+
+				let parent = client.get_object_mut(parent)?;
+				parent.popups.push(id);
+
+				let positioner = client.get_object(positioner)?;
+				let (width, height) = positioner
+					.size
+					.ok_or_else(|| format!("invalid positioner"))?;
+
+				xdg_popup.configure(
+					client,
+					xdg_popup.position.0,
+					xdg_popup.position.1,
+					width,
+					height,
+				)?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgPopup)?;

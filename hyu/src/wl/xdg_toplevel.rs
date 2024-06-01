@@ -68,6 +68,7 @@ impl wl::Object for XdgToplevel {
 					.lock()
 					.unwrap()
 					.push(state::Change::RemoveToplevel(client.fd, self.object_id));
+
 				client.remove_object(self.object_id)?;
 			}
 			1 => {
