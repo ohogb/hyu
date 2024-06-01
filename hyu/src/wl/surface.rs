@@ -254,7 +254,10 @@ impl wl::Object for Surface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
-				state::add_change(state::Change::RemoveSurface(client.fd, self.object_id));
+				state::CHANGES
+					.lock()
+					.unwrap()
+					.push(state::Change::RemoveSurface(client.fd, self.object_id));
 				client.remove_object(self.object_id)?;
 			}
 			1 => {

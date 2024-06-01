@@ -54,7 +54,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 				position: cursor_position,
 				..
 			} => {
-				let mut clients = state::clients();
+				let mut clients = state::CLIENTS.lock().unwrap();
 
 				for client in clients.values_mut() {
 					for seat in client.objects_mut::<wl::Seat>() {
@@ -63,7 +63,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 				}
 
 				let old = {
-					let mut lock = state::pointer_over();
+					let mut lock = state::POINTER_OVER.lock().unwrap();
 					let ret = *lock;
 
 					*lock = None;
@@ -72,8 +72,8 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 
 				let mut moving = None;
 
-				for (client, window) in state::window_stack().iter() {
-					if state::pointer_over().is_some() {
+				for (client, window) in state::WINDOW_STACK.lock().unwrap().iter() {
+					if state::POINTER_OVER.lock().unwrap().is_some() {
 						break;
 					}
 
@@ -131,7 +131,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						surface_position: (i32, i32),
 					) {
 						if is_cursor_over_surface(cursor_position, surface_position, surface) {
-							*state::pointer_over() = Some(state::PointerOver {
+							*state::POINTER_OVER.lock().unwrap() = Some(state::PointerOver {
 								fd: client.fd,
 								toplevel: toplevel.object_id,
 								surface: surface.object_id,
@@ -187,7 +187,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					}
 				}
 
-				let current = *state::pointer_over();
+				let current = *state::POINTER_OVER.lock().unwrap();
 
 				if old.is_none() && current.is_none() {
 					return;
@@ -239,7 +239,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						winit::event::ElementState::Released => 0,
 					};
 
-					let mut clients = state::clients();
+					let mut clients = state::CLIENTS.lock().unwrap();
 
 					for client in clients.values_mut() {
 						for seat in client.objects_mut::<wl::Seat>() {
@@ -252,7 +252,9 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 						}
 					}
 
-					if let Some(state::PointerOver { fd, toplevel, .. }) = *state::pointer_over() {
+					if let Some(state::PointerOver { fd, toplevel, .. }) =
+						*state::POINTER_OVER.lock().unwrap()
+					{
 						let client = clients.get_mut(&fd).unwrap();
 
 						for pointer in client.objects_mut::<wl::Pointer>() {
@@ -260,12 +262,15 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 							pointer.frame(client).unwrap();
 						}
 
-						let Some(&topmost) = state::window_stack().front() else {
+						let Some(&topmost) = state::WINDOW_STACK.lock().unwrap().front() else {
 							panic!();
 						};
 
 						if topmost != (fd, toplevel) {
-							state::add_change(state::Change::Pick(fd, toplevel));
+							state::CHANGES
+								.lock()
+								.unwrap()
+								.push(state::Change::Pick(fd, toplevel));
 						}
 					}
 				}
@@ -279,9 +284,9 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					winit::event::ElementState::Released => 0,
 				};
 
-				let mut clients = state::clients();
+				let mut clients = state::CLIENTS.lock().unwrap();
 
-				if let Some((client, _window)) = state::window_stack().iter().next() {
+				if let Some((client, _window)) = state::WINDOW_STACK.lock().unwrap().iter().next() {
 					let client = clients.get_mut(client).unwrap();
 
 					for keyboard in client.objects_mut::<wl::Keyboard>() {

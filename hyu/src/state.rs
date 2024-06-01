@@ -1,27 +1,12 @@
 use crate::{wl, Result};
 
-static CLIENTS: std::sync::OnceLock<
+pub static CLIENTS: std::sync::LazyLock<
 	std::sync::Mutex<std::collections::HashMap<std::os::fd::RawFd, wl::Client>>,
-> = std::sync::OnceLock::new();
+> = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::HashMap::new()));
 
-pub fn clients<'a>(
-) -> std::sync::MutexGuard<'static, std::collections::HashMap<std::os::fd::RawFd, wl::Client<'a>>> {
-	CLIENTS
-		.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
-		.lock()
-		.unwrap()
-}
-
-static WINDOW_STACK: std::sync::OnceLock<
+pub static WINDOW_STACK: std::sync::LazyLock<
 	std::sync::Mutex<std::collections::VecDeque<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>>,
-> = std::sync::OnceLock::new();
-
-pub fn window_stack() -> std::sync::MutexGuard<
-	'static,
-	std::collections::VecDeque<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>,
-> {
-	WINDOW_STACK.get_or_init(Default::default).lock().unwrap()
-}
+> = std::sync::LazyLock::new(Default::default);
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
@@ -31,11 +16,8 @@ pub enum Change {
 	Pick(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 }
 
-static CHANGES: std::sync::OnceLock<std::sync::Mutex<Vec<Change>>> = std::sync::OnceLock::new();
-
-pub fn changes() -> std::sync::MutexGuard<'static, Vec<Change>> {
-	CHANGES.get_or_init(Default::default).lock().unwrap()
-}
+pub static CHANGES: std::sync::LazyLock<std::sync::Mutex<Vec<Change>>> =
+	std::sync::LazyLock::new(Default::default);
 
 #[derive(Clone, Copy)]
 pub struct PointerOver {
@@ -45,12 +27,8 @@ pub struct PointerOver {
 	pub position: (i32, i32),
 }
 
-static POINTER_OVER: std::sync::OnceLock<std::sync::Mutex<Option<PointerOver>>> =
-	std::sync::OnceLock::new();
-
-pub fn pointer_over() -> std::sync::MutexGuard<'static, Option<PointerOver>> {
-	POINTER_OVER.get_or_init(Default::default).lock().unwrap()
-}
+pub static POINTER_OVER: std::sync::LazyLock<std::sync::Mutex<Option<PointerOver>>> =
+	std::sync::LazyLock::new(Default::default);
 
 pub fn process_focus_changes(
 	clients: &mut std::sync::MutexGuard<
@@ -58,13 +36,16 @@ pub fn process_focus_changes(
 		std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
 	>,
 ) -> Result<()> {
-	let mut lock = window_stack();
+	let mut lock = WINDOW_STACK.lock().unwrap();
 	let old = lock.iter().next().cloned();
 
 	let mut should_leave_from_old = false;
 	let mut should_recompute_size_and_pos = false;
 
-	for (i, change) in std::mem::take(&mut *changes()).into_iter().enumerate() {
+	for (i, change) in std::mem::take(&mut *CHANGES.lock().unwrap())
+		.into_iter()
+		.enumerate()
+	{
 		should_recompute_size_and_pos = true;
 
 		let x = match change {
@@ -75,7 +56,7 @@ pub fn process_focus_changes(
 			Change::RemoveToplevel(fd, id) => {
 				lock.retain(|&x| x != (fd, id));
 
-				let mut lock = pointer_over();
+				let mut lock = POINTER_OVER.lock().unwrap();
 
 				if let Some(value) = &mut *lock {
 					if value.fd == fd && value.toplevel == id {
@@ -86,7 +67,7 @@ pub fn process_focus_changes(
 				false
 			}
 			Change::RemoveSurface(fd, id) => {
-				let mut lock = pointer_over();
+				let mut lock = POINTER_OVER.lock().unwrap();
 
 				if let Some(value) = &mut *lock {
 					if value.fd == fd && value.surface == id {
@@ -100,7 +81,7 @@ pub fn process_focus_changes(
 				lock.retain(|&(x, _)| x != fd);
 				clients.remove(&fd);
 
-				let mut lock = pointer_over();
+				let mut lock = POINTER_OVER.lock().unwrap();
 
 				if let Some(value) = &mut *lock {
 					if value.fd == fd {
@@ -189,8 +170,4 @@ pub fn process_focus_changes(
 	}
 
 	Ok(())
-}
-
-pub fn add_change(change: Change) {
-	changes().push(change);
 }

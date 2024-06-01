@@ -189,9 +189,9 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			occlusion_query_set: None,
 		});
 
-		let mut clients = state::clients();
+		let mut clients = state::CLIENTS.lock().unwrap();
 
-		for (client, window) in state::window_stack().iter().rev() {
+		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
 			let window = client.get_object(*window)?;
 

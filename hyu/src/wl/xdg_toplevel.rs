@@ -16,7 +16,10 @@ impl XdgToplevel {
 		position: (i32, i32),
 		fd: std::os::fd::RawFd,
 	) -> Self {
-		state::add_change(state::Change::Push(fd, object_id));
+		state::CHANGES
+			.lock()
+			.unwrap()
+			.push(state::Change::Push(fd, object_id));
 
 		Self {
 			object_id,
@@ -61,7 +64,10 @@ impl wl::Object for XdgToplevel {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
-				state::add_change(state::Change::RemoveToplevel(client.fd, self.object_id));
+				state::CHANGES
+					.lock()
+					.unwrap()
+					.push(state::Change::RemoveToplevel(client.fd, self.object_id));
 				client.remove_object(self.object_id)?;
 			}
 			1 => {

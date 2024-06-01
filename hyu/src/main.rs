@@ -34,12 +34,15 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	client.ensure_objects_capacity();
 	client.new_object(wl::Id::new(1), display);
 
-	state::clients().insert(stream.as_raw_fd(), client);
+	state::CLIENTS
+		.lock()
+		.unwrap()
+		.insert(stream.as_raw_fd(), client);
 
 	let mut params = Vec::new();
 
 	loop {
-		let mut clients = state::clients();
+		let mut clients = state::CLIENTS.lock().unwrap();
 
 		loop {
 			let mut cmsg_buffer = [0u8; 0x20];
@@ -63,7 +66,10 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			};
 
 			if len == 0 {
-				state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
+				state::CHANGES
+					.lock()
+					.unwrap()
+					.push(state::Change::RemoveClient(stream.as_raw_fd()));
 				state::process_focus_changes(&mut clients)?;
 
 				return Ok(());
@@ -120,7 +126,10 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 			if let Err(e) = ret {
 				match e.kind() {
 					std::io::ErrorKind::BrokenPipe => {
-						state::add_change(state::Change::RemoveClient(stream.as_raw_fd()));
+						state::CHANGES
+							.lock()
+							.unwrap()
+							.push(state::Change::RemoveClient(stream.as_raw_fd()));
 						state::process_focus_changes(&mut clients)?;
 
 						return Ok(());
