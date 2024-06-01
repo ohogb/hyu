@@ -110,6 +110,9 @@ impl wl::Object for XdgToplevel {
 			10 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_maximized
 			}
+			11 => {
+				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_fullscreen
+			}
 			12 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_fullscreen
 			}
