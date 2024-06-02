@@ -1,7 +1,7 @@
 use crate::{wl, Result};
 
 pub struct Output {
-	object_id: wl::Id<Self>,
+	pub object_id: wl::Id<Self>,
 }
 
 impl Output {

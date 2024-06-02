@@ -198,8 +198,6 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			) -> Result<()> {
 				surface.gl_do_textures(client, &this.glow)?;
 
-				surface.frame(this.start_time.elapsed().as_millis() as u32, client)?;
-
 				for (position, size, surface_id) in surface.get_front_buffers(client) {
 					let surface = client.get_object(surface_id)?;
 
@@ -281,10 +279,23 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 		}
 
 		drop(clients);
-
 		self.surface.swap_buffers(&self.context)?;
-		self.window.request_redraw();
 
+		let time = nix::time::clock_gettime(nix::time::ClockId::CLOCK_MONOTONIC)?;
+		let mut clients = state::CLIENTS.lock().unwrap();
+
+		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
+			let client = clients.get_mut(client).unwrap();
+
+			let toplevel = client.get_object(*window)?;
+			let xdg_surface = client.get_object(toplevel.surface)?;
+			let surface = client.get_object_mut(xdg_surface.surface)?;
+
+			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
+			surface.presentation_feedback(time, 0, 0, 0, client)?;
+		}
+
+		self.window.request_redraw();
 		self.vertices.clear();
 
 		Ok(())

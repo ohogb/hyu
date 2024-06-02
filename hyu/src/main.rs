@@ -34,6 +34,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::Output::new(wl::Id::null()));
 	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 	display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null()));
+	display.push_global(wl::WpPresentation::new(wl::Id::null()));
 
 	client.ensure_objects_capacity();
 	client.new_object(wl::Id::new(1), display);
@@ -148,7 +149,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		}
 
 		drop(clients);
-		std::thread::sleep(std::time::Duration::from_millis(10));
+		std::thread::sleep(std::time::Duration::from_millis(1));
 	}
 }
 

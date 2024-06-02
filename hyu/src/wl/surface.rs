@@ -33,6 +33,8 @@ pub struct Surface {
 	pub current_input_region: Option<wl::Region>,
 	pub data: Option<(Point, SurfaceTexture)>,
 	pub role: Option<SurfaceRole>,
+	pub pending_presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
+	pub current_presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
 }
 
 impl Surface {
@@ -48,6 +50,8 @@ impl Surface {
 			current_input_region: None,
 			data: None,
 			role: None,
+			pending_presentation_feedback: None,
+			current_presentation_feedback: None,
 		}
 	}
 
@@ -96,6 +100,39 @@ impl Surface {
 			let surface = client.get_object_mut(sub_surface.surface)?;
 
 			surface.frame(ms, client)?;
+		}
+
+		Ok(())
+	}
+
+	pub fn presentation_feedback(
+		&mut self,
+		time: nix::sys::time::TimeSpec,
+		refresh: u32,
+		sequence: u64,
+		flags: u32,
+		client: &mut wl::Client,
+	) -> Result<()> {
+		if let Some(presentation_feedback) = self.current_presentation_feedback {
+			let presentation_feedback = client.get_object(presentation_feedback)?;
+
+			let output = client
+				.objects_mut::<wl::Output>()
+				.first()
+				.unwrap()
+				.object_id;
+
+			presentation_feedback.sync_output(client, output)?;
+			presentation_feedback.presented(client, time, refresh, sequence, flags)?;
+
+			self.current_presentation_feedback = None;
+		}
+
+		for &child in &self.children {
+			let sub_surface = client.get_object(child)?;
+			let surface = client.get_object_mut(sub_surface.surface)?;
+
+			surface.presentation_feedback(time, refresh, sequence, flags, client)?;
 		}
 
 		Ok(())
@@ -234,6 +271,11 @@ impl Surface {
 		if let Some(region) = &self.pending_input_region {
 			self.current_input_region = Some(region.clone());
 			self.pending_input_region = None;
+		}
+
+		if let Some(presentation_feedback) = std::mem::take(&mut self.pending_presentation_feedback)
+		{
+			self.current_presentation_feedback = Some(presentation_feedback);
 		}
 
 		Ok(())

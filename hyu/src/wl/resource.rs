@@ -71,6 +71,8 @@ implement![
 	SubCompositor,
 	SubSurface,
 	Surface,
+	WpPresentation,
+	WpPresentationFeedback,
 	XdgPopup,
 	XdgPositioner,
 	XdgSurface,
