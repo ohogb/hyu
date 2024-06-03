@@ -50,7 +50,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		let mut clients = state::CLIENTS.lock().unwrap();
 
 		loop {
-			let mut cmsg_buffer = [0u8; 0x20];
+			let mut cmsg_buffer = [0u8; 0x40];
 			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
 
 			let mut obj = [0u8; 4];

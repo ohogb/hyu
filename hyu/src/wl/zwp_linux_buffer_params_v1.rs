@@ -32,7 +32,6 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 				) = wlm::decode::from_slice(params)?;
 
 				let fd = client.received_fds.pop_front().unwrap();
-				assert!(plane_idx == 0);
 
 				self.buffers
 					.push((fd, plane_idx, offset, stride, modifier_hi, modifier_lo));
@@ -61,22 +60,24 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 				attributes.push(0x30D2);
 				attributes.push(1);
 
-				let buffer = self.buffers.first().unwrap();
+				for (index, buffer) in self.buffers.iter().enumerate() {
+					let index = index as i32;
 
-				attributes.push(0x3272);
-				attributes.push(buffer.0);
+					attributes.push(0x3272 + index * 3);
+					attributes.push(buffer.0);
 
-				attributes.push(0x3273);
-				attributes.push(buffer.2 as _);
+					attributes.push(0x3273 + index * 3);
+					attributes.push(buffer.2 as _);
 
-				attributes.push(0x3274);
-				attributes.push(buffer.3 as _);
+					attributes.push(0x3274 + index * 3);
+					attributes.push(buffer.3 as _);
 
-				attributes.push(0x3443);
-				attributes.push(buffer.5 as _);
+					attributes.push(0x3443 + index * 2);
+					attributes.push(buffer.5 as _);
 
-				attributes.push(0x3444);
-				attributes.push(buffer.4 as _);
+					attributes.push(0x3444 + index * 2);
+					attributes.push(buffer.4 as _);
+				}
 
 				attributes.push(0x3038);
 
