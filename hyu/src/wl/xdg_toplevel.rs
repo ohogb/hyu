@@ -7,6 +7,7 @@ pub struct XdgToplevel {
 	title: String,
 	pub position: Point,
 	pub size: Option<Point>,
+	pub states: Vec<u32>,
 }
 
 impl XdgToplevel {
@@ -28,15 +29,18 @@ impl XdgToplevel {
 			title: String::new(),
 			position,
 			size: None,
+			states: Vec::new(),
 		}
 	}
 
-	pub fn configure(&self, client: &mut wl::Client, size: Point, states: &[u32]) -> Result<()> {
+	pub fn configure(&self, client: &mut wl::Client) -> Result<()> {
+		let size = self.size.unwrap_or(Point(0, 0));
+
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: (size.0, size.1, states),
+			args: (size.0, size.1, &self.states),
 		})?;
 
 		let xdg_surface = client.get_object_mut(self.surface)?;
@@ -50,6 +54,16 @@ impl XdgToplevel {
 			op: 2,
 			args: (width, height),
 		})
+	}
+
+	pub fn add_state(&mut self, state: u32) {
+		if !self.states.contains(&state) {
+			self.states.push(state);
+		}
+	}
+
+	pub fn remove_state(&mut self, state: u32) {
+		self.states.retain(|&x| x != state);
 	}
 }
 

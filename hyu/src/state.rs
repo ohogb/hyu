@@ -51,6 +51,12 @@ pub fn process_focus_changes(
 		let x = match change {
 			Change::Push(fd, id) => {
 				lock.push_front((fd, id));
+
+				let client = clients.get_mut(&fd).unwrap();
+
+				let toplevel = client.get_object_mut(id)?;
+				toplevel.add_state(1);
+
 				true
 			}
 			Change::RemoveToplevel(fd, id) => {
@@ -151,7 +157,7 @@ pub fn process_focus_changes(
 			if Some((client.fd, xdg_toplevel.object_id)) != old
 				&& Some((client.fd, xdg_toplevel.object_id)) != current
 			{
-				xdg_toplevel.configure(client, size, &[1])?;
+				xdg_toplevel.configure(client)?;
 			}
 
 			index += 1;
@@ -162,7 +168,7 @@ pub fn process_focus_changes(
 		if let Some((fd, id)) = old {
 			let client = clients.get_mut(&fd).unwrap();
 
-			let xdg_toplevel = client.get_object(id).unwrap();
+			let xdg_toplevel = client.get_object_mut(id).unwrap();
 			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
 			let surface = client.get_object(xdg_surface.surface)?;
 
@@ -170,15 +176,15 @@ pub fn process_focus_changes(
 				keyboard.leave(client, surface.object_id)?;
 			}
 
-			let size = xdg_toplevel.size.unwrap_or(Point(0, 0));
-			xdg_toplevel.configure(client, size, &[1])?;
+			xdg_toplevel.remove_state(4);
+			xdg_toplevel.configure(client)?;
 		}
 	}
 
 	if let Some((fd, id)) = current {
 		let client = clients.get_mut(&fd).unwrap();
 
-		let xdg_toplevel = client.get_object(id).unwrap();
+		let xdg_toplevel = client.get_object_mut(id).unwrap();
 		let xdg_surface = client.get_object(xdg_toplevel.surface)?;
 		let surface = client.get_object(xdg_surface.surface)?;
 
@@ -186,8 +192,8 @@ pub fn process_focus_changes(
 			keyboard.enter(client, surface.object_id)?;
 		}
 
-		let size = xdg_toplevel.size.unwrap_or(Point(0, 0));
-		xdg_toplevel.configure(client, size, &[1, 4])?;
+		xdg_toplevel.add_state(4);
+		xdg_toplevel.configure(client)?;
 	}
 
 	Ok(())

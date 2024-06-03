@@ -55,7 +55,7 @@ impl wl::Object for XdgSurface {
 				);
 
 				xdg_toplevel.configure_bounds(client, 1280, 720)?;
-				xdg_toplevel.configure(client, Point(0, 0), &[])?;
+				xdg_toplevel.configure(client)?;
 
 				let surface = client.get_object_mut(self.surface)?;
 				surface.set_role(wl::SurfaceRole::XdgToplevel)?;
