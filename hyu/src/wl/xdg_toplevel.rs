@@ -121,9 +121,15 @@ impl wl::Object for XdgToplevel {
 			}
 			11 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_fullscreen
+				let _output: wl::Id<wl::Output> = wlm::decode::from_slice(params)?;
+
+				self.add_state(2);
+				self.configure(client)?;
 			}
 			12 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:unset_fullscreen
+				self.remove_state(2);
+				self.configure(client)?;
 			}
 			13 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_minimized
