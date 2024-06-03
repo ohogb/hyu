@@ -287,12 +287,25 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
 
+			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
+				surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
+				surface.presentation_feedback(time, 0, 0, 0, client)
+			};
+
 			let toplevel = client.get_object(*window)?;
 			let xdg_surface = client.get_object(toplevel.surface)?;
 			let surface = client.get_object_mut(xdg_surface.surface)?;
 
-			surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
-			surface.presentation_feedback(time, 0, 0, 0, client)?;
+			frame(client, surface)?;
+
+			for &popup in &xdg_surface.popups {
+				let popup = client.get_object(popup)?;
+
+				let xdg_surface = client.get_object(popup.xdg_surface)?;
+				let surface = client.get_object_mut(xdg_surface.surface)?;
+
+				frame(client, surface)?;
+			}
 		}
 
 		self.window.request_redraw();
