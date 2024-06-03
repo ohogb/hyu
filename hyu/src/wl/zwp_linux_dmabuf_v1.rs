@@ -71,15 +71,17 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 	}
 
 	fn get_version(&self) -> u32 {
-		5
+		3
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
 		let object = client.new_object(id, Self::new(id));
 
-		object.format(client, 0x41523234)?;
-		object.modifier(client, 0x41523234, 0, 0)?;
+		object.format(client, 0x34325241)?;
+		object.modifier(client, 0x34325241, 0, 0)?;
+		object.modifier(client, 0x34325241, 0x2000000, 0x2096bb03)?;
+		object.modifier(client, 0x34325241, 0xFFFFFF, 0xFFFFFFFF)?;
 
 		Ok(())
 	}
