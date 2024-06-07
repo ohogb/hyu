@@ -17,71 +17,17 @@ struct Vertex {
 	pub uv: [f32; 2],
 }
 
-pub struct Setup;
+pub struct Renderer {
+	glow: glow::Context,
+	vertices: Vec<Vertex>,
+	start_time: std::time::Instant,
+	width: usize,
+	height: usize,
+}
 
-impl backend::winit::WinitRendererSetup for Setup {
-	fn setup(
-		&self,
-		window: &winit::window::Window,
-		width: usize,
-		height: usize,
-	) -> Result<impl backend::winit::WinitRenderer> {
+impl Renderer {
+	pub fn create(mut glow: glow::Context, width: usize, height: usize) -> Result<Self> {
 		unsafe {
-			let display = glutin::display::Display::new(
-				window.raw_display_handle(),
-				glutin::display::DisplayApiPreference::Egl,
-			)?;
-
-			let config = display
-				.find_configs(glutin::config::ConfigTemplateBuilder::new().build())?
-				.next()
-				.unwrap();
-
-			let context = display.create_context(
-				&config,
-				&glutin::context::ContextAttributesBuilder::new()
-					.with_context_api(glutin::context::ContextApi::Gles(Some(
-						glutin::context::Version::new(3, 2),
-					)))
-					.with_debug(true)
-					.build(Some(window.raw_window_handle())),
-			)?;
-
-			let surface = display.create_window_surface(
-				&config,
-				&glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new()
-					.build(
-						window.raw_window_handle(),
-						std::num::NonZeroU32::new(width as _).unwrap(),
-						std::num::NonZeroU32::new(height as _).unwrap(),
-					),
-			)?;
-
-			let context = context.make_current(&surface)?;
-
-			surface.set_swap_interval(
-				&context,
-				glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(1).unwrap()),
-			)?;
-
-			let mut glow =
-				glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
-
-			let raw_display = match display.raw_display() {
-				glutin::display::RawDisplay::Egl(x) => x,
-			};
-
-			egl_wrapper::init(raw_display as _, |name| {
-				let name_as_cstring = std::ffi::CString::new(name)?;
-				let ret = display.get_proc_address(name_as_cstring.as_c_str());
-
-				if ret.is_null() {
-					Err(format!("cannot find function '{name}'"))?;
-				}
-
-				Ok(ret as _)
-			})?;
-
 			glow.debug_message_callback(|_, _, _, _, e| {
 				eprintln!("{e}");
 			});
@@ -152,34 +98,18 @@ impl backend::winit::WinitRendererSetup for Setup {
 			);
 
 			glow.enable_vertex_attrib_array(1);
-
-			Ok(Renderer {
-				window,
-				surface,
-				context,
-				glow,
-				vertices: Vec::new(),
-				start_time: std::time::Instant::now(),
-				width,
-				height,
-			})
 		}
+
+		Ok(Renderer {
+			glow,
+			vertices: Vec::new(),
+			start_time: std::time::Instant::now(),
+			width,
+			height,
+		})
 	}
-}
 
-struct Renderer<'a> {
-	window: &'a winit::window::Window,
-	surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
-	context: glutin::context::PossiblyCurrentContext,
-	glow: glow::Context,
-	vertices: Vec<Vertex>,
-	start_time: std::time::Instant,
-	width: usize,
-	height: usize,
-}
-
-impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
-	fn render(&mut self) -> Result<()> {
+	pub fn before(&mut self) -> Result<()> {
 		unsafe {
 			self.glow.clear(glow::COLOR_BUFFER_BIT);
 		}
@@ -278,9 +208,10 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			}
 		}
 
-		drop(clients);
-		self.surface.swap_buffers(&self.context)?;
+		Ok(())
+	}
 
+	pub fn after(&mut self) -> Result<()> {
 		let time = nix::time::clock_gettime(nix::time::ClockId::CLOCK_MONOTONIC)?;
 		let mut clients = state::CLIENTS.lock().unwrap();
 
@@ -308,9 +239,99 @@ impl<'a> backend::winit::WinitRenderer for Renderer<'a> {
 			}
 		}
 
-		self.window.request_redraw();
 		self.vertices.clear();
+		Ok(())
+	}
+}
 
+pub struct Setup;
+
+impl backend::winit::WinitRendererSetup for Setup {
+	fn setup(
+		&self,
+		window: &winit::window::Window,
+		width: usize,
+		height: usize,
+	) -> Result<impl backend::winit::WinitRenderer> {
+		unsafe {
+			let display = glutin::display::Display::new(
+				window.raw_display_handle(),
+				glutin::display::DisplayApiPreference::Egl,
+			)?;
+
+			let config = display
+				.find_configs(glutin::config::ConfigTemplateBuilder::new().build())?
+				.next()
+				.unwrap();
+
+			let context = display.create_context(
+				&config,
+				&glutin::context::ContextAttributesBuilder::new()
+					.with_context_api(glutin::context::ContextApi::Gles(Some(
+						glutin::context::Version::new(3, 2),
+					)))
+					.with_debug(true)
+					.build(Some(window.raw_window_handle())),
+			)?;
+
+			let surface = display.create_window_surface(
+				&config,
+				&glutin::surface::SurfaceAttributesBuilder::<glutin::surface::WindowSurface>::new()
+					.build(
+						window.raw_window_handle(),
+						std::num::NonZeroU32::new(width as _).unwrap(),
+						std::num::NonZeroU32::new(height as _).unwrap(),
+					),
+			)?;
+
+			let context = context.make_current(&surface)?;
+
+			surface.set_swap_interval(
+				&context,
+				glutin::surface::SwapInterval::Wait(std::num::NonZeroU32::new(1).unwrap()),
+			)?;
+
+			let glow = glow::Context::from_loader_function_cstr(|x| display.get_proc_address(x));
+
+			let raw_display = match display.raw_display() {
+				glutin::display::RawDisplay::Egl(x) => x,
+			};
+
+			egl_wrapper::init(raw_display as _, |name| {
+				let name_as_cstring = std::ffi::CString::new(name)?;
+				let ret = display.get_proc_address(name_as_cstring.as_c_str());
+
+				if ret.is_null() {
+					Err(format!("cannot find function '{name}'"))?;
+				}
+
+				Ok(ret as _)
+			})?;
+
+			Ok(WinitRenderer {
+				window,
+				surface,
+				context,
+				renderer: Renderer::create(glow, width, height)?,
+			})
+		}
+	}
+}
+
+struct WinitRenderer<'a> {
+	window: &'a winit::window::Window,
+	surface: glutin::surface::Surface<glutin::surface::WindowSurface>,
+	context: glutin::context::PossiblyCurrentContext,
+	renderer: Renderer,
+}
+
+impl<'a> backend::winit::WinitRenderer for WinitRenderer<'a> {
+	fn render(&mut self) -> Result<()> {
+		self.renderer.before()?;
+		self.surface.swap_buffers(&self.context)?;
+		self.renderer.after()?;
+
+		self.window.request_redraw();
 		Ok(())
 	}
 }
