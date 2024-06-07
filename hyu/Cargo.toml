@@ -12,7 +12,7 @@ fixed = { version = "1.26.0", features = ["serde"] }
 glow = "0.13.1"
 glutin = { version = "0.31.3", default-features = false, features = ["egl", "wayland"] }
 log = "0.4.21"
-nix = { version = "0.28.0", features = ["socket", "uio", "mman", "time"] }
+nix = { version = "0.28.0", features = ["socket", "uio", "mman", "time", "ioctl", "poll"] }
 pollster = "0.3.0"
 raw-window-handle = "0.5.0"
 serde.workspace = true

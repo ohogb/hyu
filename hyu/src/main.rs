@@ -154,7 +154,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 }
 
 fn main() -> Result<()> {
-	std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
+	// std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
+	std::thread::spawn(|| backend::drm::run().unwrap());
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
