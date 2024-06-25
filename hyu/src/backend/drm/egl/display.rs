@@ -150,4 +150,8 @@ impl Display {
 			None
 		}
 	}
+
+	pub fn get_ptr(&self) -> u64 {
+		self.ptr.as_ptr() as _
+	}
 }

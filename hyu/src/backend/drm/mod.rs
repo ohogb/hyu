@@ -57,13 +57,13 @@ pub fn run() -> Result<()> {
 		>(eglGetProcAddress(cstring.as_ptr()))
 	};
 
-	crate::backend::gl::egl_wrapper::init(0, |name| {
+	let display = egl_get_platform_display(0x31D7, gbm_device.as_ptr(), 0)
+		.ok_or("failed to get platform display")?;
+
+	crate::backend::gl::egl_wrapper::init(display.get_ptr() as _, |name| {
 		let cstring = std::ffi::CString::new(name)?;
 		Ok(unsafe { eglGetProcAddress(cstring.as_ptr()) })
 	})?;
-
-	let display = egl_get_platform_display(0x31D7, gbm_device.as_ptr(), 0)
-		.ok_or("failed to get platform display")?;
 
 	display
 		.initialize()
