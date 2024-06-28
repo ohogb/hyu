@@ -137,6 +137,20 @@ impl Device {
 		Ok(unsafe { ret.assume_init() }.fb_id)
 	}
 
+	pub fn get_crtc(&self, crtc_id: u32) -> Result<Crtc> {
+		nix::ioctl_readwrite!(func, 'd', 0xA1, Crtc);
+
+		let mut ret = std::mem::MaybeUninit::<Crtc>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).crtc_id = crtc_id;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init() })
+	}
+
 	pub fn set_crtc(
 		&self,
 		crtc_id: u32,
@@ -186,6 +200,172 @@ impl Device {
 
 			func(self.file.as_raw_fd(), ptr)?;
 		}
+
+		Ok(())
+	}
+
+	pub fn get_plane_resources(&self) -> Result<PlaneResources> {
+		nix::ioctl_readwrite!(func, 'd', 0xB5, PlaneResources);
+		let mut ret = std::mem::MaybeUninit::<PlaneResources>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+
+			if (*ptr).count_planes > 0 {
+				(*ptr).plane_id_ptr =
+					Box::leak(vec![0u32; (*ptr).count_planes as _].into_boxed_slice()).as_mut_ptr()
+						as u64;
+			}
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init() })
+	}
+
+	pub fn get_plane(&self, plane_id: u32) -> Result<Plane> {
+		nix::ioctl_readwrite!(func, 'd', 0xB6, Plane);
+		let mut ret = std::mem::MaybeUninit::<Plane>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).plane_id = plane_id;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+
+			if (*ptr).count_format_types > 0 {
+				(*ptr).format_type_ptr =
+					Box::leak(vec![0u32; (*ptr).count_format_types as _].into_boxed_slice())
+						.as_mut_ptr() as u64;
+			}
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init() })
+	}
+
+	pub fn get_props(&self, object_id: u32, object_type: u32) -> Result<Props> {
+		nix::ioctl_readwrite!(func, 'd', 0xB9, Props);
+
+		let mut ret = std::mem::MaybeUninit::<Props>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).obj_id = object_id;
+			(*ptr).obj_type = object_type;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+
+			if (*ptr).count_props > 0 {
+				(*ptr).props_ptr = Box::leak(vec![0u32; (*ptr).count_props as _].into_boxed_slice())
+					.as_mut_ptr() as u64;
+
+				(*ptr).prop_values_ptr =
+					Box::leak(vec![0u64; (*ptr).count_props as _].into_boxed_slice()).as_mut_ptr()
+						as u64;
+			}
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init() })
+	}
+
+	pub fn get_prop(&self, prop_id: u32) -> Result<Prop> {
+		nix::ioctl_readwrite!(func, 'd', 0xAA, Prop);
+
+		let mut ret = std::mem::MaybeUninit::<Prop>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).prop_id = prop_id;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+
+			if (*ptr).count_values > 0 {
+				(*ptr).values_ptr =
+					Box::leak(vec![0u64; (*ptr).count_values as _].into_boxed_slice()).as_mut_ptr()
+						as u64;
+			}
+
+			// TODO: enums blobs
+			(*ptr).count_enum_blobs = 0;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init() })
+	}
+
+	pub fn create_blob(&self, data: &[u8]) -> Result<u32> {
+		nix::ioctl_readwrite!(func, 'd', 0xBD, Blob);
+
+		let mut ret = std::mem::MaybeUninit::<Blob>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).data = data.as_ptr() as _;
+			(*ptr).length = data.len() as _;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
+
+		Ok(unsafe { ret.assume_init().blob_id })
+	}
+
+	pub fn begin_atomic(&self) -> AtomicHelper {
+		AtomicHelper { props: Vec::new() }
+	}
+
+	pub fn commit(&self, ctx: AtomicHelper, flags: u32, user_data: *mut ()) -> Result<()> {
+		nix::ioctl_readwrite!(func, 'd', 0xBC, AtomicCommit);
+
+		let mut ret = std::mem::MaybeUninit::<AtomicCommit>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+
+			let mut objs = Vec::new();
+			let mut prop_counts = Vec::new();
+			let mut old = u32::MAX;
+
+			for &(obj, ..) in &ctx.props {
+				if obj != old {
+					objs.push(obj);
+					prop_counts.push(0);
+
+					old = obj;
+				}
+
+				*prop_counts.last_mut().unwrap() += 1;
+			}
+
+			let props = ctx.props.iter().map(|x| x.1).collect::<Vec<_>>();
+			let prop_values = ctx.props.iter().map(|x| x.2).collect::<Vec<_>>();
+
+			(*ptr).flags = flags;
+			(*ptr).user_data = user_data as _;
+
+			(*ptr).count_objs = objs.len() as _;
+			(*ptr).objs_ptr = objs.as_ptr() as _;
+			(*ptr).count_props_ptr = prop_counts.as_ptr() as _;
+			(*ptr).props_ptr = props.as_ptr() as _;
+			(*ptr).prop_values_ptr = prop_values.as_ptr() as _;
+
+			func(self.file.as_raw_fd(), ptr)?;
+		}
+
+		Ok(())
+	}
+
+	pub fn set_client_capability(&self, capability: u64, value: u64) -> Result<()> {
+		nix::ioctl_readwrite!(func, 'd', 0x0D, ClientCapability);
+
+		let mut ret = std::mem::MaybeUninit::<ClientCapability>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).capability = capability;
+			(*ptr).value = value;
+
+			func(self.file.as_raw_fd(), ptr).unwrap();
+		};
 
 		Ok(())
 	}
@@ -245,7 +425,7 @@ impl Card {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Connector {
 	pub encoders_ptr: u64,
@@ -273,6 +453,18 @@ impl Connector {
 		} else {
 			&[]
 		}
+	}
+}
+
+impl HasProps for Connector {
+	fn get_props(&self, device: &Device) -> Result<Props> {
+		device.get_props(self.connector_id, 0xC0C0C0C0)
+	}
+}
+
+impl Object for Connector {
+	fn get_id(&self) -> u32 {
+		self.connector_id
 	}
 }
 
@@ -330,6 +522,18 @@ pub struct Crtc {
 	mode: ModeInfo,
 }
 
+impl HasProps for Crtc {
+	fn get_props(&self, device: &Device) -> Result<Props> {
+		device.get_props(self.crtc_id, 0xCCCCCCCC)
+	}
+}
+
+impl Object for Crtc {
+	fn get_id(&self) -> u32 {
+		self.crtc_id
+	}
+}
+
 #[repr(C)]
 pub struct CrtcPageFlip {
 	crtc_id: u32,
@@ -337,4 +541,178 @@ pub struct CrtcPageFlip {
 	flags: u32,
 	reserved: u32,
 	user_data: u64,
+}
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct PlaneResources {
+	plane_id_ptr: u64,
+	count_planes: u32,
+}
+
+impl PlaneResources {
+	pub fn plane_ids(&self) -> &[u32] {
+		if self.count_planes > 0 {
+			unsafe { std::slice::from_raw_parts(self.plane_id_ptr as _, self.count_planes as _) }
+		} else {
+			&[]
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+#[repr(C)]
+pub struct Plane {
+	pub plane_id: u32,
+	pub crtc_id: u32,
+	pub fb_id: u32,
+	pub possible_crtcs: u32,
+	pub gamma_size: u32,
+	pub count_format_types: u32,
+	pub format_type_ptr: u64,
+}
+
+impl HasProps for Plane {
+	fn get_props(&self, device: &Device) -> Result<Props> {
+		device.get_props(self.plane_id, 0xEEEEEEEE)
+	}
+}
+
+impl Object for Plane {
+	fn get_id(&self) -> u32 {
+		self.plane_id
+	}
+}
+
+#[repr(C)]
+pub struct Props {
+	props_ptr: u64,
+	prop_values_ptr: u64,
+	count_props: u32,
+	obj_id: u32,
+	obj_type: u32,
+}
+
+impl Props {
+	pub fn prop_ids(&self) -> &[u32] {
+		if self.count_props > 0 {
+			unsafe { std::slice::from_raw_parts(self.props_ptr as _, self.count_props as _) }
+		} else {
+			&[]
+		}
+	}
+
+	pub fn prop_values(&self) -> &[u64] {
+		if self.count_props > 0 {
+			unsafe { std::slice::from_raw_parts(self.prop_values_ptr as _, self.count_props as _) }
+		} else {
+			&[]
+		}
+	}
+}
+
+#[repr(C)]
+pub struct Prop {
+	pub values_ptr: u64,
+	pub enum_blob_ptr: u64,
+	pub prop_id: u32,
+	pub flags: u32,
+	pub name: [u8; 0x20],
+	pub count_values: u32,
+	pub count_enum_blobs: u32,
+}
+
+pub struct PropWrapper<T: HasProps + Object> {
+	props: Props,
+	prop_info: std::collections::HashMap<u32, Prop>,
+	object: T,
+}
+
+impl<T: HasProps + Object> PropWrapper<T> {
+	pub fn new(object: T, device: &Device) -> Self {
+		let props = object.get_props(device).unwrap();
+		let prop_info = props
+			.prop_ids()
+			.iter()
+			.map(|&x| (x, device.get_prop(x).unwrap()));
+
+		let prop_info = std::collections::HashMap::from_iter(prop_info);
+
+		Self {
+			props,
+			prop_info,
+			object,
+		}
+	}
+}
+
+impl<T: HasProps + Object> std::ops::Deref for PropWrapper<T> {
+	type Target = T;
+
+	fn deref(&self) -> &Self::Target {
+		&self.object
+	}
+}
+
+pub trait HasProps {
+	fn get_props(&self, device: &Device) -> Result<Props>;
+}
+
+pub trait Object {
+	fn get_id(&self) -> u32;
+}
+
+pub struct AtomicHelper {
+	pub props: Vec<(u32, u32, u64)>,
+}
+
+impl AtomicHelper {
+	pub fn add_property(
+		&mut self,
+		object: &PropWrapper<impl HasProps + Object>,
+		property: &str,
+		value: u64,
+	) -> Result<()> {
+		let property_id = object
+			.props
+			.prop_ids()
+			.iter()
+			.find(|&x| {
+				let prop = object.prop_info.get(x).unwrap();
+				let name = unsafe { std::ffi::CStr::from_ptr(prop.name.as_ptr() as _) }
+					.to_str()
+					.unwrap();
+
+				name == property
+			})
+			.unwrap();
+
+		self.props.push((object.get_id(), *property_id, value));
+		Ok(())
+	}
+}
+
+#[repr(C)]
+pub struct Blob {
+	data: u64,
+	length: u32,
+	blob_id: u32,
+}
+
+#[repr(C)]
+pub struct AtomicCommit {
+	flags: u32,
+	count_objs: u32,
+	objs_ptr: u64,
+	count_props_ptr: u64,
+	props_ptr: u64,
+	prop_values_ptr: u64,
+	reserved: u64,
+	user_data: u64,
+}
+
+#[repr(C)]
+pub struct ClientCapability {
+	capability: u64,
+	value: u64,
 }

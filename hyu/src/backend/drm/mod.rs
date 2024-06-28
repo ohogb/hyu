@@ -17,6 +17,9 @@ extern "C" {
 
 pub fn run() -> Result<()> {
 	let device = Device::open("/dev/dri/card1")?;
+	device.set_client_capability(2, 1)?;
+	device.set_client_capability(3, 1)?;
+
 	let resources = device.get_resources()?;
 
 	let connectors = resources
@@ -25,7 +28,14 @@ pub fn run() -> Result<()> {
 		.map(|x| device.get_connector(*x))
 		.collect::<Result<Vec<_>>>()?;
 
-	let connector = connectors.iter().find(|x| x.connection == 1).unwrap();
+	let connector = PropWrapper::new(
+		connectors
+			.iter()
+			.find(|x| x.connection == 1)
+			.unwrap()
+			.clone(),
+		&device,
+	);
 
 	let mode = connector
 		.modes()
@@ -33,7 +43,51 @@ pub fn run() -> Result<()> {
 		.find(|x| (x.typee & (1 << 3)) != 0)
 		.unwrap();
 
+	dbg!(mode);
+
 	let encoder = device.get_encoder(connector.encoder_id)?;
+
+	let crtc = PropWrapper::new(device.get_crtc(encoder.crtc_id)?, &device);
+
+	let plane_resources = device.get_plane_resources()?;
+	dbg!(&plane_resources);
+
+	let planes = plane_resources
+		.plane_ids()
+		.iter()
+		.map(|x| device.get_plane(*x))
+		.collect::<Result<Vec<_>>>()?;
+
+	let crtc_index = resources
+		.crtc_ids()
+		.iter()
+		.enumerate()
+		.find(|x| *x.1 == encoder.crtc_id)
+		.map(|x| x.0)
+		.unwrap();
+
+	let plane = planes
+		.iter()
+		.find(|x| {
+			if (x.possible_crtcs & (1 << crtc_index)) == 0 {
+				return false;
+			}
+
+			let props = x.get_props(&device).unwrap();
+
+			for (&id, &value) in std::iter::zip(props.prop_ids(), props.prop_values()) {
+				let prop = device.get_prop(id).unwrap();
+
+				if &prop.name[..4] == b"type" && value == 2 {
+					return true;
+				}
+			}
+
+			true
+		})
+		.unwrap();
+
+	let plane = PropWrapper::new(plane.clone(), &device);
 
 	let gbm_device = gbm::Device::create(device.get_fd());
 	let gbm_surface = gbm_device
@@ -118,12 +172,33 @@ pub fn run() -> Result<()> {
 
 	let fb = bo.get_fb(&device)?;
 
-	device.set_crtc(encoder.crtc_id, fb, 0, 0, &[connector.connector_id], &mode)?;
+	let mut ctx = device.begin_atomic();
+	ctx.add_property(&connector, "CRTC_ID", crtc.get_id() as _)?;
+
+	let blob = device.create_blob(unsafe {
+		std::slice::from_raw_parts(
+			mode as *const _ as *const u8,
+			std::mem::size_of::<ModeInfo>(),
+		)
+	})?;
+
+	ctx.add_property(&crtc, "MODE_ID", blob as _)?;
+	ctx.add_property(&crtc, "ACTIVE", 1)?;
+	ctx.add_property(&plane, "FB_ID", fb as _)?;
+	ctx.add_property(&plane, "CRTC_ID", crtc.get_id() as _)?;
+	ctx.add_property(&plane, "SRC_X", 0)?;
+	ctx.add_property(&plane, "SRC_Y", 0)?;
+	ctx.add_property(&plane, "SRC_W", ((mode.hdisplay as u32) << 16) as _)?;
+	ctx.add_property(&plane, "SRC_H", ((mode.vdisplay as u32) << 16) as _)?;
+
+	ctx.add_property(&plane, "CRTC_X", 0)?;
+	ctx.add_property(&plane, "CRTC_Y", 0)?;
+	ctx.add_property(&plane, "CRTC_W", mode.hdisplay as _)?;
+	ctx.add_property(&plane, "CRTC_H", mode.vdisplay as _)?;
+
+	device.commit(ctx, 0x400, std::ptr::null_mut()).unwrap();
 
 	let mut old_bo = bo;
-
-	let mut fds = nix::sys::select::FdSet::new();
-	fds.insert(unsafe { std::os::fd::BorrowedFd::borrow_raw(device.get_fd()) });
 
 	let mut renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
 
@@ -138,11 +213,34 @@ pub fn run() -> Result<()> {
 
 		let fb = bo.get_fb(&device)?;
 
+		let mut ctx = device.begin_atomic();
+
+		ctx.add_property(&plane, "FB_ID", fb as _)?;
+		ctx.add_property(&plane, "CRTC_ID", crtc.get_id() as _)?;
+		ctx.add_property(&plane, "SRC_X", 0)?;
+		ctx.add_property(&plane, "SRC_Y", 0)?;
+		ctx.add_property(&plane, "SRC_W", ((mode.hdisplay as u32) << 16) as _)?;
+		ctx.add_property(&plane, "SRC_H", ((mode.vdisplay as u32) << 16) as _)?;
+
+		ctx.add_property(&plane, "CRTC_X", 0)?;
+		ctx.add_property(&plane, "CRTC_Y", 0)?;
+		ctx.add_property(&plane, "CRTC_W", mode.hdisplay as _)?;
+		ctx.add_property(&plane, "CRTC_H", mode.vdisplay as _)?;
+
 		let mut has_flipped = false;
-		device.page_flip(encoder.crtc_id, fb, 0x1, &mut has_flipped as *mut _ as _)?;
+
+		device
+			.commit(ctx, 0x200 | 0x1, &mut has_flipped as *mut _ as _)
+			.unwrap();
 
 		while !has_flipped {
-			nix::sys::select::select(device.get_fd() + 1, Some(&mut fds), None, None, None)?;
+			nix::poll::poll(
+				&mut [nix::poll::PollFd::new(
+					unsafe { std::os::fd::BorrowedFd::borrow_raw(device.get_fd()) },
+					nix::poll::PollFlags::POLLIN,
+				)],
+				nix::poll::PollTimeout::from(100u8),
+			)?;
 
 			let mut ret = [0u8; 0x1000];
 
