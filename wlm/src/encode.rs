@@ -55,8 +55,9 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 		todo!()
 	}
 
-	fn serialize_u16(self, _v: u16) -> Result<()> {
-		todo!()
+	fn serialize_u16(self, v: u16) -> Result<()> {
+		self.output.extend(v.to_ne_bytes());
+		Ok(())
 	}
 
 	fn serialize_u32(self, v: u32) -> Result<()> {
@@ -64,8 +65,9 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 		Ok(())
 	}
 
-	fn serialize_u64(self, _v: u64) -> Result<()> {
-		todo!()
+	fn serialize_u64(self, v: u64) -> Result<()> {
+		self.output.extend(v.to_ne_bytes());
+		Ok(())
 	}
 
 	fn serialize_f32(self, _v: f32) -> Result<()> {
