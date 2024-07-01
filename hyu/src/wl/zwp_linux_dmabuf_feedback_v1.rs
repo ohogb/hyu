@@ -35,7 +35,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		Ok(())
 	}
 
-	pub fn main_device(&self, client: &mut wl::Client, device: &[u32]) -> Result<()> {
+	pub fn main_device(&self, client: &mut wl::Client, device: &[nix::libc::dev_t]) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:main_device
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -50,6 +50,37 @@ impl ZwpLinuxDmabufFeedbackV1 {
 			object_id: *self.object_id,
 			op: 3,
 			args: (),
+		})
+	}
+
+	pub fn tranche_target_device(
+		&self,
+		client: &mut wl::Client,
+		device: &[nix::libc::dev_t],
+	) -> Result<()> {
+		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_target_device
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 4,
+			args: device,
+		})
+	}
+
+	pub fn tranche_formats(&self, client: &mut wl::Client, indices: &[u16]) -> Result<()> {
+		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_formats
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 5,
+			args: indices,
+		})
+	}
+
+	pub fn tranche_flags(&self, client: &mut wl::Client, flags: u32) -> Result<()> {
+		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_flags
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 6,
+			args: flags,
 		})
 	}
 }

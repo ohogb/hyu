@@ -49,14 +49,38 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 			2 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_default_feedback
 				let id: wl::Id<wl::ZwpLinuxDmabufFeedbackV1> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+				let feedback = client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+
+				feedback.format_table(client)?;
+
+				let dev = nix::sys::stat::stat("/dev/dri/card1")?.st_rdev;
+				feedback.main_device(client, &[dev])?;
+
+				feedback.tranche_target_device(client, &[dev])?;
+				feedback.tranche_flags(client, 0)?;
+				feedback.tranche_formats(client, &[0, 1, 2])?;
+				feedback.tranche_done(client)?;
+
+				feedback.done(client)?;
 			}
 			3 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_surface_feedback
 				let (id, _surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
-				client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+				let feedback = client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+
+				feedback.format_table(client)?;
+
+				let dev = nix::sys::stat::stat("/dev/dri/card1")?.st_rdev;
+				feedback.main_device(client, &[dev])?;
+
+				feedback.tranche_target_device(client, &[dev])?;
+				feedback.tranche_flags(client, 0)?;
+				feedback.tranche_formats(client, &[0, 1, 2])?;
+				feedback.tranche_done(client)?;
+
+				feedback.done(client)?;
 			}
 			_ => Err(format!("unknown op '{op}' in ZwpLinuxDmabufV1"))?,
 		}
@@ -71,17 +95,17 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 	}
 
 	fn get_version(&self) -> u32 {
-		3
+		5
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		let object = client.new_object(id, Self::new(id));
+		client.new_object(id, Self::new(id));
 
-		object.format(client, 0x34325241)?;
+		/*object.format(client, 0x34325241)?;
 		object.modifier(client, 0x34325241, 0, 0)?;
 		object.modifier(client, 0x34325241, 0x2000000, 0x2096bb03)?;
-		object.modifier(client, 0x34325241, 0xFFFFFF, 0xFFFFFFFF)?;
+		object.modifier(client, 0x34325241, 0xFFFFFF, 0xFFFFFFFF)?;*/
 
 		Ok(())
 	}
