@@ -135,55 +135,11 @@ impl Renderer {
 						panic!();
 					};
 
-					let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
-						[
-							input[0] as f32 / this.width as f32 * 2.0 - 1.0,
-							(input[1] as f32 / this.height as f32 * 2.0 - 1.0) * -1.0,
-						]
-					};
-
-					let Point(x, y) = toplevel_position - xdg_surface.position + position;
-					let Point(width, height) = size;
-
-					this.vertices.extend([
-						Vertex {
-							position: pixels_to_float([x, y]),
-							uv: [0.0, 0.0],
-						},
-						Vertex {
-							position: pixels_to_float([x + width, y]),
-							uv: [1.0, 0.0],
-						},
-						Vertex {
-							position: pixels_to_float([x, y + height]),
-							uv: [0.0, 1.0],
-						},
-						Vertex {
-							position: pixels_to_float([x, y + height]),
-							uv: [0.0, 1.0],
-						},
-						Vertex {
-							position: pixels_to_float([x + width, y + height]),
-							uv: [1.0, 1.0],
-						},
-						Vertex {
-							position: pixels_to_float([x + width, y]),
-							uv: [1.0, 0.0],
-						},
-					]);
-
-					unsafe {
-						this.glow.buffer_data_u8_slice(
-							glow::ARRAY_BUFFER,
-							bytemuck::cast_slice(&this.vertices),
-							glow::DYNAMIC_DRAW,
-						);
-
-						this.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
-
-						this.glow
-							.draw_arrays(glow::TRIANGLES, (this.vertices.len() - 6) as _, 6);
-					}
+					this.quad(
+						toplevel_position - xdg_surface.position + position,
+						size,
+						texture,
+					);
 				}
 
 				Ok(())
@@ -241,6 +197,58 @@ impl Renderer {
 
 		self.vertices.clear();
 		Ok(())
+	}
+
+	fn quad(&mut self, position: Point, size: Point, texture: &glow::NativeTexture) {
+		let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
+			[
+				input[0] as f32 / self.width as f32 * 2.0 - 1.0,
+				(input[1] as f32 / self.height as f32 * 2.0 - 1.0) * -1.0,
+			]
+		};
+
+		let Point(x, y) = position;
+		let Point(width, height) = size;
+
+		self.vertices.extend([
+			Vertex {
+				position: pixels_to_float([x, y]),
+				uv: [0.0, 0.0],
+			},
+			Vertex {
+				position: pixels_to_float([x + width, y]),
+				uv: [1.0, 0.0],
+			},
+			Vertex {
+				position: pixels_to_float([x, y + height]),
+				uv: [0.0, 1.0],
+			},
+			Vertex {
+				position: pixels_to_float([x, y + height]),
+				uv: [0.0, 1.0],
+			},
+			Vertex {
+				position: pixels_to_float([x + width, y + height]),
+				uv: [1.0, 1.0],
+			},
+			Vertex {
+				position: pixels_to_float([x + width, y]),
+				uv: [1.0, 0.0],
+			},
+		]);
+
+		unsafe {
+			self.glow.buffer_data_u8_slice(
+				glow::ARRAY_BUFFER,
+				bytemuck::cast_slice(&self.vertices),
+				glow::DYNAMIC_DRAW,
+			);
+
+			self.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
+
+			self.glow
+				.draw_arrays(glow::TRIANGLES, (self.vertices.len() - 6) as _, 6);
+		}
 	}
 }
 
