@@ -1,4 +1,4 @@
-use crate::backend::drm::egl;
+use crate::backend::drm::{egl, gbm};
 
 #[link(name = "EGL")]
 extern "C" {
@@ -22,6 +22,7 @@ extern "C" {
 	fn eglMakeCurrent(display: u64, draw: u64, read: u64, context: u64) -> u32;
 	fn eglSwapBuffers(display: u64, surface: u64) -> u32;
 	fn eglQuerySurface(display: u64, surface: u64, attribute: i32, value: u64) -> u32;
+	fn eglGetProcAddress(name: *const i8) -> usize;
 }
 
 #[derive(Debug)]
@@ -31,6 +32,20 @@ pub struct Display {
 }
 
 impl Display {
+	pub fn from_gbm(gbm_device: &gbm::Device) -> Option<Self> {
+		static EGL_GET_PLATFORM_DISPLAY: std::sync::LazyLock<
+			extern "C" fn(
+				platform: u32,
+				native_display: u64,
+				attrib_list: u64,
+			) -> Option<egl::Display>,
+		> = std::sync::LazyLock::new(|| unsafe {
+			std::mem::transmute(eglGetProcAddress(c"eglGetPlatformDisplayEXT".as_ptr()))
+		});
+
+		EGL_GET_PLATFORM_DISPLAY(0x31D7, gbm_device.as_ptr(), 0)
+	}
+
 	pub fn initialize(&self) -> Option<(i32, i32)> {
 		let mut major = 0;
 		let mut minor = 0;
@@ -151,7 +166,7 @@ impl Display {
 		}
 	}
 
-	pub fn get_ptr(&self) -> u64 {
+	pub fn as_ptr(&self) -> u64 {
 		self.ptr.as_ptr() as _
 	}
 }

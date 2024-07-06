@@ -99,22 +99,9 @@ pub fn run() -> Result<()> {
 		)
 		.ok_or("failed to create gbm surface")?;
 
-	let cstring = std::ffi::CString::new("eglGetPlatformDisplayEXT")?;
-	let egl_get_platform_display = unsafe {
-		std::mem::transmute::<
-			_,
-			extern "C" fn(
-				platform: u32,
-				native_display: u64,
-				attrib_list: u64,
-			) -> Option<egl::Display>,
-		>(eglGetProcAddress(cstring.as_ptr()))
-	};
+	let display = egl::Display::from_gbm(&gbm_device).ok_or("failed to get platform display")?;
 
-	let display = egl_get_platform_display(0x31D7, gbm_device.as_ptr(), 0)
-		.ok_or("failed to get platform display")?;
-
-	crate::backend::gl::egl_wrapper::init(display.get_ptr() as _, |name| {
+	crate::backend::gl::egl_wrapper::init(display.as_ptr() as _, |name| {
 		let cstring = std::ffi::CString::new(name)?;
 		Ok(unsafe { eglGetProcAddress(cstring.as_ptr()) })
 	})?;
