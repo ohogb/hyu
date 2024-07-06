@@ -42,6 +42,9 @@ pub fn run() -> Result<()> {
 					x += pointer.get_dx();
 					y += pointer.get_dy();
 
+					x = x.clamp(0.0, 2560.0);
+					y = y.clamp(0.0, 1440.0);
+
 					crate::state::on_cursor_move((x as _, y as _)).unwrap();
 				}
 				402 => {
