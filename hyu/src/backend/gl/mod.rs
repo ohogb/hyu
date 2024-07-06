@@ -23,6 +23,7 @@ pub struct Renderer {
 	start_time: std::time::Instant,
 	width: usize,
 	height: usize,
+	cursor_texture: glow::NativeTexture,
 }
 
 impl Renderer {
@@ -100,12 +101,47 @@ impl Renderer {
 			glow.enable_vertex_attrib_array(1);
 		}
 
+		let cursor_texture = unsafe { glow.create_texture().unwrap() };
+
+		unsafe {
+			glow.bind_texture(glow::TEXTURE_2D, Some(cursor_texture));
+
+			glow.tex_parameter_i32(
+				glow::TEXTURE_2D,
+				glow::TEXTURE_MIN_FILTER,
+				glow::LINEAR as _,
+			);
+
+			glow.tex_parameter_i32(
+				glow::TEXTURE_2D,
+				glow::TEXTURE_MAG_FILTER,
+				glow::LINEAR as _,
+			);
+
+			let buffer = &[255; 2 * 2 * 4];
+
+			glow.tex_image_2d(
+				glow::TEXTURE_2D,
+				0,
+				glow::RGBA as _,
+				2,
+				2,
+				0,
+				glow::BGRA,
+				glow::UNSIGNED_BYTE,
+				Some(buffer),
+			);
+
+			glow.bind_texture(glow::TEXTURE_2D, None);
+		};
+
 		Ok(Renderer {
 			glow,
 			vertices: Vec::new(),
 			start_time: std::time::Instant::now(),
 			width,
 			height,
+			cursor_texture,
 		})
 	}
 
@@ -163,6 +199,9 @@ impl Renderer {
 				draw(self, client, position, xdg_surface, surface)?;
 			}
 		}
+
+		let cursor_pos = state::POINTER_POSITION.lock().unwrap().clone();
+		self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
 
 		Ok(())
 	}

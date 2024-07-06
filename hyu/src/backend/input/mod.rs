@@ -8,8 +8,8 @@ pub fn run() -> Result<()> {
 	let ret = context.assign();
 	assert!(ret != -1);
 
-	let mut x = 100.0;
-	let mut y = 100.0;
+	let mut x = 0.0;
+	let mut y = 0.0;
 
 	loop {
 		let fd = context.get_fd();

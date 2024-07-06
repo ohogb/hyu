@@ -30,6 +30,8 @@ pub struct PointerOver {
 pub static POINTER_OVER: std::sync::LazyLock<std::sync::Mutex<Option<PointerOver>>> =
 	std::sync::LazyLock::new(Default::default);
 
+pub static POINTER_POSITION: std::sync::Mutex<Point> = std::sync::Mutex::new(Point(0, 0));
+
 pub fn process_focus_changes(
 	clients: &mut std::sync::MutexGuard<
 		'_,
@@ -203,6 +205,8 @@ pub fn on_cursor_move(cursor_position: (i32, i32)) -> Result<()> {
 	let mut clients = CLIENTS.lock().unwrap();
 	let cursor_position = <(i32, i32)>::from(cursor_position);
 	let cursor_position = Point(cursor_position.0, cursor_position.1);
+
+	*POINTER_POSITION.lock().unwrap() = cursor_position;
 
 	for client in clients.values_mut() {
 		for seat in client.objects_mut::<wl::Seat>() {
