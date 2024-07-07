@@ -344,16 +344,8 @@ impl backend::winit::WinitRendererSetup for Setup {
 				glutin::display::RawDisplay::Egl(x) => x,
 			};
 
-			egl_wrapper::init(raw_display as _, |name| {
-				let name_as_cstring = std::ffi::CString::new(name)?;
-				let ret = display.get_proc_address(name_as_cstring.as_c_str());
-
-				if ret.is_null() {
-					Err(format!("cannot find function '{name}'"))?;
-				}
-
-				Ok(ret as _)
-			})?;
+			wl::set_buffer_params_egl_display(std::mem::transmute(raw_display));
+			crate::backend::drm::egl::enable_debugging();
 
 			Ok(WinitRenderer {
 				window,

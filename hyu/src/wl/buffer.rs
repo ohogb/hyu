@@ -11,7 +11,7 @@ pub enum BufferStorage {
 		format: u32,
 	},
 	Dmabuf {
-		image: usize,
+		image: crate::backend::drm::egl::Image,
 	},
 }
 
@@ -143,11 +143,7 @@ impl Buffer {
 					glow::LINEAR as _,
 				);
 
-				crate::backend::gl::egl_wrapper::image_target_texture_2d_oes(
-					glow::TEXTURE_2D as _,
-					*image,
-				);
-
+				image.target_texture_2d_oes(glow::TEXTURE_2D as _);
 				glow.bind_texture(glow::TEXTURE_2D, None);
 			},
 		}

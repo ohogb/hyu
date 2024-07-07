@@ -3,17 +3,11 @@ use std::io::Read as _;
 use crate::Result;
 
 mod device;
-mod egl;
+pub mod egl;
 mod gbm;
 
 use device::*;
 use glow::HasContext as _;
-
-#[link(name = "EGL")]
-extern "C" {
-	fn eglGetProcAddress(name: *const i8) -> usize;
-	fn eglBindAPI(api: u32) -> u32;
-}
 
 pub fn run() -> Result<()> {
 	let device = Device::open("/dev/dri/card1")?;
@@ -101,16 +95,14 @@ pub fn run() -> Result<()> {
 
 	let display = egl::Display::from_gbm(&gbm_device).ok_or("failed to get platform display")?;
 
-	crate::backend::gl::egl_wrapper::init(display.as_ptr() as _, |name| {
-		let cstring = std::ffi::CString::new(name)?;
-		Ok(unsafe { eglGetProcAddress(cstring.as_ptr()) })
-	})?;
+	egl::enable_debugging();
+	crate::wl::set_buffer_params_egl_display(display.clone());
 
 	display
 		.initialize()
 		.ok_or("failed to initialize egl display")?;
 
-	if unsafe { eglBindAPI(0x30A0) } != 1 {
+	if egl::bind_api(0x30A0) != 1 {
 		Err("failed to bind gl api")?;
 	}
 
@@ -142,7 +134,7 @@ pub fn run() -> Result<()> {
 	let glow = unsafe {
 		glow::Context::from_loader_function(|x| {
 			let cstring = std::ffi::CString::new(x).unwrap();
-			eglGetProcAddress(cstring.as_ptr()) as _
+			egl::get_proc_address(&cstring) as _
 		})
 	};
 

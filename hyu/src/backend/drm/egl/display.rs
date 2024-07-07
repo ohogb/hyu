@@ -25,10 +25,10 @@ extern "C" {
 	fn eglGetProcAddress(name: *const i8) -> usize;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct Display {
-	ptr: std::ptr::NonNull<()>,
+	ptr: std::num::NonZeroU64,
 }
 
 impl Display {
@@ -50,7 +50,7 @@ impl Display {
 		let mut major = 0;
 		let mut minor = 0;
 
-		let ret = unsafe { eglInitialize(self.ptr.as_ptr() as u64, &mut major, &mut minor) };
+		let ret = unsafe { eglInitialize(self.as_ptr() as u64, &mut major, &mut minor) };
 
 		if ret == 1 {
 			Some((major, minor))
@@ -68,7 +68,7 @@ impl Display {
 
 		let success = unsafe {
 			eglChooseConfig(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				attributes.as_ptr() as _,
 				ret.as_mut_ptr() as _,
 				amount,
@@ -89,7 +89,7 @@ impl Display {
 	pub fn create_context(&self, config: &egl::Config, attributes: &[i32]) -> Option<egl::Context> {
 		unsafe {
 			std::mem::transmute(eglCreateContext(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				config.as_ptr(),
 				0,
 				attributes.as_ptr() as _,
@@ -102,7 +102,7 @@ impl Display {
 
 		let success = unsafe {
 			eglGetConfigAttrib(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				config.as_ptr(),
 				attribute,
 				&mut ret as *mut _ as _,
@@ -124,7 +124,7 @@ impl Display {
 	) -> Option<egl::Surface> {
 		unsafe {
 			std::mem::transmute(eglCreateWindowSurface(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				config.as_ptr(),
 				native_window,
 				attributes.as_ptr() as _,
@@ -135,7 +135,7 @@ impl Display {
 	pub fn make_current(&self, surface: &egl::Surface, context: &egl::Context) -> u32 {
 		unsafe {
 			eglMakeCurrent(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				surface.as_ptr(),
 				surface.as_ptr(),
 				context.as_ptr(),
@@ -144,7 +144,7 @@ impl Display {
 	}
 
 	pub fn swap_buffers(&self, surface: &egl::Surface) -> u32 {
-		unsafe { eglSwapBuffers(self.ptr.as_ptr() as _, surface.as_ptr()) }
+		unsafe { eglSwapBuffers(self.as_ptr() as _, surface.as_ptr()) }
 	}
 
 	pub fn query_surface(&self, surface: &egl::Surface, attribute: i32) -> Option<i32> {
@@ -152,7 +152,7 @@ impl Display {
 
 		let success = unsafe {
 			eglQuerySurface(
-				self.ptr.as_ptr() as _,
+				self.as_ptr() as _,
 				surface.as_ptr(),
 				attribute,
 				&mut ret as *mut _ as _,
@@ -166,7 +166,17 @@ impl Display {
 		}
 	}
 
+	pub fn create_image(&self, target: u64, attributes: &[i32]) -> Option<egl::Image> {
+		static EGL_CREATE_IMAGE_KHR: std::sync::LazyLock<
+			extern "C" fn(u64, u64, u64, u64, u64) -> Option<egl::Image>,
+		> = std::sync::LazyLock::new(|| unsafe {
+			std::mem::transmute(eglGetProcAddress(c"eglCreateImageKHR".as_ptr()))
+		});
+
+		EGL_CREATE_IMAGE_KHR(self.as_ptr(), 0, target, 0, attributes.as_ptr() as _)
+	}
+
 	pub fn as_ptr(&self) -> u64 {
-		self.ptr.as_ptr() as _
+		self.ptr.get()
 	}
 }
