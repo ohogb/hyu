@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{wl, Point, Result};
+use crate::{egl, wl, Point, Result};
 
 #[derive(Clone)]
 pub enum BufferStorage {
@@ -11,7 +11,7 @@ pub enum BufferStorage {
 		format: u32,
 	},
 	Dmabuf {
-		image: crate::backend::drm::egl::Image,
+		image: egl::Image,
 	},
 }
 

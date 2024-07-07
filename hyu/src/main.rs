@@ -4,6 +4,7 @@
 #![feature(sync_unsafe_cell)]
 
 pub mod backend;
+pub mod egl;
 mod point;
 mod state;
 pub mod wl;

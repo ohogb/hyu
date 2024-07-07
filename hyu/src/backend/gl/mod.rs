@@ -6,7 +6,7 @@ use glutin::{
 };
 use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
 
-use crate::{backend, state, wl, Point, Result};
+use crate::{backend, egl, state, wl, Point, Result};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -343,7 +343,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 			};
 
 			wl::set_buffer_params_egl_display(std::mem::transmute(raw_display));
-			crate::backend::drm::egl::enable_debugging();
+			egl::enable_debugging();
 
 			Ok(WinitRenderer {
 				window,

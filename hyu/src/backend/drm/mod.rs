@@ -1,10 +1,9 @@
 use std::io::Read as _;
 
-use crate::Result;
+use crate::{egl, Result};
 
 mod device;
-pub mod egl;
-mod gbm;
+pub mod gbm;
 
 use device::*;
 use glow::HasContext as _;

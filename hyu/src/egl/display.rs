@@ -1,4 +1,4 @@
-use crate::backend::drm::{egl, gbm};
+use crate::{backend::drm::gbm, egl};
 
 #[link(name = "EGL")]
 extern "C" {

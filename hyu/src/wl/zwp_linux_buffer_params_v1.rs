@@ -1,9 +1,9 @@
-use crate::{wl, Point, Result};
+use crate::{egl, wl, Point, Result};
 
-static EGL_DISPLAY: std::cell::SyncUnsafeCell<Option<crate::backend::drm::egl::Display>> =
+static EGL_DISPLAY: std::cell::SyncUnsafeCell<Option<egl::Display>> =
 	std::cell::SyncUnsafeCell::new(None);
 
-pub fn set_buffer_params_egl_display(display: crate::backend::drm::egl::Display) {
+pub fn set_buffer_params_egl_display(display: egl::Display) {
 	unsafe {
 		*EGL_DISPLAY.get() = Some(display);
 	}
