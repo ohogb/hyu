@@ -8,8 +8,6 @@ use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
 
 use crate::{backend, state, wl, Point, Result};
 
-pub mod egl_wrapper;
-
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
