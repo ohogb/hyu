@@ -1,12 +1,38 @@
+use std::{
+	io::{Seek as _, Write as _},
+	os::fd::{FromRawFd as _, IntoRawFd as _},
+};
+
 use crate::{wl, Result};
 
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
+	formats: (std::os::fd::RawFd, u64),
 }
 
 impl ZwpLinuxDmabufV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>) -> Result<Self> {
+		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
+		nix::unistd::unlink(&path)?;
+
+		let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+
+		file.write(&u64::to_ne_bytes(0x34325241))?;
+		file.write(&u64::to_ne_bytes(0x20000002096BB03))?;
+
+		file.write(&u64::to_ne_bytes(0x34325241))?;
+		file.write(&u64::to_ne_bytes(0x0))?;
+
+		file.write(&u64::to_ne_bytes(0x34325241))?;
+		file.write(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
+
+		let size = file.stream_len()?;
+		let fd = file.into_raw_fd();
+
+		Ok(Self {
+			object_id,
+			formats: (fd, size),
+		})
 	}
 
 	pub fn format(&self, client: &mut wl::Client, format: u32) -> Result<()> {
@@ -49,7 +75,8 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 			2 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_default_feedback
 				let id: wl::Id<wl::ZwpLinuxDmabufFeedbackV1> = wlm::decode::from_slice(params)?;
-				let feedback = client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+				let feedback =
+					client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id, self.formats));
 
 				feedback.format_table(client)?;
 
@@ -68,7 +95,8 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 				let (id, _surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
-				let feedback = client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id));
+				let feedback =
+					client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id, self.formats));
 
 				feedback.format_table(client)?;
 
@@ -100,7 +128,7 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		client.new_object(id, Self::new(id));
+		client.new_object(id, Self::new(id)?);
 
 		/*object.format(client, 0x34325241)?;
 		object.modifier(client, 0x34325241, 0, 0)?;

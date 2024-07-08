@@ -1,14 +1,13 @@
-use std::{io::Seek, os::fd::AsRawFd};
-
 use crate::{wl, Result};
 
 pub struct ZwpLinuxDmabufFeedbackV1 {
 	object_id: wl::Id<Self>,
+	formats: (std::os::fd::RawFd, u64),
 }
 
 impl ZwpLinuxDmabufFeedbackV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, formats: (std::os::fd::RawFd, u64)) -> Self {
+		Self { object_id, formats }
 	}
 
 	pub fn done(&self, client: &mut wl::Client) -> Result<()> {
@@ -21,17 +20,16 @@ impl ZwpLinuxDmabufFeedbackV1 {
 	}
 
 	pub fn format_table(&self, client: &mut wl::Client) -> Result<()> {
-		let file = Box::leak(Box::new(std::fs::File::open("formats")?));
+		let (fd, size) = self.formats;
 
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:format_table
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
-			args: file.stream_len()? as u32,
+			args: size as u32,
 		})?;
 
-		client.to_send_fds.push(file.as_raw_fd());
-
+		client.to_send_fds.push(fd);
 		Ok(())
 	}
 
