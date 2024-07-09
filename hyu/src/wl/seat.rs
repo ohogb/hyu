@@ -5,15 +5,17 @@ pub struct Seat {
 	serial: u32,
 	pub pointer_position: Point,
 	pub moving_toplevel: Option<(wl::Id<wl::XdgToplevel>, Point, Point)>,
+	keymap: (std::os::fd::RawFd, u64),
 }
 
 impl Seat {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, keymap: (std::os::fd::RawFd, u64)) -> Self {
 		Self {
 			object_id,
 			serial: 0,
 			pointer_position: Point(0, 0),
 			moving_toplevel: None,
+			keymap,
 		}
 	}
 
@@ -50,7 +52,7 @@ impl wl::Object for Seat {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_keyboard
 				let id: wl::Id<wl::Keyboard> = wlm::decode::from_slice(params)?;
 
-				let mut keyboard = wl::Keyboard::new(id, self.object_id);
+				let mut keyboard = wl::Keyboard::new(id, self.object_id, self.keymap);
 				keyboard.keymap(client)?;
 				keyboard.repeat_info(client, 500, 500)?;
 
@@ -76,7 +78,10 @@ impl wl::Global for Seat {
 	}
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
-		let seat = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		let seat = client.new_object(
+			wl::Id::new(object_id),
+			Self::new(wl::Id::new(object_id), self.keymap),
+		);
 
 		seat.capabilities(client, 3)
 	}

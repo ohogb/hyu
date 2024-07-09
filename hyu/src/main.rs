@@ -10,6 +10,7 @@ mod state;
 pub mod wl;
 pub mod xkb;
 
+use clap::Parser as _;
 pub use point::*;
 
 use wl::Object;
@@ -32,7 +33,7 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	display.push_global(wl::Compositor::new());
 	display.push_global(wl::SubCompositor::new(wl::Id::null()));
 	display.push_global(wl::DataDeviceManager::new());
-	display.push_global(wl::Seat::new(wl::Id::null()));
+	display.push_global(wl::Seat::new(wl::Id::null(), state::get_xkb_keymap()));
 	display.push_global(wl::Output::new(wl::Id::null()));
 	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 	display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null())?);
@@ -155,7 +156,16 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	}
 }
 
+#[derive(clap::Parser)]
+struct Args {
+	#[arg(short, long)]
+	keymap: Option<String>,
+}
+
 fn main() -> Result<()> {
+	let args = Args::parse();
+	state::initialize_xkb_state(args.keymap.unwrap_or_default())?;
+
 	// std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
 	std::thread::spawn(|| backend::drm::run().unwrap());
 	std::thread::spawn(|| backend::input::run().unwrap());

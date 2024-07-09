@@ -1,4 +1,9 @@
-use crate::{wl, Point, Result};
+use std::{
+	io::{Seek as _, Write as _},
+	os::fd::{FromRawFd as _, IntoRawFd as _},
+};
+
+use crate::{wl, xkb, Point, Result};
 
 pub static CLIENTS: std::sync::LazyLock<
 	std::sync::Mutex<std::collections::HashMap<std::os::fd::RawFd, wl::Client>>,
@@ -31,6 +36,52 @@ pub static POINTER_OVER: std::sync::LazyLock<std::sync::Mutex<Option<PointerOver
 	std::sync::LazyLock::new(Default::default);
 
 pub static POINTER_POSITION: std::sync::Mutex<Point> = std::sync::Mutex::new(Point(0, 0));
+
+pub struct XkbState {
+	pub context: xkb::Context,
+	pub keymap: xkb::Keymap,
+	pub state: xkb::State,
+	pub keymap_file: (std::os::fd::RawFd, u64),
+}
+
+pub static XKB_STATE: std::sync::Mutex<Option<XkbState>> = std::sync::Mutex::new(None);
+
+pub fn initialize_xkb_state(layout: impl AsRef<str>) -> Result<()> {
+	let xkb_context = xkb::Context::create().ok_or("failed to create xkb context")?;
+
+	let xkb_keymap =
+		xkb::Keymap::create(&xkb_context, layout).ok_or("failed to create xkb keymap")?;
+
+	let xkb_state = xkb::State::new(&xkb_keymap).ok_or("failed to create xkb state")?;
+
+	let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
+	nix::unistd::unlink(&path)?;
+
+	let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+	write!(file, "{}", xkb_keymap.get_as_string())?;
+
+	let size = file.stream_len()?;
+	let fd = file.into_raw_fd();
+
+	*XKB_STATE.lock().unwrap() = Some(XkbState {
+		context: xkb_context,
+		keymap: xkb_keymap,
+		state: xkb_state,
+		keymap_file: (fd, size),
+	});
+
+	Ok(())
+}
+
+pub fn get_xkb_keymap() -> (std::os::fd::RawFd, u64) {
+	let lock = XKB_STATE.lock().unwrap();
+
+	let Some(xkb_state) = &*lock else {
+		panic!();
+	};
+
+	xkb_state.keymap_file
+}
 
 pub fn process_focus_changes(
 	clients: &mut std::sync::MutexGuard<
@@ -412,6 +463,13 @@ pub fn on_mouse_button_left(input_state: u32) -> Result<()> {
 
 pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 	let mut clients = CLIENTS.lock().unwrap();
+	let xkb_state_lock = XKB_STATE.lock().unwrap();
+	let Some(xkb_state) = &*xkb_state_lock else {
+		panic!();
+	};
+
+	xkb_state.state.update_key(code + 8, input_state as _);
+	let depressed = xkb_state.state.serialize_mods(1);
 
 	if let Some((client, _window)) = WINDOW_STACK.lock().unwrap().iter().next() {
 		let client = clients.get_mut(client).unwrap();
@@ -422,22 +480,7 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 				keyboard.key(client, code, input_state).unwrap();
 			}
 
-			// TODO: xkb
-			let modifier = match code {
-				42 => 1,
-				29 => 4,
-				_ => {
-					continue;
-				}
-			};
-
-			match input_state {
-				1 => keyboard.modifiers |= modifier,
-				0 => keyboard.modifiers &= !modifier,
-				_ => {}
-			}
-
-			keyboard.modifiers(client, keyboard.modifiers).unwrap();
+			keyboard.modifiers(client, depressed).unwrap();
 		}
 	}
 	Ok(())
