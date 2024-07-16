@@ -54,7 +54,6 @@ impl wl::Object for XdgSurface {
 					wl::XdgToplevel::new(id, self.object_id, client.start_position, client.fd),
 				);
 
-				xdg_toplevel.configure_bounds(client, 1280, 720)?;
 				xdg_toplevel.configure(client)?;
 
 				let surface = client.get_object_mut(self.surface)?;
