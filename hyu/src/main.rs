@@ -171,9 +171,17 @@ fn main() -> Result<()> {
 	let args = Args::parse();
 	state::initialize_xkb_state(args.keymap.unwrap_or_default())?;
 
-	// std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
+	let tty = tty::Device::open_current()?;
+
 	std::thread::spawn(|| backend::drm::run().unwrap());
 	std::thread::spawn(|| backend::input::run().unwrap());
+
+	tty.set_mode(1)?;
+
+	let old_keyboard_mode = tty.get_keyboard_mode()?;
+	tty.set_keyboard_mode(4)?;
+
+	// std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
@@ -202,6 +210,9 @@ fn main() -> Result<()> {
 
 	drop(socket);
 	std::fs::remove_file(path)?;
+
+	tty.set_keyboard_mode(old_keyboard_mode)?;
+	tty.set_mode(0)?;
 
 	Ok(())
 }
