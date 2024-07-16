@@ -487,6 +487,17 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 
 			return Ok(());
 		}
+
+		if code == 46 && input_state == 1 {
+			if let Some((fd, xdg_toplevel)) = WINDOW_STACK.lock().unwrap().front() {
+				let client = clients.get_mut(fd).unwrap();
+				let xdg_toplevel = client.get_object(*xdg_toplevel)?;
+
+				xdg_toplevel.close(client)?;
+			}
+
+			return Ok(());
+		}
 	}
 
 	if let Some((client, _window)) = WINDOW_STACK.lock().unwrap().iter().next() {
