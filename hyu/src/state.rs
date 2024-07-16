@@ -474,6 +474,18 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 	if (depressed & 64) != 0 {
 		if code == 1 && input_state == 1 {
 			set_quit();
+			return Ok(());
+		}
+
+		if code == 20 && input_state == 1 {
+			std::process::Command::new("foot")
+				.env("WAYLAND_DISPLAY", "wayland-1")
+				.stdout(std::process::Stdio::null())
+				.stderr(std::process::Stdio::null())
+				.spawn()
+				.unwrap();
+
+			return Ok(());
 		}
 	}
 
