@@ -471,6 +471,12 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 	xkb_state.state.update_key(code + 8, input_state as _);
 	let depressed = xkb_state.state.serialize_mods(1);
 
+	if (depressed & 64) != 0 {
+		if code == 1 && input_state == 1 {
+			set_quit();
+		}
+	}
+
 	if let Some((client, _window)) = WINDOW_STACK.lock().unwrap().iter().next() {
 		let client = clients.get_mut(client).unwrap();
 
@@ -484,4 +490,14 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 		}
 	}
 	Ok(())
+}
+
+static QUIT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub fn quit() -> bool {
+	QUIT.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+pub fn set_quit() {
+	QUIT.store(true, std::sync::atomic::Ordering::Relaxed);
 }

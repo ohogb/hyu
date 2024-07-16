@@ -1,6 +1,6 @@
 use std::io::Read as _;
 
-use crate::{egl, Result};
+use crate::{egl, state, Result};
 
 mod device;
 pub mod gbm;
@@ -180,7 +180,7 @@ pub fn run() -> Result<()> {
 
 	let mut renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
 
-	loop {
+	while !state::quit() {
 		renderer.before()?;
 
 		display.swap_buffers(&window_surface);
@@ -261,4 +261,6 @@ pub fn run() -> Result<()> {
 		gbm_surface.release_buffer(old_bo);
 		old_bo = bo;
 	}
+
+	Ok(())
 }

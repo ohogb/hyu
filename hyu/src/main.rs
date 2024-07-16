@@ -51,8 +51,6 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 	let mut params = Vec::new();
 
 	loop {
-		let mut clients = state::CLIENTS.lock().unwrap();
-
 		loop {
 			let mut cmsg_buffer = [0u8; 0x40];
 			let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
@@ -73,6 +71,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 					}
 				},
 			};
+
+			let mut clients = state::CLIENTS.lock().unwrap();
 
 			if len == 0 {
 				state::CHANGES
@@ -116,8 +116,11 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 
 			object.handle(client, op, &params)?;
 			params.clear();
+
+			state::process_focus_changes(&mut clients)?;
 		}
 
+		let mut clients = state::CLIENTS.lock().unwrap();
 		state::process_focus_changes(&mut clients)?;
 
 		let client = clients.get_mut(&stream.as_raw_fd()).unwrap();
@@ -153,7 +156,8 @@ fn client_event_loop(mut stream: std::os::unix::net::UnixStream, index: usize) -
 		}
 
 		drop(clients);
-		std::thread::sleep(std::time::Duration::from_millis(1));
+		// std::thread::sleep(std::time::Duration::from_millis(1));
+		std::thread::yield_now();
 	}
 }
 
@@ -181,10 +185,19 @@ fn main() -> Result<()> {
 	}
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
+	socket.set_nonblocking(true)?;
 
-	for (index, stream) in socket.incoming().enumerate() {
-		let stream = stream?;
-		std::thread::spawn(move || client_event_loop(stream, index).unwrap());
+	while !state::quit() {
+		let (stream, _) = match socket.accept() {
+			Ok(x) => x,
+			Err(x) if x.kind() == std::io::ErrorKind::WouldBlock => {
+				std::thread::sleep(std::time::Duration::from_millis(10));
+				continue;
+			}
+			Err(x) => Err(x)?,
+		};
+
+		std::thread::spawn(move || client_event_loop(stream, 0).unwrap());
 	}
 
 	drop(socket);
