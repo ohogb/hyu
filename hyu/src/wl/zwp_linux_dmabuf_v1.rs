@@ -26,6 +26,15 @@ impl ZwpLinuxDmabufV1 {
 		file.write(&u64::to_ne_bytes(0x34325241))?;
 		file.write(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
 
+		file.write(&u64::to_ne_bytes(0x34325258))?;
+		file.write(&u64::to_ne_bytes(0x20000002096BB03))?;
+
+		file.write(&u64::to_ne_bytes(0x34325258))?;
+		file.write(&u64::to_ne_bytes(0x0))?;
+
+		file.write(&u64::to_ne_bytes(0x34325258))?;
+		file.write(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
+
 		let size = file.stream_len()?;
 		let fd = file.into_raw_fd();
 
@@ -85,7 +94,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.tranche_target_device(client, &[dev])?;
 				feedback.tranche_flags(client, 0)?;
-				feedback.tranche_formats(client, &[0, 1, 2])?;
+				feedback.tranche_formats(client, &[0, 1, 2, 3, 4, 5])?;
 				feedback.tranche_done(client)?;
 
 				feedback.done(client)?;
@@ -105,7 +114,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.tranche_target_device(client, &[dev])?;
 				feedback.tranche_flags(client, 0)?;
-				feedback.tranche_formats(client, &[0, 1, 2])?;
+				feedback.tranche_formats(client, &[0, 1, 2, 3, 4, 5])?;
 				feedback.tranche_done(client)?;
 
 				feedback.done(client)?;
