@@ -7,6 +7,7 @@ pub mod backend;
 pub mod egl;
 mod point;
 mod state;
+pub mod tty;
 pub mod wl;
 pub mod xkb;
 
