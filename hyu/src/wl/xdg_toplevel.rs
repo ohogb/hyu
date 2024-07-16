@@ -47,6 +47,15 @@ impl XdgToplevel {
 		xdg_surface.configure(client)
 	}
 
+	pub fn close(&self, client: &mut wl::Client) -> Result<()> {
+		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:close
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 1,
+			args: (),
+		})
+	}
+
 	pub fn configure_bounds(&self, client: &mut wl::Client, width: i32, height: i32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure_bounds
 		client.send_message(wlm::Message {
