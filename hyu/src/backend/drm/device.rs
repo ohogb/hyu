@@ -315,7 +315,7 @@ impl Device {
 		AtomicHelper { props: Vec::new() }
 	}
 
-	pub fn commit(&self, ctx: AtomicHelper, flags: u32, user_data: *mut ()) -> Result<()> {
+	pub fn commit(&self, ctx: &AtomicHelper, flags: u32, user_data: *mut ()) -> Result<()> {
 		nix::ioctl_readwrite!(func, 'd', 0xBC, AtomicCommit);
 
 		let mut ret = std::mem::MaybeUninit::<AtomicCommit>::zeroed();
@@ -644,6 +644,21 @@ impl<T: HasProps + Object> PropWrapper<T> {
 			object,
 		}
 	}
+
+	pub fn find_property(&self, property: impl AsRef<str>) -> Option<u32> {
+		self.props
+			.prop_ids()
+			.iter()
+			.find(|&x| {
+				let prop = self.prop_info.get(x).unwrap();
+				let name = unsafe { std::ffi::CStr::from_ptr(prop.name.as_ptr() as _) }
+					.to_str()
+					.unwrap();
+
+				name == property.as_ref()
+			})
+			.copied()
+	}
 }
 
 impl<T: HasProps + Object> std::ops::Deref for PropWrapper<T> {
@@ -670,25 +685,14 @@ impl AtomicHelper {
 	pub fn add_property(
 		&mut self,
 		object: &PropWrapper<impl HasProps + Object>,
-		property: &str,
+		property_id: u32,
 		value: u64,
-	) -> Result<()> {
-		let property_id = object
-			.props
-			.prop_ids()
-			.iter()
-			.find(|&x| {
-				let prop = object.prop_info.get(x).unwrap();
-				let name = unsafe { std::ffi::CStr::from_ptr(prop.name.as_ptr() as _) }
-					.to_str()
-					.unwrap();
+	) {
+		self.props.push((object.get_id(), property_id, value));
+	}
 
-				name == property
-			})
-			.unwrap();
-
-		self.props.push((object.get_id(), *property_id, value));
-		Ok(())
+	pub fn clear(&mut self) {
+		self.props.clear();
 	}
 }
 

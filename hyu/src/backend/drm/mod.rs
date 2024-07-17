@@ -151,7 +151,9 @@ pub fn run() -> Result<()> {
 	let fb = bo.get_fb(&device)?;
 
 	let mut ctx = device.begin_atomic();
-	ctx.add_property(&connector, "CRTC_ID", crtc.get_id() as _)?;
+	let connector_crtc_id = connector.find_property("CRTC_ID").unwrap();
+
+	ctx.add_property(&connector, connector_crtc_id, crtc.get_id() as _);
 
 	let blob = device.create_blob(unsafe {
 		std::slice::from_raw_parts(
@@ -160,21 +162,36 @@ pub fn run() -> Result<()> {
 		)
 	})?;
 
-	ctx.add_property(&crtc, "MODE_ID", blob as _)?;
-	ctx.add_property(&crtc, "ACTIVE", 1)?;
-	ctx.add_property(&plane, "FB_ID", fb as _)?;
-	ctx.add_property(&plane, "CRTC_ID", crtc.get_id() as _)?;
-	ctx.add_property(&plane, "SRC_X", 0)?;
-	ctx.add_property(&plane, "SRC_Y", 0)?;
-	ctx.add_property(&plane, "SRC_W", ((mode.hdisplay as u32) << 16) as _)?;
-	ctx.add_property(&plane, "SRC_H", ((mode.vdisplay as u32) << 16) as _)?;
+	let crtc_mode_id = crtc.find_property("MODE_ID").unwrap();
+	let crtc_active = crtc.find_property("ACTIVE").unwrap();
 
-	ctx.add_property(&plane, "CRTC_X", 0)?;
-	ctx.add_property(&plane, "CRTC_Y", 0)?;
-	ctx.add_property(&plane, "CRTC_W", mode.hdisplay as _)?;
-	ctx.add_property(&plane, "CRTC_H", mode.vdisplay as _)?;
+	let plane_fb_id = plane.find_property("FB_ID").unwrap();
+	let plane_crtc_id = plane.find_property("CRTC_ID").unwrap();
+	let plane_src_x = plane.find_property("SRC_X").unwrap();
+	let plane_src_y = plane.find_property("SRC_Y").unwrap();
+	let plane_src_w = plane.find_property("SRC_W").unwrap();
+	let plane_src_h = plane.find_property("SRC_H").unwrap();
+	let plane_crtc_x = plane.find_property("CRTC_X").unwrap();
+	let plane_crtc_y = plane.find_property("CRTC_Y").unwrap();
+	let plane_crtc_w = plane.find_property("CRTC_W").unwrap();
+	let plane_crtc_h = plane.find_property("CRTC_H").unwrap();
 
-	device.commit(ctx, 0x400, std::ptr::null_mut()).unwrap();
+	ctx.add_property(&crtc, crtc_mode_id, blob as _);
+	ctx.add_property(&crtc, crtc_active, 1);
+	ctx.add_property(&plane, plane_fb_id, fb as _);
+	ctx.add_property(&plane, plane_crtc_id, crtc.get_id() as _);
+	ctx.add_property(&plane, plane_src_x, 0);
+	ctx.add_property(&plane, plane_src_y, 0);
+	ctx.add_property(&plane, plane_src_w, ((mode.hdisplay as u32) << 16) as _);
+	ctx.add_property(&plane, plane_src_h, ((mode.vdisplay as u32) << 16) as _);
+
+	ctx.add_property(&plane, plane_crtc_x, 0);
+	ctx.add_property(&plane, plane_crtc_y, 0);
+	ctx.add_property(&plane, plane_crtc_w, mode.hdisplay as _);
+	ctx.add_property(&plane, plane_crtc_h, mode.vdisplay as _);
+
+	device.commit(&ctx, 0x400, std::ptr::null_mut()).unwrap();
+	ctx.clear();
 
 	let mut old_bo = bo;
 
@@ -191,25 +208,25 @@ pub fn run() -> Result<()> {
 
 		let fb = bo.get_fb(&device)?;
 
-		let mut ctx = device.begin_atomic();
+		ctx.add_property(&plane, plane_fb_id, fb as _);
+		ctx.add_property(&plane, plane_crtc_id, crtc.get_id() as _);
+		ctx.add_property(&plane, plane_src_x, 0);
+		ctx.add_property(&plane, plane_src_y, 0);
+		ctx.add_property(&plane, plane_src_w, ((mode.hdisplay as u32) << 16) as _);
+		ctx.add_property(&plane, plane_src_h, ((mode.vdisplay as u32) << 16) as _);
 
-		ctx.add_property(&plane, "FB_ID", fb as _)?;
-		ctx.add_property(&plane, "CRTC_ID", crtc.get_id() as _)?;
-		ctx.add_property(&plane, "SRC_X", 0)?;
-		ctx.add_property(&plane, "SRC_Y", 0)?;
-		ctx.add_property(&plane, "SRC_W", ((mode.hdisplay as u32) << 16) as _)?;
-		ctx.add_property(&plane, "SRC_H", ((mode.vdisplay as u32) << 16) as _)?;
-
-		ctx.add_property(&plane, "CRTC_X", 0)?;
-		ctx.add_property(&plane, "CRTC_Y", 0)?;
-		ctx.add_property(&plane, "CRTC_W", mode.hdisplay as _)?;
-		ctx.add_property(&plane, "CRTC_H", mode.vdisplay as _)?;
+		ctx.add_property(&plane, plane_crtc_x, 0);
+		ctx.add_property(&plane, plane_crtc_y, 0);
+		ctx.add_property(&plane, plane_crtc_w, mode.hdisplay as _);
+		ctx.add_property(&plane, plane_crtc_h, mode.vdisplay as _);
 
 		let mut has_flipped = false;
 
 		device
-			.commit(ctx, 0x200 | 0x1, &mut has_flipped as *mut _ as _)
+			.commit(&ctx, 0x200 | 0x1, &mut has_flipped as *mut _ as _)
 			.unwrap();
+
+		ctx.clear();
 
 		while !has_flipped {
 			nix::poll::poll(
