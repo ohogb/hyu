@@ -198,7 +198,7 @@ impl Renderer {
 			}
 		}
 
-		let cursor_pos = state::POINTER_POSITION.lock().unwrap().clone();
+		let cursor_pos = *state::POINTER_POSITION.lock().unwrap();
 		self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
 
 		Ok(())

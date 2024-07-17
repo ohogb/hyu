@@ -84,7 +84,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 }
 
 impl wl::Object for ZwpLinuxDmabufFeedbackV1 {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:request:destroy

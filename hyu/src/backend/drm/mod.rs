@@ -115,17 +115,17 @@ pub fn run() -> Result<()> {
 	let config = configs
 		.iter()
 		.find(|config| {
-			let ret = display.get_config_attrib(&config, 0x302E).unwrap();
+			let ret = display.get_config_attrib(config, 0x302E).unwrap();
 			ret == 0x34325258
 		})
 		.ok_or("failed to find config with gbm format")?;
 
 	let context = display
-		.create_context(&config, &[0x3098, 3, 0x30FB, 2, 0x3038])
+		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3038])
 		.ok_or("failed to create context")?;
 
 	let window_surface = display
-		.create_window_surface(&config, gbm_surface.as_ptr(), &[0x3038])
+		.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
 		.ok_or("failed to create window surface")?;
 
 	display.make_current(&window_surface, &context);

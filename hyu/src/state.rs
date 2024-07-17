@@ -38,8 +38,8 @@ pub static POINTER_OVER: std::sync::LazyLock<std::sync::Mutex<Option<PointerOver
 pub static POINTER_POSITION: std::sync::Mutex<Point> = std::sync::Mutex::new(Point(0, 0));
 
 pub struct XkbState {
-	pub context: xkb::Context,
-	pub keymap: xkb::Keymap,
+	pub _context: xkb::Context,
+	pub _keymap: xkb::Keymap,
 	pub state: xkb::State,
 	pub keymap_file: (std::os::fd::RawFd, u64),
 }
@@ -64,8 +64,8 @@ pub fn initialize_xkb_state(layout: impl AsRef<str>) -> Result<()> {
 	let fd = file.into_raw_fd();
 
 	*XKB_STATE.lock().unwrap() = Some(XkbState {
-		context: xkb_context,
-		keymap: xkb_keymap,
+		_context: xkb_context,
+		_keymap: xkb_keymap,
 		state: xkb_state,
 		keymap_file: (fd, size),
 	});
@@ -254,7 +254,6 @@ pub fn process_focus_changes(
 
 pub fn on_cursor_move(cursor_position: (i32, i32)) -> Result<()> {
 	let mut clients = CLIENTS.lock().unwrap();
-	let cursor_position = <(i32, i32)>::from(cursor_position);
 	let cursor_position = Point(cursor_position.0, cursor_position.1);
 
 	*POINTER_POSITION.lock().unwrap() = cursor_position;

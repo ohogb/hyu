@@ -33,7 +33,7 @@ impl Buffer {
 
 	pub fn wgpu_get_pixels(
 		&self,
-		client: &wl::Client,
+		_client: &wl::Client,
 		queue: &wgpu::Queue,
 		texture: &wgpu::Texture,
 	) -> Result<()> {
@@ -79,7 +79,7 @@ impl Buffer {
 
 	pub fn gl_get_pixels(
 		&self,
-		client: &wl::Client,
+		_client: &wl::Client,
 		glow: &glow::Context,
 		texture: glow::NativeTexture,
 	) -> Result<()> {

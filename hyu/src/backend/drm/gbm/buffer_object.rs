@@ -15,7 +15,7 @@ pub struct UserData {
 	fb: u32,
 }
 
-extern "C" fn user_data_destructor(bo: BufferObject, user_data: &mut UserData) {}
+extern "C" fn user_data_destructor(_bo: BufferObject, _user_data: &mut UserData) {}
 
 #[derive(Debug)]
 #[repr(transparent)]
