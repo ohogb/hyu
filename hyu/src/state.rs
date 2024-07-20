@@ -427,7 +427,7 @@ pub fn on_cursor_move(cursor_position: (i32, i32)) -> Result<()> {
 	Ok(())
 }
 
-pub fn on_mouse_button_left(input_state: u32) -> Result<()> {
+pub fn on_mouse_button(button: u32, input_state: u32) -> Result<()> {
 	let mut clients = CLIENTS.lock().unwrap();
 
 	for client in clients.values_mut() {
@@ -445,7 +445,7 @@ pub fn on_mouse_button_left(input_state: u32) -> Result<()> {
 		let client = clients.get_mut(&fd).unwrap();
 
 		for pointer in client.objects_mut::<wl::Pointer>() {
-			pointer.button(client, 0x110, input_state).unwrap();
+			pointer.button(client, button, input_state).unwrap();
 			pointer.frame(client).unwrap();
 		}
 

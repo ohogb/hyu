@@ -55,9 +55,7 @@ pub fn run() -> Result<()> {
 					let button = pointer.get_button();
 					let state = pointer.get_button_state();
 
-					if button == 272 {
-						crate::state::on_mouse_button_left(state).unwrap();
-					}
+					crate::state::on_mouse_button(button, state).unwrap();
 				}
 				_ => {}
 			}

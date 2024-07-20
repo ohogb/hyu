@@ -56,17 +56,23 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 			} => {
 				state::on_cursor_move(cursor_position.into()).unwrap();
 			}
-			winit::event::WindowEvent::MouseInput { state, button, .. } => match button {
-				winit::event::MouseButton::Left => {
-					let input_state = match state {
-						winit::event::ElementState::Pressed => 1,
-						winit::event::ElementState::Released => 0,
-					};
+			winit::event::WindowEvent::MouseInput { state, button, .. } => {
+				let input_state = match state {
+					winit::event::ElementState::Pressed => 1,
+					winit::event::ElementState::Released => 0,
+				};
 
-					state::on_mouse_button_left(input_state).unwrap();
-				}
-				_ => {}
-			},
+				let button = match button {
+					winit::event::MouseButton::Left => 0x110,
+					winit::event::MouseButton::Right => 0x111,
+					winit::event::MouseButton::Middle => 0x112,
+					winit::event::MouseButton::Back => 0x113,
+					winit::event::MouseButton::Forward => 0x114,
+					_ => return,
+				};
+
+				state::on_mouse_button(button, input_state).unwrap();
+			}
 			winit::event::WindowEvent::KeyboardInput { event, .. } => {
 				let code = event.physical_key.to_scancode().unwrap();
 
