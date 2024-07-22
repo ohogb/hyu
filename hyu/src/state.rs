@@ -171,7 +171,9 @@ pub fn process_focus_changes(
 		return Ok(());
 	}
 
-	const GAP: i32 = 10;
+	const GAP: i32 = 0;
+	const WIDTH: i32 = 2560;
+	const HEIGHT: i32 = 1440;
 
 	let get_pos_and_size = |index: u32, amount: u32| -> (Point, Point) {
 		match amount {
@@ -180,18 +182,18 @@ pub fn process_focus_changes(
 			}
 			1 => (
 				Point(0 + GAP, 0 + GAP),
-				Point(1280 - GAP * 2, 720 - GAP * 2),
+				Point(WIDTH - GAP * 2, HEIGHT - GAP * 2),
 			),
 			2.. => match index {
 				0 => (
 					Point(0 + GAP, 0 + GAP),
-					Point(1280 / 2 - GAP * 2, 720 - GAP * 2),
+					Point(WIDTH / 2 - GAP * 2, HEIGHT - GAP * 2),
 				),
 				1.. => {
-					let frac = ((1. / (amount - 1) as f32) * 720.0) as i32;
+					let frac = ((1. / (amount - 1) as f32) * HEIGHT as f32) as i32;
 					(
-						Point(1280 / 2 + GAP, frac * (index as i32 - 1) + GAP),
-						Point(1280 / 2 - GAP * 2, frac - GAP * 2),
+						Point(WIDTH / 2 + GAP, frac * (index as i32 - 1) + GAP),
+						Point(WIDTH / 2 - GAP * 2, frac - GAP * 2),
 					)
 				}
 			},
