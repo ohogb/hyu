@@ -258,7 +258,7 @@ impl Surface {
 	}
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
-	pub fn commit(&mut self) -> Result<()> {
+	pub fn commit(&mut self, client: &mut wl::Client) -> Result<()> {
 		if let Some(buffer) = std::mem::take(&mut self.pending_buffer) {
 			self.current_buffer = Some(buffer);
 		}
@@ -276,6 +276,13 @@ impl Surface {
 		if let Some(presentation_feedback) = std::mem::take(&mut self.pending_presentation_feedback)
 		{
 			self.current_presentation_feedback = Some(presentation_feedback);
+		}
+
+		if self.current_buffer.is_some() {
+			let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
+			let _access_holder = context_lock.access(&crate::egl::DISPLAY, None)?;
+
+			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
 		Ok(())
@@ -334,7 +341,7 @@ impl wl::Object for Surface {
 				self.pending_input_region = Some(region);
 			}
 			6 => {
-				self.commit()?;
+				self.commit(client)?;
 			}
 			7 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform

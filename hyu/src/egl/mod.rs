@@ -40,3 +40,7 @@ pub fn enable_debugging() {
 
 	EGL_DEBUG_MESSAGE_CONTROL_KHR(callback as _, [0x3038].as_ptr() as _);
 }
+
+// TODO: get rid of this
+pub static DISPLAY: crate::GlobalWrapper<Display> = crate::GlobalWrapper::empty();
+pub static CONTEXT: crate::GlobalWrapper<std::sync::Mutex<Context>> = crate::GlobalWrapper::empty();

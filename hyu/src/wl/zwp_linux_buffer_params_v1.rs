@@ -1,14 +1,5 @@
 use crate::{egl, wl, Point, Result};
 
-static EGL_DISPLAY: std::cell::SyncUnsafeCell<Option<egl::Display>> =
-	std::cell::SyncUnsafeCell::new(None);
-
-pub fn set_buffer_params_egl_display(display: egl::Display) {
-	unsafe {
-		*EGL_DISPLAY.get() = Some(display);
-	}
-}
-
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,
 	buffers: Vec<(std::os::fd::RawFd, u32, u32, u32, u32, u32)>,
@@ -90,15 +81,7 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 
 				attributes.push(0x3038);
 
-				let display = unsafe {
-					let Some(display) = &*EGL_DISPLAY.get() else {
-						panic!();
-					};
-
-					display
-				};
-
-				let image = display
+				let image = crate::egl::DISPLAY
 					.create_image(0x3270, &attributes)
 					.ok_or("failed to create egl image")?;
 

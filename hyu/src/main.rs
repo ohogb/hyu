@@ -5,6 +5,7 @@
 
 pub mod backend;
 pub mod egl;
+mod global_wrapper;
 mod point;
 mod state;
 pub mod tty;
@@ -12,6 +13,7 @@ pub mod wl;
 pub mod xkb;
 
 use clap::Parser as _;
+pub use global_wrapper::*;
 pub use point::*;
 
 use wl::Object;

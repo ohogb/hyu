@@ -1,10 +1,10 @@
 use glow::HasContext;
 use glutin::{
-	context::NotCurrentGlContext,
-	display::{AsRawDisplay, GlDisplay},
-	surface::GlSurface,
+	context::{AsRawContext as _, NotCurrentGlContext as _},
+	display::{AsRawDisplay as _, GlDisplay as _},
+	surface::GlSurface as _,
 };
-use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle};
+use raw_window_handle::{HasRawDisplayHandle as _, HasRawWindowHandle as _};
 
 use crate::{backend, egl, state, wl, Point, Result};
 
@@ -15,8 +15,10 @@ struct Vertex {
 	pub uv: [f32; 2],
 }
 
+// TODO: this sucks
+pub static GLOW: crate::GlobalWrapper<glow::Context> = crate::GlobalWrapper::empty();
+
 pub struct Renderer {
-	glow: glow::Context,
 	vertices: Vec<Vertex>,
 	start_time: std::time::Instant,
 	width: usize,
@@ -25,58 +27,60 @@ pub struct Renderer {
 }
 
 impl Renderer {
-	pub fn create(mut glow: glow::Context, width: usize, height: usize) -> Result<Self> {
+	pub fn create(glow: glow::Context, width: usize, height: usize) -> Result<Self> {
 		unsafe {
-			glow.debug_message_callback(|_, _, _, _, e| {
+			GLOW.initialize(glow);
+
+			(*GLOW.as_mut_ptr()).debug_message_callback(|_, _, _, _, e| {
 				eprintln!("{e}");
 			});
 
-			glow.enable(glow::BLEND);
-			glow.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
+			GLOW.enable(glow::BLEND);
+			GLOW.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
-			glow.clear_color(0.2, 0.2, 0.2, 1.0);
+			GLOW.clear_color(0.2, 0.2, 0.2, 1.0);
 
-			let vertex_shader = glow.create_shader(glow::VERTEX_SHADER)?;
+			let vertex_shader = GLOW.create_shader(glow::VERTEX_SHADER)?;
 
-			glow.shader_source(vertex_shader, include_str!("vertex_shader.glsl"));
-			glow.compile_shader(vertex_shader);
+			GLOW.shader_source(vertex_shader, include_str!("vertex_shader.glsl"));
+			GLOW.compile_shader(vertex_shader);
 
-			if !glow.get_shader_compile_status(vertex_shader) {
-				Err(glow.get_shader_info_log(vertex_shader))?
+			if !GLOW.get_shader_compile_status(vertex_shader) {
+				Err(GLOW.get_shader_info_log(vertex_shader))?
 			}
 
-			let fragment_shader = glow.create_shader(glow::FRAGMENT_SHADER)?;
+			let fragment_shader = GLOW.create_shader(glow::FRAGMENT_SHADER)?;
 
-			glow.shader_source(fragment_shader, include_str!("fragment_shader.glsl"));
-			glow.compile_shader(fragment_shader);
+			GLOW.shader_source(fragment_shader, include_str!("fragment_shader.glsl"));
+			GLOW.compile_shader(fragment_shader);
 
-			if !glow.get_shader_compile_status(fragment_shader) {
-				Err(glow.get_shader_info_log(fragment_shader))?
+			if !GLOW.get_shader_compile_status(fragment_shader) {
+				Err(GLOW.get_shader_info_log(fragment_shader))?
 			}
 
-			let program = glow.create_program()?;
+			let program = GLOW.create_program()?;
 
-			glow.attach_shader(program, vertex_shader);
-			glow.attach_shader(program, fragment_shader);
+			GLOW.attach_shader(program, vertex_shader);
+			GLOW.attach_shader(program, fragment_shader);
 
-			glow.link_program(program);
+			GLOW.link_program(program);
 
-			if !glow.get_program_link_status(program) {
-				Err(glow.get_program_info_log(program))?
+			if !GLOW.get_program_link_status(program) {
+				Err(GLOW.get_program_info_log(program))?
 			}
 
-			glow.delete_shader(vertex_shader);
-			glow.delete_shader(fragment_shader);
+			GLOW.delete_shader(vertex_shader);
+			GLOW.delete_shader(fragment_shader);
 
-			glow.use_program(Some(program));
+			GLOW.use_program(Some(program));
 
-			let vertex_array = glow.create_vertex_array()?;
-			let vertex_buffer = glow.create_buffer()?;
+			let vertex_array = GLOW.create_vertex_array()?;
+			let vertex_buffer = GLOW.create_buffer()?;
 
-			glow.bind_vertex_array(Some(vertex_array));
-			glow.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
+			GLOW.bind_vertex_array(Some(vertex_array));
+			GLOW.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));
 
-			glow.vertex_attrib_pointer_f32(
+			GLOW.vertex_attrib_pointer_f32(
 				0,
 				2,
 				glow::FLOAT,
@@ -85,9 +89,9 @@ impl Renderer {
 				0,
 			);
 
-			glow.enable_vertex_attrib_array(0);
+			GLOW.enable_vertex_attrib_array(0);
 
-			glow.vertex_attrib_pointer_f32(
+			GLOW.vertex_attrib_pointer_f32(
 				1,
 				2,
 				glow::FLOAT,
@@ -96,29 +100,32 @@ impl Renderer {
 				std::mem::size_of::<[f32; 2]>() as _,
 			);
 
-			glow.enable_vertex_attrib_array(1);
+			GLOW.enable_vertex_attrib_array(1);
 		}
 
-		let cursor_texture = unsafe { glow.create_texture().unwrap() };
+		let cursor_texture = unsafe { GLOW.create_texture().unwrap() };
 
 		unsafe {
-			glow.bind_texture(glow::TEXTURE_2D, Some(cursor_texture));
+			GLOW.bind_texture(glow::TEXTURE_2D, Some(cursor_texture));
 
-			glow.tex_parameter_i32(
+			GLOW.tex_parameter_i32(
 				glow::TEXTURE_2D,
 				glow::TEXTURE_MIN_FILTER,
 				glow::LINEAR as _,
 			);
 
-			glow.tex_parameter_i32(
+			GLOW.tex_parameter_i32(
 				glow::TEXTURE_2D,
 				glow::TEXTURE_MAG_FILTER,
 				glow::LINEAR as _,
 			);
 
-			let buffer = &[255; 2 * 2 * 4];
+			let color = [255, 200, 200, 255];
 
-			glow.tex_image_2d(
+			let arr = [color; (2 * 2) as _];
+			let buffer = arr.as_flattened();
+
+			GLOW.tex_image_2d(
 				glow::TEXTURE_2D,
 				0,
 				glow::RGBA as _,
@@ -130,11 +137,10 @@ impl Renderer {
 				Some(buffer),
 			);
 
-			glow.bind_texture(glow::TEXTURE_2D, None);
+			GLOW.bind_texture(glow::TEXTURE_2D, None);
 		};
 
 		Ok(Renderer {
-			glow,
 			vertices: Vec::new(),
 			start_time: std::time::Instant::now(),
 			width,
@@ -143,12 +149,13 @@ impl Renderer {
 		})
 	}
 
-	pub fn before(&mut self) -> Result<()> {
+	pub fn before(
+		&mut self,
+		clients: &mut std::collections::HashMap<i32, wl::Client>,
+	) -> Result<()> {
 		unsafe {
-			self.glow.clear(glow::COLOR_BUFFER_BIT);
+			GLOW.clear(glow::COLOR_BUFFER_BIT);
 		}
-
-		let mut clients = state::CLIENTS.lock().unwrap();
 
 		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
@@ -160,8 +167,6 @@ impl Renderer {
 				xdg_surface: &wl::XdgSurface,
 				surface: &mut wl::Surface,
 			) -> Result<()> {
-				surface.gl_do_textures(client, &this.glow)?;
-
 				for (position, size, surface_id) in surface.get_front_buffers(client) {
 					let surface = client.get_object(surface_id)?;
 
@@ -276,16 +281,15 @@ impl Renderer {
 		]);
 
 		unsafe {
-			self.glow.buffer_data_u8_slice(
+			GLOW.buffer_data_u8_slice(
 				glow::ARRAY_BUFFER,
 				bytemuck::cast_slice(&self.vertices),
 				glow::DYNAMIC_DRAW,
 			);
 
-			self.glow.bind_texture(glow::TEXTURE_2D, Some(*texture));
+			GLOW.bind_texture(glow::TEXTURE_2D, Some(*texture));
 
-			self.glow
-				.draw_arrays(glow::TRIANGLES, (self.vertices.len() - 6) as _, 6);
+			GLOW.draw_arrays(glow::TRIANGLES, (self.vertices.len() - 6) as _, 6);
 		}
 	}
 }
@@ -343,7 +347,13 @@ impl backend::winit::WinitRendererSetup for Setup {
 				glutin::display::RawDisplay::Egl(x) => x,
 			};
 
-			wl::set_buffer_params_egl_display(std::mem::transmute(raw_display));
+			let raw_context = match context.raw_context() {
+				glutin::context::RawContext::Egl(x) => x,
+			};
+
+			crate::egl::DISPLAY.initialize(std::mem::transmute(raw_display));
+			crate::egl::CONTEXT.initialize(std::sync::Mutex::new(std::mem::transmute(raw_context)));
+
 			egl::enable_debugging();
 
 			Ok(WinitRenderer {
@@ -365,7 +375,7 @@ struct WinitRenderer<'a> {
 
 impl<'a> backend::winit::WinitRenderer for WinitRenderer<'a> {
 	fn render(&mut self) -> Result<()> {
-		self.renderer.before()?;
+		self.renderer.before(&mut state::CLIENTS.lock().unwrap())?;
 		self.surface.swap_buffers(&self.context)?;
 		self.renderer.after()?;
 

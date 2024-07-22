@@ -132,14 +132,24 @@ impl Display {
 		}
 	}
 
-	pub fn make_current(&self, surface: &egl::Surface, context: &egl::Context) -> u32 {
-		unsafe {
+	pub fn make_current(
+		&self,
+		surface: Option<&egl::Surface>,
+		context: Option<&egl::Context>,
+	) -> crate::Result<()> {
+		let ret = unsafe {
 			eglMakeCurrent(
 				self.as_ptr(),
-				surface.as_ptr(),
-				surface.as_ptr(),
-				context.as_ptr(),
+				surface.map(|x| x.as_ptr()).unwrap_or(0),
+				surface.map(|x| x.as_ptr()).unwrap_or(0),
+				context.map(|x| x.as_ptr()).unwrap_or(0),
 			)
+		};
+
+		if ret == 1 {
+			Ok(())
+		} else {
+			Err("make_current failed")?
 		}
 	}
 
