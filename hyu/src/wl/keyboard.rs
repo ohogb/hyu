@@ -36,48 +36,48 @@ impl Keyboard {
 	}
 
 	pub fn enter(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
-			args: (seat.serial(), surface, &[] as &[i32]),
+			args: (display.new_serial(), surface, &[] as &[i32]),
 		})?;
 
 		self.modifiers(client, 0)
 	}
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
-			args: (seat.serial(), surface),
+			args: (display.new_serial(), surface),
 		})
 	}
 
 	pub fn key(&mut self, client: &mut wl::Client, key: u32, state: u32) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
-			args: (seat.serial(), 100, key, state),
+			args: (display.new_serial(), 100, key, state),
 		})
 	}
 
 	pub fn modifiers(&mut self, client: &mut wl::Client, depressed: u32) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 4,
-			args: (seat.serial(), depressed, 0, 0, 0),
+			args: (display.new_serial(), depressed, 0, 0, 0),
 		})
 	}
 

@@ -3,6 +3,8 @@ use crate::{wl, Result};
 pub struct Display {
 	object_id: wl::Id<Self>,
 	globals: Vec<Box<dyn wl::Global + Send + Sync>>,
+	started: std::time::Instant,
+	serial: u32,
 }
 
 impl Display {
@@ -10,6 +12,8 @@ impl Display {
 		Self {
 			object_id,
 			globals: Vec::new(),
+			started: std::time::Instant::now(),
+			serial: 0,
 		}
 	}
 
@@ -29,6 +33,17 @@ impl Display {
 	pub fn push_global(&mut self, global: impl wl::Global + Send + Sync + 'static) {
 		self.globals.push(Box::new(global));
 	}
+
+	pub fn get_time(&self) -> std::time::Duration {
+		self.started.elapsed()
+	}
+
+	pub fn new_serial(&mut self) -> u32 {
+		let ret = self.serial;
+		self.serial += 1;
+
+		ret
+	}
 }
 
 impl wl::Object for Display {
@@ -42,7 +57,7 @@ impl wl::Object for Display {
 					.new_object(callback, wl::Callback::new(callback))
 					.clone();
 
-				callback.done(client, 0)?;
+				callback.done(client, self.serial)?;
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:get_registry

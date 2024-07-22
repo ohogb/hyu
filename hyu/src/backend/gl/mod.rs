@@ -210,9 +210,10 @@ impl Renderer {
 
 		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
 			let client = clients.get_mut(client).unwrap();
+			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 
 			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
-				surface.frame(self.start_time.elapsed().as_millis() as u32, client)?;
+				surface.frame(display.get_time().as_millis() as u32, client)?;
 				surface.presentation_feedback(time, 0, 0, 0, client)
 			};
 

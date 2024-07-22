@@ -16,14 +16,14 @@ impl Pointer {
 		surface: wl::Id<wl::Surface>,
 		position: Point,
 	) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (
-				seat.serial(),
+				display.new_serial(),
 				surface,
 				fixed::types::I24F8::from_num(position.0),
 				fixed::types::I24F8::from_num(position.1),
@@ -32,23 +32,26 @@ impl Pointer {
 	}
 
 	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
-			args: (seat.serial(), surface),
+			args: (display.new_serial(), surface),
 		})
 	}
 
 	pub fn motion(&mut self, client: &mut wl::Client, position: Point) -> Result<()> {
+		let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
+		let time = display.get_time().as_millis();
+
 		// https://wayland.app/protocols/wayland#wl_pointer:event:motion
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (
-				0,
+				time as u32,
 				fixed::types::I24F8::from_num(position.0),
 				fixed::types::I24F8::from_num(position.1),
 			),
@@ -56,13 +59,14 @@ impl Pointer {
 	}
 
 	pub fn button(&mut self, client: &mut wl::Client, button: u32, state: u32) -> Result<()> {
-		let seat = client.get_object_mut(self.seat_id)?;
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+		let time = display.get_time().as_millis();
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:button
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
-			args: (seat.serial(), 0, button, state),
+			args: (display.new_serial(), time as u32, button, state),
 		})
 	}
 
