@@ -45,7 +45,7 @@ impl wl::Object for Seat {
 
 				let mut keyboard = wl::Keyboard::new(id, self.object_id, self.keymap);
 				keyboard.keymap(client)?;
-				keyboard.repeat_info(client, 500, 500)?;
+				keyboard.repeat_info(client, 33, 500)?;
 
 				client.new_object(id, keyboard);
 			}
