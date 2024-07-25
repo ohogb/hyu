@@ -25,13 +25,14 @@ impl Keyboard {
 		let (fd, size) = self.keymap;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:keymap
+		client.to_send_fds.push(fd);
+
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (1, size as u32),
 		})?;
 
-		client.to_send_fds.push(fd);
 		Ok(())
 	}
 

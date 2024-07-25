@@ -3,25 +3,25 @@ use crate::{wl, Point, Result};
 pub struct Client<'object> {
 	pub fd: std::os::fd::RawFd,
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
-	pub buffer: Vec<u8>,
 	pub start_position: Point,
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
 	highest_index: u32,
 	_phantom: std::marker::PhantomData<&'object ()>,
+	pub stream: crate::Stream,
 }
 
 impl<'object> Client<'object> {
-	pub fn new(fd: std::os::fd::RawFd, start_position: Point) -> Self {
+	pub fn new(fd: std::os::fd::RawFd, start_position: Point, stream: crate::Stream) -> Self {
 		Self {
 			fd,
 			objects: Vec::new(),
-			buffer: Vec::new(),
 			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
 			highest_index: 0,
 			_phantom: std::marker::PhantomData,
+			stream,
 		}
 	}
 
@@ -107,7 +107,21 @@ impl<'object> Client<'object> {
 	}
 
 	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
-		self.buffer.extend(message.to_vec()?);
+		let mut cmsg_buffer = [0u8; 0x20];
+		let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
+
+		cmsg.add_fds(&self.to_send_fds);
+		self.to_send_fds.clear();
+
+		let ret = self
+			.stream
+			.get()
+			.send_vectored_with_ancillary(&[std::io::IoSlice::new(&message.to_vec()?)], &mut cmsg);
+
+		if ret.is_err() {
+			eprintln!("Client::send_message() failed!");
+		}
+
 		Ok(())
 	}
 

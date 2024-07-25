@@ -23,13 +23,14 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		let (fd, size) = self.formats;
 
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:format_table
+		client.to_send_fds.push(fd);
+
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: size as u32,
 		})?;
 
-		client.to_send_fds.push(fd);
 		Ok(())
 	}
 
