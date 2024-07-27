@@ -462,6 +462,23 @@ pub fn on_mouse_button(button: u32, input_state: u32) -> Result<()> {
 	Ok(())
 }
 
+pub fn on_mouse_scroll(value: f64, discrete: i32, axis: u32) -> Result<()> {
+	let mut clients = CLIENTS.lock().unwrap();
+
+	if let Some(PointerOver { fd, .. }) = *POINTER_OVER.lock().unwrap() {
+		let client = clients.get_mut(&fd).unwrap();
+
+		for pointer in client.objects_mut::<wl::Pointer>() {
+			pointer.axis_source(client, 0)?;
+			pointer.axis_discrete(client, axis, discrete)?;
+			pointer.axis(client, axis, value)?;
+			pointer.frame(client)?;
+		}
+	}
+
+	Ok(())
+}
+
 pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 	let mut clients = CLIENTS.lock().unwrap();
 	let xkb_state_lock = XKB_STATE.lock().unwrap();

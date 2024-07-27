@@ -70,12 +70,47 @@ impl Pointer {
 		})
 	}
 
+	pub fn axis(&mut self, client: &mut wl::Client, axis: u32, value: f64) -> Result<()> {
+		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+		let time = display.get_time().as_millis();
+
+		// https://wayland.app/protocols/wayland#wl_pointer:event:axis
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 4,
+			args: (time as u32, axis, fixed::types::I24F8::from_num(value)),
+		})
+	}
+
 	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:frame
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 5,
 			args: (),
+		})
+	}
+
+	pub fn axis_source(&mut self, client: &mut wl::Client, axis_source: u32) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_source
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 6,
+			args: axis_source,
+		})
+	}
+
+	pub fn axis_discrete(
+		&mut self,
+		client: &mut wl::Client,
+		axis: u32,
+		discrete: i32,
+	) -> Result<()> {
+		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_discrete
+		client.send_message(wlm::Message {
+			object_id: *self.object_id,
+			op: 8,
+			args: (axis, discrete),
 		})
 	}
 }

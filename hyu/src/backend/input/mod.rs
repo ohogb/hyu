@@ -57,6 +57,14 @@ pub fn run() -> Result<()> {
 
 					crate::state::on_mouse_button(button, state).unwrap();
 				}
+				404 => {
+					let Some(pointer) = event.get_pointer_event() else {
+						panic!();
+					};
+
+					let v120 = pointer.get_scroll_value_v120(0);
+					crate::state::on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0).unwrap();
+				}
 				_ => {}
 			}
 		}
@@ -84,6 +92,7 @@ extern "C" {
 	fn libinput_event_pointer_get_dy_unaccelerated(event_pointer: u64) -> f64;
 	fn libinput_event_pointer_get_button(event_pointer: u64) -> u32;
 	fn libinput_event_pointer_get_button_state(event_pointer: u64) -> u32;
+	fn libinput_event_pointer_get_scroll_value_v120(event_pointer: u64, axis: u32) -> f64;
 }
 
 #[repr(transparent)]
@@ -178,5 +187,9 @@ impl EventPointer {
 
 	pub fn get_button_state(&self) -> u32 {
 		unsafe { libinput_event_pointer_get_button_state(self.ptr.as_ptr() as _) }
+	}
+
+	pub fn get_scroll_value_v120(&self, axis: u32) -> f64 {
+		unsafe { libinput_event_pointer_get_scroll_value_v120(self.ptr.as_ptr() as _, axis) }
 	}
 }
