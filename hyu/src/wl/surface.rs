@@ -285,6 +285,7 @@ impl Surface {
 			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
+		state::SHOULD_UPDATE.store(true, std::sync::atomic::Ordering::Relaxed);
 		Ok(())
 	}
 }
