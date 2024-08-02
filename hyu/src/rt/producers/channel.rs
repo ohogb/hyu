@@ -43,7 +43,7 @@ impl<T> Channel<T> {
 
 impl<T> Producer for Channel<T> {
 	type Message<'a> = T;
-	type Ret = ();
+	type Ret = Result<()>;
 
 	fn fd(&self) -> std::os::fd::RawFd {
 		self.event.fd()
@@ -57,7 +57,7 @@ impl<T> Producer for Channel<T> {
 
 		for _ in 0..a {
 			let x = self.receiver.try_recv()?;
-			callback(x);
+			callback(x)?;
 		}
 
 		Ok(std::ops::ControlFlow::Continue(()))

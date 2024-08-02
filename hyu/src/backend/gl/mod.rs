@@ -209,8 +209,7 @@ impl Renderer {
 		Ok(())
 	}
 
-	pub fn after(&mut self) -> Result<()> {
-		let time = nix::time::clock_gettime(nix::time::ClockId::CLOCK_MONOTONIC)?;
+	pub fn after(&mut self, tv_sec: u32, tv_usec: u32, sequence: u32) -> Result<()> {
 		let mut clients = state::CLIENTS.lock().unwrap();
 
 		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
@@ -219,7 +218,13 @@ impl Renderer {
 
 			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
 				surface.frame(display.get_time().as_millis() as u32, client)?;
-				surface.presentation_feedback(time, 0, 0, 0, client)
+				surface.presentation_feedback(
+					std::time::Duration::from_micros(tv_sec as u64 * 1_000_000 + tv_usec as u64),
+					0,
+					sequence as _,
+					0x2,
+					client,
+				)
 			};
 
 			let toplevel = client.get_object(*window)?;
@@ -377,7 +382,7 @@ impl<'a> backend::winit::WinitRenderer for WinitRenderer<'a> {
 	fn render(&mut self) -> Result<()> {
 		self.renderer.before(&mut state::CLIENTS.lock().unwrap())?;
 		self.surface.swap_buffers(&self.context)?;
-		self.renderer.after()?;
+		self.renderer.after(0, 0, 0)?;
 
 		self.window.request_redraw();
 		Ok(())

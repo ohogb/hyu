@@ -259,7 +259,7 @@ pub fn on_cursor_move(cursor_position: (i32, i32)) -> Result<()> {
 	let cursor_position = Point(cursor_position.0, cursor_position.1);
 
 	*POINTER_POSITION.lock().unwrap() = cursor_position;
-	SHOULD_UPDATE.store(true, std::sync::atomic::Ordering::Relaxed);
+	RENDER.send(())?;
 
 	for client in clients.values_mut() {
 		for seat in client.objects_mut::<wl::Seat>() {
@@ -547,4 +547,5 @@ pub fn set_quit() {
 	QUIT.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
-pub static SHOULD_UPDATE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+pub static RENDER: crate::GlobalWrapper<crate::rt::producers::Sender<()>> =
+	crate::GlobalWrapper::empty();

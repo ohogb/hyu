@@ -107,7 +107,7 @@ impl Surface {
 
 	pub fn presentation_feedback(
 		&mut self,
-		time: nix::sys::time::TimeSpec,
+		time: std::time::Duration,
 		refresh: u32,
 		sequence: u64,
 		flags: u32,
@@ -285,7 +285,7 @@ impl Surface {
 			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
-		state::SHOULD_UPDATE.store(true, std::sync::atomic::Ordering::Relaxed);
+		state::RENDER.send(())?;
 		Ok(())
 	}
 }

@@ -23,7 +23,7 @@ impl WpPresentationFeedback {
 	pub fn presented(
 		&self,
 		client: &mut wl::Client,
-		time: nix::sys::time::TimeSpec,
+		time: std::time::Duration,
 		till_next_refresh: u32,
 		sequence: u64,
 		flags: u32,
@@ -33,9 +33,9 @@ impl WpPresentationFeedback {
 			object_id: *self.object_id,
 			op: 1,
 			args: (
-				((time.num_seconds() as u64 >> 32) & 0xFFFFFFFF) as u32,
-				((time.num_seconds() as u64) & 0xFFFFFFFF) as u32,
-				(((time.num_nanoseconds() % 1_000_000_000) as u64) & 0xFFFFFFFF) as u32,
+				((time.as_secs() as u64 >> 32) & 0xFFFFFFFF) as u32,
+				((time.as_secs() as u64) & 0xFFFFFFFF) as u32,
+				(((time.as_nanos() % 1_000_000_000) as u64) & 0xFFFFFFFF) as u32,
 				till_next_refresh,
 				((sequence >> 32) & 0xFFFFFFFF) as u32,
 				(sequence & 0xFFFFFFFF) as u32,

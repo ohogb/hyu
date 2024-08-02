@@ -1,12 +1,27 @@
-use std::io::Read as _;
-
-use crate::{egl, state, Result};
+use crate::{egl, rt, state, Result};
 
 mod device;
 pub mod gbm;
 
 use device::*;
 use glow::HasContext as _;
+
+struct State {
+	device: Device,
+	gbm_device: gbm::Device,
+	egl_display: egl::Display,
+	screen: Screen,
+	renderer: crate::backend::gl::Renderer,
+	context: AtomicHelper,
+}
+
+pub enum ScreenState {
+	WaitingForPageFlip {
+		bo: gbm::BufferObject,
+		needs_rerender: bool,
+	},
+	Idle,
+}
 
 struct Screen {
 	connector: PropWrapper<Connector>,
@@ -34,6 +49,8 @@ struct Screen {
 
 	window_surface: egl::Surface,
 	old_bo: Option<gbm::BufferObject>,
+
+	state: ScreenState,
 }
 
 impl Screen {
@@ -149,6 +166,7 @@ impl Screen {
 			plane_crtc_h,
 			window_surface,
 			old_bo: None,
+			state: ScreenState::Idle,
 		})
 	}
 
@@ -221,56 +239,10 @@ impl Screen {
 
 		ctx.clear();
 
-		while !has_flipped {
-			nix::poll::poll(
-				&mut [nix::poll::PollFd::new(
-					unsafe { std::os::fd::BorrowedFd::borrow_raw(device.get_fd()) },
-					nix::poll::PollFlags::POLLIN,
-				)],
-				nix::poll::PollTimeout::from(100u8),
-			)?;
-
-			let mut ret = [0u8; 0x1000];
-
-			let amount = nix::unistd::read(device.get_fd(), &mut ret)?;
-			assert!(amount == 32);
-
-			let mut drm_event = ret.take(0x8);
-
-			let mut typee = [0u8; 0x4];
-			drm_event.read_exact(&mut typee)?;
-			let typee = u32::from_ne_bytes(typee);
-
-			let mut length = [0u8; 0x4];
-			drm_event.read_exact(&mut length)?;
-			let _length = u32::from_ne_bytes(length);
-
-			match typee {
-				2 => {
-					let mut vblank = ret.take(24);
-
-					let mut user_data = [0u8; 0x8];
-					vblank.read_exact(&mut user_data)?;
-
-					let mut user_data = [0u8; 0x8];
-					vblank.read_exact(&mut user_data)?;
-					let user_data = u64::from_ne_bytes(user_data);
-
-					let user_data = user_data as *mut bool;
-
-					unsafe {
-						*user_data = true;
-					}
-				}
-				_ => Err("unknown event")?,
-			}
-		}
-
-		if let Some(old_bo) = std::mem::take(&mut self.old_bo) {
-			self.gbm_surface.release_buffer(old_bo);
-		}
-
-		self.old_bo = Some(bo);
+		self.state = ScreenState::WaitingForPageFlip {
+			bo,
+			needs_rerender: false,
+		};
 
 		Ok(())
 	}
@@ -360,33 +332,90 @@ pub fn run() -> Result<()> {
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &display, &mut ctx, true)?;
 
-	let mut renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
+	let renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
 
 	drop(access_holder);
 	drop(context_lock);
 
-	while !state::quit() {
-		let mut clients = state::CLIENTS.lock().unwrap();
+	let context = device.begin_atomic();
 
-		if !state::SHOULD_UPDATE.load(std::sync::atomic::Ordering::Relaxed) {
-			drop(clients);
-			std::thread::sleep(std::time::Duration::from_millis(1));
-			continue;
+	let mut state = State {
+		device,
+		gbm_device,
+		egl_display: display,
+		screen,
+		renderer,
+		context,
+	};
+
+	let mut runtime = rt::Runtime::<State>::new();
+
+	runtime.on(
+		rt::producers::Drm::new(state.device.get_fd()),
+		|msg, state| {
+			match msg {
+				rt::producers::DrmMessage::PageFlip {
+					tv_sec,
+					tv_usec,
+					sequence,
+					..
+				} => {
+					let ScreenState::WaitingForPageFlip { bo, needs_rerender } =
+						std::mem::replace(&mut state.screen.state, ScreenState::Idle)
+					else {
+						panic!();
+					};
+
+					if let Some(old_bo) = std::mem::take(&mut state.screen.old_bo) {
+						state.screen.gbm_surface.release_buffer(old_bo);
+					}
+
+					state.screen.old_bo = Some(bo);
+
+					state.renderer.after(tv_sec, tv_usec, sequence)?;
+
+					if needs_rerender {
+						state::RENDER.send(())?;
+					}
+				}
+			}
+
+			Ok(())
+		},
+	);
+
+	let (tx, rx) = rt::producers::Channel::<()>::new()?;
+
+	runtime.on(rx, |_, state| {
+		if let ScreenState::WaitingForPageFlip { needs_rerender, .. } = &mut state.screen.state {
+			*needs_rerender = true;
+			return Ok(());
 		}
 
-		let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-		let access_holder = context_lock.access(&display, Some(&screen.window_surface))?;
+		let mut clients = state::CLIENTS.lock().unwrap();
 
-		renderer.before(&mut clients)?;
-		display.swap_buffers(&screen.window_surface);
+		let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
+		let access_holder =
+			context_lock.access(&state.egl_display, Some(&state.screen.window_surface))?;
+
+		state.renderer.before(&mut clients)?;
+		state.egl_display.swap_buffers(&state.screen.window_surface);
 
 		drop(access_holder);
 		drop(context_lock);
 		drop(clients);
 
-		screen.render(&device, &display, &mut ctx, false)?;
-		renderer.after()?;
+		state
+			.screen
+			.render(&state.device, &state.egl_display, &mut state.context, false)
+	});
+
+	// initial render
+	tx.send(())?;
+
+	unsafe {
+		crate::state::RENDER.initialize(tx);
 	}
 
-	Ok(())
+	runtime.run(&mut state)
 }
