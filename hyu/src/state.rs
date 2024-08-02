@@ -459,7 +459,10 @@ pub fn on_mouse_button(button: u32, input_state: u32) -> Result<()> {
 		if topmost != (fd, toplevel) {
 			CHANGES.lock().unwrap().push(Change::Pick(fd, toplevel));
 		}
+
+		process_focus_changes(&mut clients)?;
 	}
+
 	Ok(())
 }
 
