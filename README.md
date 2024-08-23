@@ -1,18 +1,27 @@
 # hyu
 
-A wayland compositor written without dependencies such as libwayland
+A wayland compositor written from scratch
 
 ![preview](./assets/preview.png)
 > Programs running inside hyu
 
-### Running
+### Requirements
+
+- nightly rust
+- newish linux kernel
+- `libxkbcommon`
+- `libEGL`
+- `libgbm`
+- `libudev`
+- `libinput`
+
+### Running in tty
 
 ```sh
 cargo run
 ```
 
-### Running foot inside hyu
+#### Keybinds
 
-```sh
-WAYLAND_DISPLAY="wayland-1" foot
-```
+- `super + t` spawns `foot` terminal
+- `super + c` closes active window
