@@ -32,6 +32,14 @@ struct Args {
 	keymap: Option<String>,
 }
 
+struct Defer<T: FnMut()>(T);
+
+impl<T: FnMut()> Drop for Defer<T> {
+	fn drop(&mut self) {
+		self.0()
+	}
+}
+
 fn main() -> Result<()> {
 	let args = Args::parse();
 
@@ -40,6 +48,11 @@ fn main() -> Result<()> {
 	tty.set_mode(1)?;
 	let old_keyboard_mode = tty.get_keyboard_mode()?;
 	tty.set_keyboard_mode(4)?;
+
+	let _restorer = Defer(|| {
+		let _ = tty.set_keyboard_mode(old_keyboard_mode);
+		let _ = tty.set_mode(0);
+	});
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
