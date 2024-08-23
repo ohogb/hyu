@@ -285,7 +285,7 @@ impl Surface {
 			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
-		state::RENDER.send(())?;
+		client.render_tx.send(())?;
 		Ok(())
 	}
 }
@@ -295,9 +295,8 @@ impl wl::Object for Surface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
-				state::CHANGES
-					.lock()
-					.unwrap()
+				client
+					.changes
 					.push(state::Change::RemoveSurface(client.fd, self.object_id));
 				client.remove_object(self.object_id)?;
 			}

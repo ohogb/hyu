@@ -26,75 +26,6 @@ use std::os::fd::AsRawFd as _;
 
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-fn client_event_loop(stream: std::os::unix::net::UnixStream, index: usize) -> Result<()> {
-	stream.set_nonblocking(true)?;
-
-	let fd = stream.as_raw_fd();
-	let stream = Stream::new(stream);
-
-	let mut client = wl::Client::new(
-		fd,
-		Point((100 * index + 10) as i32, (100 * index + 10) as i32),
-		stream.clone(),
-	);
-
-	let mut display = wl::Display::new(wl::Id::new(1));
-
-	display.push_global(wl::Shm::new(wl::Id::null()));
-	display.push_global(wl::Compositor::new());
-	display.push_global(wl::SubCompositor::new(wl::Id::null()));
-	display.push_global(wl::DataDeviceManager::new());
-	display.push_global(wl::Seat::new(wl::Id::null(), state::get_xkb_keymap()));
-	display.push_global(wl::Output::new(wl::Id::null()));
-	display.push_global(wl::XdgWmBase::new(wl::Id::null()));
-	display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null())?);
-	display.push_global(wl::WpPresentation::new(wl::Id::null()));
-
-	client.ensure_objects_capacity();
-	client.new_object(wl::Id::new(1), display);
-
-	state::CLIENTS.lock().unwrap().insert(fd, client);
-
-	let mut runtime = rt::Runtime::new();
-
-	runtime.on(rt::producers::Wl::new(stream), move |msg, _, _| match msg {
-		rt::producers::WlMessage::Request {
-			object,
-			op,
-			params,
-			fds,
-		} => {
-			let mut clients = state::CLIENTS.lock().unwrap();
-
-			let client = clients.get_mut(&fd).unwrap();
-			client.received_fds.extend(fds);
-
-			client.ensure_objects_capacity();
-
-			let Some(object) = client.get_resource_mut(object) else {
-				return Err(format!("unknown object '{object}'"))?;
-			};
-
-			object.handle(client, op, &params)?;
-
-			state::process_focus_changes(&mut clients)
-		}
-		rt::producers::WlMessage::Closed => {
-			let mut clients = state::CLIENTS.lock().unwrap();
-
-			state::CHANGES
-				.lock()
-				.unwrap()
-				.push(state::Change::RemoveClient(fd));
-
-			state::process_focus_changes(&mut clients)
-		}
-	});
-
-	runtime.run(&mut ())?;
-	Ok(())
-}
-
 #[derive(clap::Parser)]
 struct Args {
 	#[arg(short, long)]
@@ -103,7 +34,6 @@ struct Args {
 
 fn main() -> Result<()> {
 	let args = Args::parse();
-	state::initialize_xkb_state(args.keymap.unwrap_or_default())?;
 
 	let tty = tty::Device::open_current()?;
 
@@ -120,10 +50,18 @@ fn main() -> Result<()> {
 		std::fs::remove_file(&path)?;
 	}
 
+	let drm_state = backend::drm::initialize_state()?;
+	let render_tx = drm_state.render_tx.clone();
+
 	let mut state = state::State {
-		drm: backend::drm::initialize_state()?,
+		drm: drm_state,
 		input: backend::input::initialize_state()?,
+		compositor: state::CompositorState::new(render_tx),
 	};
+
+	state
+		.compositor
+		.initialize_xkb_state(args.keymap.unwrap_or_default())?;
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
@@ -139,7 +77,8 @@ fn main() -> Result<()> {
 			let stream = Stream::new(stream);
 			let fd = stream.get().as_raw_fd();
 
-			let mut client = wl::Client::new(fd, Point(0, 0), stream.clone());
+			let mut client =
+				wl::Client::new(fd, Point(0, 0), stream.clone(), state.drm.render_tx.clone());
 
 			let mut display = wl::Display::new(wl::Id::new(1));
 
@@ -147,7 +86,10 @@ fn main() -> Result<()> {
 			display.push_global(wl::Compositor::new());
 			display.push_global(wl::SubCompositor::new(wl::Id::null()));
 			display.push_global(wl::DataDeviceManager::new());
-			display.push_global(wl::Seat::new(wl::Id::null(), state::get_xkb_keymap()));
+			display.push_global(wl::Seat::new(
+				wl::Id::null(),
+				state.compositor.get_xkb_keymap(),
+			));
 			display.push_global(wl::Output::new(wl::Id::null()));
 			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null())?);
@@ -156,41 +98,45 @@ fn main() -> Result<()> {
 			client.ensure_objects_capacity();
 			client.new_object(wl::Id::new(1), display);
 
-			state::CLIENTS.lock().unwrap().insert(fd, client);
+			state.compositor.clients.insert(fd, client);
 
-			runtime.on(rt::producers::Wl::new(stream), move |msg, _, _| match msg {
-				rt::producers::WlMessage::Request {
-					object,
-					op,
-					params,
-					fds,
-				} => {
-					let mut clients = state::CLIENTS.lock().unwrap();
+			runtime.on(
+				rt::producers::Wl::new(stream),
+				move |msg, state, _| match msg {
+					rt::producers::WlMessage::Request {
+						object,
+						op,
+						params,
+						fds,
+					} => {
+						let client = state.compositor.clients.get_mut(&fd).unwrap();
+						client.received_fds.extend(fds);
 
-					let client = clients.get_mut(&fd).unwrap();
-					client.received_fds.extend(fds);
+						client.ensure_objects_capacity();
 
-					client.ensure_objects_capacity();
+						let Some(object) = client.get_resource_mut(object) else {
+							return Err(format!("unknown object '{object}'"))?;
+						};
 
-					let Some(object) = client.get_resource_mut(object) else {
-						return Err(format!("unknown object '{object}'"))?;
-					};
+						object.handle(client, op, &params)?;
 
-					object.handle(client, op, &params)?;
+						state
+							.compositor
+							.changes
+							.extend(std::mem::take(&mut client.changes));
 
-					state::process_focus_changes(&mut clients)
-				}
-				rt::producers::WlMessage::Closed => {
-					let mut clients = state::CLIENTS.lock().unwrap();
+						state.compositor.process_focus_changes()
+					}
+					rt::producers::WlMessage::Closed => {
+						state
+							.compositor
+							.changes
+							.push(state::Change::RemoveClient(fd));
 
-					state::CHANGES
-						.lock()
-						.unwrap()
-						.push(state::Change::RemoveClient(fd));
-
-					state::process_focus_changes(&mut clients)
-				}
-			});
+						state.compositor.process_focus_changes()
+					}
+				},
+			);
 
 			Ok(())
 		},

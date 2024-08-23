@@ -13,6 +13,8 @@ pub struct State {
 	screen: Screen,
 	renderer: crate::backend::gl::Renderer,
 	context: AtomicHelper,
+	pub render_tx: rt::producers::Sender<()>,
+	render_rx: Option<rt::producers::Channel<()>>,
 }
 
 pub enum ScreenState {
@@ -339,6 +341,8 @@ pub fn initialize_state() -> Result<State> {
 
 	let context = device.begin_atomic();
 
+	let (tx, rx) = rt::producers::Channel::new()?;
+
 	let state = State {
 		device,
 		gbm_device,
@@ -346,6 +350,8 @@ pub fn initialize_state() -> Result<State> {
 		screen,
 		renderer,
 		context,
+		render_tx: tx,
+		render_rx: Some(rx),
 	};
 
 	Ok(state)
@@ -374,10 +380,13 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 
 					state.drm.screen.old_bo = Some(bo);
 
-					state.drm.renderer.after(tv_sec, tv_usec, sequence)?;
+					state
+						.drm
+						.renderer
+						.after(&mut state.compositor, tv_sec, tv_usec, sequence)?;
 
 					if needs_rerender {
-						state::RENDER.send(())?;
+						state.drm.render_tx.send(())?;
 					}
 				}
 			}
@@ -386,47 +395,42 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 		},
 	);
 
-	let (tx, rx) = rt::producers::Channel::<()>::new()?;
+	runtime.on(
+		std::mem::take(&mut state.drm.render_rx).unwrap(),
+		|_, state, _| {
+			if let ScreenState::WaitingForPageFlip { needs_rerender, .. } =
+				&mut state.drm.screen.state
+			{
+				*needs_rerender = true;
+				return Ok(());
+			}
 
-	runtime.on(rx, |_, state, _| {
-		if let ScreenState::WaitingForPageFlip { needs_rerender, .. } = &mut state.drm.screen.state
-		{
-			*needs_rerender = true;
-			return Ok(());
-		}
+			let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
+			let access_holder = context_lock.access(
+				&state.drm.egl_display,
+				Some(&state.drm.screen.window_surface),
+			)?;
 
-		let mut clients = state::CLIENTS.lock().unwrap();
+			state.drm.renderer.before(&mut state.compositor)?;
+			state
+				.drm
+				.egl_display
+				.swap_buffers(&state.drm.screen.window_surface);
 
-		let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-		let access_holder = context_lock.access(
-			&state.drm.egl_display,
-			Some(&state.drm.screen.window_surface),
-		)?;
+			drop(access_holder);
+			drop(context_lock);
 
-		state.drm.renderer.before(&mut clients)?;
-		state
-			.drm
-			.egl_display
-			.swap_buffers(&state.drm.screen.window_surface);
-
-		drop(access_holder);
-		drop(context_lock);
-		drop(clients);
-
-		state.drm.screen.render(
-			&state.drm.device,
-			&state.drm.egl_display,
-			&mut state.drm.context,
-			false,
-		)
-	});
+			state.drm.screen.render(
+				&state.drm.device,
+				&state.drm.egl_display,
+				&mut state.drm.context,
+				false,
+			)
+		},
+	);
 
 	// initial render
-	tx.send(())?;
-
-	unsafe {
-		crate::state::RENDER.initialize(tx);
-	}
+	state.drm.render_tx.send(())?;
 
 	Ok(())
 }

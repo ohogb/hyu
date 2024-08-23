@@ -149,16 +149,13 @@ impl Renderer {
 		})
 	}
 
-	pub fn before(
-		&mut self,
-		clients: &mut std::collections::HashMap<i32, wl::Client>,
-	) -> Result<()> {
+	pub fn before(&mut self, compositor: &mut state::CompositorState) -> Result<()> {
 		unsafe {
 			GLOW.clear(glow::COLOR_BUFFER_BIT);
 		}
 
-		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
-			let client = clients.get_mut(client).unwrap();
+		for (client, window) in compositor.window_stack.iter().rev() {
+			let client = compositor.clients.get_mut(client).unwrap();
 
 			fn draw(
 				this: &mut Renderer,
@@ -203,17 +200,21 @@ impl Renderer {
 			}
 		}
 
-		let cursor_pos = *state::POINTER_POSITION.lock().unwrap();
+		let cursor_pos = compositor.pointer_position;
 		self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
 
 		Ok(())
 	}
 
-	pub fn after(&mut self, tv_sec: u32, tv_usec: u32, sequence: u32) -> Result<()> {
-		let mut clients = state::CLIENTS.lock().unwrap();
-
-		for (client, window) in state::WINDOW_STACK.lock().unwrap().iter().rev() {
-			let client = clients.get_mut(client).unwrap();
+	pub fn after(
+		&mut self,
+		compositor: &mut state::CompositorState,
+		tv_sec: u32,
+		tv_usec: u32,
+		sequence: u32,
+	) -> Result<()> {
+		for (client, window) in compositor.window_stack.iter().rev() {
+			let client = compositor.clients.get_mut(client).unwrap();
 			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 
 			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
@@ -380,9 +381,9 @@ struct WinitRenderer<'a> {
 
 impl<'a> backend::winit::WinitRenderer for WinitRenderer<'a> {
 	fn render(&mut self) -> Result<()> {
-		self.renderer.before(&mut state::CLIENTS.lock().unwrap())?;
+		// self.renderer.before(&mut state::CLIENTS.lock().unwrap())?;
 		self.surface.swap_buffers(&self.context)?;
-		self.renderer.after(0, 0, 0)?;
+		// self.renderer.after(0, 0, 0)?;
 
 		self.window.request_redraw();
 		Ok(())

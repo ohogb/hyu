@@ -26,10 +26,9 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 					panic!();
 				};
 
-				crate::state::on_keyboard_button(
-					keyboard.get_key(),
-					keyboard.get_key_state() as _,
-				)?;
+				state
+					.compositor
+					.on_keyboard_button(keyboard.get_key(), keyboard.get_key_state() as _)?;
 			}
 			400 => {
 				let Some(pointer) = event.get_pointer_event() else {
@@ -42,7 +41,10 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 				state.input.x = state.input.x.clamp(0.0, 2560.0);
 				state.input.y = state.input.y.clamp(0.0, 1440.0);
 
-				crate::state::on_cursor_move((state.input.x as _, state.input.y as _)).unwrap();
+				state
+					.compositor
+					.on_cursor_move((state.input.x as _, state.input.y as _))
+					.unwrap();
 			}
 			402 => {
 				let Some(pointer) = event.get_pointer_event() else {
@@ -50,9 +52,12 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 				};
 
 				let button = pointer.get_button();
-				let state = pointer.get_button_state();
+				let button_state = pointer.get_button_state();
 
-				crate::state::on_mouse_button(button, state).unwrap();
+				state
+					.compositor
+					.on_mouse_button(button, button_state)
+					.unwrap();
 			}
 			404 => {
 				let Some(pointer) = event.get_pointer_event() else {
@@ -60,7 +65,10 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 				};
 
 				let v120 = pointer.get_scroll_value_v120(0);
-				crate::state::on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0).unwrap();
+				state
+					.compositor
+					.on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0)
+					.unwrap();
 			}
 			_ => {}
 		}

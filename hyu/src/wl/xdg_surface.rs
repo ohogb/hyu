@@ -49,10 +49,15 @@ impl wl::Object for XdgSurface {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:get_toplevel
 				let id: wl::Id<wl::XdgToplevel> = wlm::decode::from_slice(params)?;
 
-				let xdg_toplevel = client.new_object(
+				let xdg_toplevel = wl::XdgToplevel::new(
+					client,
 					id,
-					wl::XdgToplevel::new(id, self.object_id, client.start_position, client.fd),
+					self.object_id,
+					client.start_position,
+					client.fd,
 				);
+
+				let xdg_toplevel = client.new_object(id, xdg_toplevel);
 
 				xdg_toplevel.configure(client)?;
 

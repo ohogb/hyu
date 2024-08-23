@@ -54,7 +54,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 				position: cursor_position,
 				..
 			} => {
-				state::on_cursor_move(cursor_position.into()).unwrap();
+				// state::on_cursor_move(cursor_position.into()).unwrap();
 			}
 			winit::event::WindowEvent::MouseInput { state, button, .. } => {
 				let input_state = match state {
@@ -71,7 +71,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					_ => return,
 				};
 
-				state::on_mouse_button(button, input_state).unwrap();
+				// state::on_mouse_button(button, input_state).unwrap();
 			}
 			winit::event::WindowEvent::KeyboardInput { event, .. } => {
 				let code = event.physical_key.to_scancode().unwrap();
@@ -81,7 +81,7 @@ pub fn run(renderer_setup: impl WinitRendererSetup) -> Result<()> {
 					winit::event::ElementState::Released => 0,
 				};
 
-				state::on_keyboard_button(code, input_state).unwrap();
+				// state::on_keyboard_button(code, input_state).unwrap();
 			}
 			_ => {}
 		}

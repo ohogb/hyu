@@ -12,15 +12,13 @@ pub struct XdgToplevel {
 
 impl XdgToplevel {
 	pub fn new(
+		client: &mut wl::Client,
 		object_id: wl::Id<Self>,
 		surface: wl::Id<wl::XdgSurface>,
 		position: Point,
 		fd: std::os::fd::RawFd,
 	) -> Self {
-		state::CHANGES
-			.lock()
-			.unwrap()
-			.push(state::Change::Push(fd, object_id));
+		client.changes.push(state::Change::Push(fd, object_id));
 
 		Self {
 			object_id,
@@ -81,9 +79,8 @@ impl wl::Object for XdgToplevel {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:destroy
-				state::CHANGES
-					.lock()
-					.unwrap()
+				client
+					.changes
 					.push(state::Change::RemoveToplevel(client.fd, self.object_id));
 
 				client.remove_object(self.object_id)?;
