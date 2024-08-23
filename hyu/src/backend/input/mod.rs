@@ -1,6 +1,6 @@
 pub mod udev;
 
-use crate::Result;
+use crate::{rt, Result};
 
 pub fn run() -> Result<()> {
 	let udev = udev::Instance::new();
@@ -8,21 +8,13 @@ pub fn run() -> Result<()> {
 	let ret = context.assign();
 	assert!(ret != -1);
 
-	let mut x = 0.0;
-	let mut y = 0.0;
+	let mut runtime = rt::Runtime::new();
 
-	loop {
-		let fd = context.get_fd();
-		nix::poll::poll(
-			&mut [nix::poll::PollFd::new(
-				unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) },
-				nix::poll::PollFlags::POLLIN,
-			)],
-			nix::poll::PollTimeout::NONE,
-		)?;
+	runtime.on(
+		rt::producers::Input::new(context),
+		|msg, (x, y): &mut (f64, f64)| {
+			let rt::producers::InputMessage::Event { event } = msg;
 
-		context.dispatch();
-		while let Some(event) = context.get_event() {
 			match event.get_type() {
 				300 => {
 					let Some(keyboard) = event.get_keyboard_event() else {
@@ -39,13 +31,13 @@ pub fn run() -> Result<()> {
 						panic!();
 					};
 
-					x += pointer.get_dx();
-					y += pointer.get_dy();
+					*x += pointer.get_dx();
+					*y += pointer.get_dy();
 
-					x = x.clamp(0.0, 2560.0);
-					y = y.clamp(0.0, 1440.0);
+					*x = x.clamp(0.0, 2560.0);
+					*y = y.clamp(0.0, 1440.0);
 
-					crate::state::on_cursor_move((x as _, y as _)).unwrap();
+					crate::state::on_cursor_move((*x as _, *y as _)).unwrap();
 				}
 				402 => {
 					let Some(pointer) = event.get_pointer_event() else {
@@ -67,8 +59,12 @@ pub fn run() -> Result<()> {
 				}
 				_ => {}
 			}
-		}
-	}
+
+			Ok(())
+		},
+	);
+
+	runtime.run(&mut (0.0, 0.0))
 }
 
 #[link(name = "input")]
@@ -97,7 +93,7 @@ extern "C" {
 
 #[repr(transparent)]
 #[derive(Clone, Copy)]
-struct Context {
+pub struct Context {
 	ptr: std::ptr::NonNull<()>,
 }
 
@@ -134,7 +130,7 @@ impl Context {
 }
 
 #[repr(transparent)]
-struct Event {
+pub struct Event {
 	ptr: std::ptr::NonNull<()>,
 }
 
@@ -153,7 +149,7 @@ impl Event {
 }
 
 #[repr(transparent)]
-struct EventKeyboard {
+pub struct EventKeyboard {
 	ptr: std::ptr::NonNull<()>,
 }
 
@@ -168,7 +164,7 @@ impl EventKeyboard {
 }
 
 #[repr(transparent)]
-struct EventPointer {
+pub struct EventPointer {
 	ptr: std::ptr::NonNull<()>,
 }
 

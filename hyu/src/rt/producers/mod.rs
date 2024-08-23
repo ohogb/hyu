@@ -1,11 +1,13 @@
 mod channel;
 mod drm;
 mod event_fd;
+mod input;
 mod wl;
 
 pub use channel::*;
 pub use drm::*;
 pub use event_fd::*;
+pub use input::*;
 pub use wl::*;
 
 use crate::Result;
