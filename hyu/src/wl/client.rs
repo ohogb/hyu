@@ -1,17 +1,16 @@
 use crate::{wl, Point, Result};
 
-pub struct Client<'object> {
+pub struct Client {
 	pub fd: std::os::fd::RawFd,
 	objects: Vec<Option<std::cell::UnsafeCell<wl::Resource>>>,
 	pub start_position: Point,
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
 	highest_index: u32,
-	_phantom: std::marker::PhantomData<&'object ()>,
 	pub stream: crate::Stream,
 }
 
-impl<'object> Client<'object> {
+impl<'object> Client {
 	pub fn new(fd: std::os::fd::RawFd, start_position: Point, stream: crate::Stream) -> Self {
 		Self {
 			fd,
@@ -20,7 +19,6 @@ impl<'object> Client<'object> {
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
 			highest_index: 0,
-			_phantom: std::marker::PhantomData,
 			stream,
 		}
 	}
