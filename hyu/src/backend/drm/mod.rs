@@ -6,7 +6,7 @@ pub mod gbm;
 use device::*;
 use glow::HasContext as _;
 
-struct State {
+pub struct State {
 	device: Device,
 	gbm_device: gbm::Device,
 	egl_display: egl::Display,
@@ -248,7 +248,7 @@ impl Screen {
 	}
 }
 
-pub fn run() -> Result<()> {
+pub fn initialize_state() -> Result<State> {
 	let device = Device::open("/dev/dri/card1")?;
 	device.set_client_capability(2, 1)?;
 	device.set_client_capability(3, 1)?;
@@ -339,7 +339,7 @@ pub fn run() -> Result<()> {
 
 	let context = device.begin_atomic();
 
-	let mut state = State {
+	let state = State {
 		device,
 		gbm_device,
 		egl_display: display,
@@ -348,11 +348,13 @@ pub fn run() -> Result<()> {
 		context,
 	};
 
-	let mut runtime = rt::Runtime::<State>::new();
+	Ok(state)
+}
 
+pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State) -> Result<()> {
 	runtime.on(
-		rt::producers::Drm::new(state.device.get_fd()),
-		|msg, state| {
+		rt::producers::Drm::new(state.drm.device.get_fd()),
+		|msg, state, _| {
 			match msg {
 				rt::producers::DrmMessage::PageFlip {
 					tv_sec,
@@ -361,18 +363,18 @@ pub fn run() -> Result<()> {
 					..
 				} => {
 					let ScreenState::WaitingForPageFlip { bo, needs_rerender } =
-						std::mem::replace(&mut state.screen.state, ScreenState::Idle)
+						std::mem::replace(&mut state.drm.screen.state, ScreenState::Idle)
 					else {
 						panic!();
 					};
 
-					if let Some(old_bo) = std::mem::take(&mut state.screen.old_bo) {
-						state.screen.gbm_surface.release_buffer(old_bo);
+					if let Some(old_bo) = std::mem::take(&mut state.drm.screen.old_bo) {
+						state.drm.screen.gbm_surface.release_buffer(old_bo);
 					}
 
-					state.screen.old_bo = Some(bo);
+					state.drm.screen.old_bo = Some(bo);
 
-					state.renderer.after(tv_sec, tv_usec, sequence)?;
+					state.drm.renderer.after(tv_sec, tv_usec, sequence)?;
 
 					if needs_rerender {
 						state::RENDER.send(())?;
@@ -386,8 +388,9 @@ pub fn run() -> Result<()> {
 
 	let (tx, rx) = rt::producers::Channel::<()>::new()?;
 
-	runtime.on(rx, |_, state| {
-		if let ScreenState::WaitingForPageFlip { needs_rerender, .. } = &mut state.screen.state {
+	runtime.on(rx, |_, state, _| {
+		if let ScreenState::WaitingForPageFlip { needs_rerender, .. } = &mut state.drm.screen.state
+		{
 			*needs_rerender = true;
 			return Ok(());
 		}
@@ -395,19 +398,27 @@ pub fn run() -> Result<()> {
 		let mut clients = state::CLIENTS.lock().unwrap();
 
 		let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-		let access_holder =
-			context_lock.access(&state.egl_display, Some(&state.screen.window_surface))?;
+		let access_holder = context_lock.access(
+			&state.drm.egl_display,
+			Some(&state.drm.screen.window_surface),
+		)?;
 
-		state.renderer.before(&mut clients)?;
-		state.egl_display.swap_buffers(&state.screen.window_surface);
+		state.drm.renderer.before(&mut clients)?;
+		state
+			.drm
+			.egl_display
+			.swap_buffers(&state.drm.screen.window_surface);
 
 		drop(access_holder);
 		drop(context_lock);
 		drop(clients);
 
-		state
-			.screen
-			.render(&state.device, &state.egl_display, &mut state.context, false)
+		state.drm.screen.render(
+			&state.drm.device,
+			&state.drm.egl_display,
+			&mut state.drm.context,
+			false,
+		)
 	});
 
 	// initial render
@@ -417,5 +428,5 @@ pub fn run() -> Result<()> {
 		crate::state::RENDER.initialize(tx);
 	}
 
-	runtime.run(&mut state)
+	Ok(())
 }

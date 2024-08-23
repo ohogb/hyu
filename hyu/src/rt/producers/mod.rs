@@ -2,12 +2,14 @@ mod channel;
 mod drm;
 mod event_fd;
 mod input;
+mod unix_listener;
 mod wl;
 
 pub use channel::*;
 pub use drm::*;
 pub use event_fd::*;
 pub use input::*;
+pub use unix_listener::*;
 pub use wl::*;
 
 use crate::Result;

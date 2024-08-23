@@ -1,70 +1,74 @@
 pub mod udev;
 
-use crate::{rt, Result};
+use crate::{rt, state, Result};
 
-pub fn run() -> Result<()> {
+pub struct State {
+	x: f64,
+	y: f64,
+}
+
+pub fn initialize_state() -> Result<State> {
+	Ok(State { x: 0.0, y: 0.0 })
+}
+
+pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State) -> Result<()> {
 	let udev = udev::Instance::new();
 	let context = Context::create_from_udev(udev);
 	let ret = context.assign();
 	assert!(ret != -1);
 
-	let mut runtime = rt::Runtime::new();
+	runtime.on(rt::producers::Input::new(context), |msg, state, _| {
+		let rt::producers::InputMessage::Event { event } = msg;
 
-	runtime.on(
-		rt::producers::Input::new(context),
-		|msg, (x, y): &mut (f64, f64)| {
-			let rt::producers::InputMessage::Event { event } = msg;
+		match event.get_type() {
+			300 => {
+				let Some(keyboard) = event.get_keyboard_event() else {
+					panic!();
+				};
 
-			match event.get_type() {
-				300 => {
-					let Some(keyboard) = event.get_keyboard_event() else {
-						panic!();
-					};
-
-					crate::state::on_keyboard_button(
-						keyboard.get_key(),
-						keyboard.get_key_state() as _,
-					)?;
-				}
-				400 => {
-					let Some(pointer) = event.get_pointer_event() else {
-						panic!();
-					};
-
-					*x += pointer.get_dx();
-					*y += pointer.get_dy();
-
-					*x = x.clamp(0.0, 2560.0);
-					*y = y.clamp(0.0, 1440.0);
-
-					crate::state::on_cursor_move((*x as _, *y as _)).unwrap();
-				}
-				402 => {
-					let Some(pointer) = event.get_pointer_event() else {
-						panic!();
-					};
-
-					let button = pointer.get_button();
-					let state = pointer.get_button_state();
-
-					crate::state::on_mouse_button(button, state).unwrap();
-				}
-				404 => {
-					let Some(pointer) = event.get_pointer_event() else {
-						panic!();
-					};
-
-					let v120 = pointer.get_scroll_value_v120(0);
-					crate::state::on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0).unwrap();
-				}
-				_ => {}
+				crate::state::on_keyboard_button(
+					keyboard.get_key(),
+					keyboard.get_key_state() as _,
+				)?;
 			}
+			400 => {
+				let Some(pointer) = event.get_pointer_event() else {
+					panic!();
+				};
 
-			Ok(())
-		},
-	);
+				state.input.x += pointer.get_dx();
+				state.input.y += pointer.get_dy();
 
-	runtime.run(&mut (0.0, 0.0))
+				state.input.x = state.input.x.clamp(0.0, 2560.0);
+				state.input.y = state.input.y.clamp(0.0, 1440.0);
+
+				crate::state::on_cursor_move((state.input.x as _, state.input.y as _)).unwrap();
+			}
+			402 => {
+				let Some(pointer) = event.get_pointer_event() else {
+					panic!();
+				};
+
+				let button = pointer.get_button();
+				let state = pointer.get_button_state();
+
+				crate::state::on_mouse_button(button, state).unwrap();
+			}
+			404 => {
+				let Some(pointer) = event.get_pointer_event() else {
+					panic!();
+				};
+
+				let v120 = pointer.get_scroll_value_v120(0);
+				crate::state::on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0).unwrap();
+			}
+			_ => {}
+		}
+
+		Ok(())
+	});
+
+	Ok(())
 }
 
 #[link(name = "input")]

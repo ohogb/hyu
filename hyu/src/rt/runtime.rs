@@ -2,27 +2,30 @@ use std::os::fd::{AsFd as _, AsRawFd as _};
 
 use crate::{rt::Producer, Result};
 
-struct Caller<T: Producer, U, V: FnMut(T::Message<'_>, &mut U) -> T::Ret> {
+struct Caller<T: Producer, U, V: FnMut(T::Message<'_>, &mut U, &mut Runtime<U>) -> T::Ret> {
 	producer: T,
 	callback: V,
 	_phantom: std::marker::PhantomData<U>,
 }
 
 trait CallerWrapper<T> {
-	fn call(&mut self, state: &mut T) -> Result<std::ops::ControlFlow<()>>;
+	fn call(&mut self, state: &mut T, rt: &mut Runtime<T>) -> Result<std::ops::ControlFlow<()>>;
 }
 
-impl<T: Producer, U, V: FnMut(T::Message<'_>, &mut U) -> T::Ret> CallerWrapper<U>
+impl<T: Producer, U, V: FnMut(T::Message<'_>, &mut U, &mut Runtime<U>) -> T::Ret> CallerWrapper<U>
 	for Caller<T, U, V>
 {
-	fn call(&mut self, state: &mut U) -> Result<std::ops::ControlFlow<()>> {
+	fn call(&mut self, state: &mut U, rt: &mut Runtime<U>) -> Result<std::ops::ControlFlow<()>> {
 		self.producer
-			.call(&mut |event| (self.callback)(event, state))
+			.call(&mut |event| (self.callback)(event, state, rt))
 	}
 }
 
 pub struct Runtime<State> {
-	map: std::collections::HashMap<std::os::fd::RawFd, Box<dyn CallerWrapper<State>>>,
+	map: std::collections::HashMap<
+		std::os::fd::RawFd,
+		std::rc::Rc<std::cell::RefCell<dyn CallerWrapper<State>>>,
+	>,
 	_phantom: std::marker::PhantomData<State>,
 }
 
@@ -37,7 +40,7 @@ impl<State: 'static> Runtime<State> {
 	pub fn on<T: Producer + 'static>(
 		&mut self,
 		producer: T,
-		callback: impl FnMut(T::Message<'_>, &mut State) -> T::Ret + 'static,
+		callback: impl FnMut(T::Message<'_>, &mut State, &mut Self) -> T::Ret + 'static,
 	) {
 		let fd = producer.fd();
 
@@ -47,11 +50,12 @@ impl<State: 'static> Runtime<State> {
 			_phantom: std::marker::PhantomData::<State>,
 		};
 
-		self.map.insert(fd, Box::new(a));
+		self.map
+			.insert(fd, std::rc::Rc::new(std::cell::RefCell::new(a)));
 	}
 
 	pub fn run(&mut self, state: &mut State) -> Result<()> {
-		'outer: loop {
+		loop {
 			// TODO: clean this up
 			let mut keys = self
 				.map
@@ -70,16 +74,18 @@ impl<State: 'static> Runtime<State> {
 					continue;
 				}
 
-				let entry = self.map.get_mut(&i.as_fd().as_raw_fd()).unwrap();
-				let ret = entry.call(state)?;
+				let entry = std::rc::Rc::clone(self.map.get_mut(&i.as_fd().as_raw_fd()).unwrap());
+				let mut entry = entry.borrow_mut();
+
+				let ret = entry.call(state, self)?;
 
 				match ret {
 					std::ops::ControlFlow::Continue(_) => {}
-					std::ops::ControlFlow::Break(_) => break 'outer,
+					std::ops::ControlFlow::Break(_) => {
+						self.map.remove(&i.as_fd().as_raw_fd()).unwrap();
+					}
 				}
 			}
 		}
-
-		Ok(())
 	}
 }

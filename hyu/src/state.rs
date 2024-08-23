@@ -496,7 +496,8 @@ pub fn on_keyboard_button(code: u32, input_state: u32) -> Result<()> {
 	if (depressed & 64) != 0 {
 		if code == 1 && input_state == 1 {
 			set_quit();
-			return Ok(());
+			return Err("quit")?;
+			// return Ok(());
 		}
 
 		if code == 20 && input_state == 1 {
@@ -549,3 +550,8 @@ pub fn set_quit() {
 
 pub static RENDER: crate::GlobalWrapper<crate::rt::producers::Sender<()>> =
 	crate::GlobalWrapper::empty();
+
+pub struct State {
+	pub drm: crate::backend::drm::State,
+	pub input: crate::backend::input::State,
+}

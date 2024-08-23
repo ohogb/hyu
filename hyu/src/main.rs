@@ -57,7 +57,7 @@ fn client_event_loop(stream: std::os::unix::net::UnixStream, index: usize) -> Re
 
 	let mut runtime = rt::Runtime::new();
 
-	runtime.on(rt::producers::Wl::new(stream), move |msg, _| match msg {
+	runtime.on(rt::producers::Wl::new(stream), move |msg, _, _| match msg {
 		rt::producers::WlMessage::Request {
 			object,
 			op,
@@ -107,15 +107,9 @@ fn main() -> Result<()> {
 
 	let tty = tty::Device::open_current()?;
 
-	std::thread::spawn(|| backend::drm::run().unwrap());
-	std::thread::spawn(|| backend::input::run().unwrap());
-
 	tty.set_mode(1)?;
-
 	let old_keyboard_mode = tty.get_keyboard_mode()?;
 	tty.set_keyboard_mode(4)?;
-
-	// std::thread::spawn(|| backend::winit::run(backend::gl::Setup).unwrap());
 
 	let runtime_dir = std::env::var("XDG_RUNTIME_DIR")?;
 
@@ -126,23 +120,85 @@ fn main() -> Result<()> {
 		std::fs::remove_file(&path)?;
 	}
 
+	let mut state = state::State {
+		drm: backend::drm::initialize_state()?,
+		input: backend::input::initialize_state()?,
+	};
+
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
 
-	while !state::quit() {
-		let (stream, _) = match socket.accept() {
-			Ok(x) => x,
-			Err(x) if x.kind() == std::io::ErrorKind::WouldBlock => {
-				std::thread::sleep(std::time::Duration::from_millis(10));
-				continue;
-			}
-			Err(x) => Err(x)?,
-		};
+	let mut runtime = rt::Runtime::new();
 
-		std::thread::spawn(move || client_event_loop(stream, 0).unwrap());
-	}
+	backend::drm::attach(&mut runtime, &mut state)?;
+	backend::input::attach(&mut runtime, &mut state)?;
 
-	drop(socket);
+	runtime.on(
+		rt::producers::UnixListener::new(socket),
+		|(stream, _), state, runtime| {
+			let stream = Stream::new(stream);
+			let fd = stream.get().as_raw_fd();
+
+			let mut client = wl::Client::new(fd, Point(0, 0), stream.clone());
+
+			let mut display = wl::Display::new(wl::Id::new(1));
+
+			display.push_global(wl::Shm::new(wl::Id::null()));
+			display.push_global(wl::Compositor::new());
+			display.push_global(wl::SubCompositor::new(wl::Id::null()));
+			display.push_global(wl::DataDeviceManager::new());
+			display.push_global(wl::Seat::new(wl::Id::null(), state::get_xkb_keymap()));
+			display.push_global(wl::Output::new(wl::Id::null()));
+			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
+			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null())?);
+			display.push_global(wl::WpPresentation::new(wl::Id::null()));
+
+			client.ensure_objects_capacity();
+			client.new_object(wl::Id::new(1), display);
+
+			state::CLIENTS.lock().unwrap().insert(fd, client);
+
+			runtime.on(rt::producers::Wl::new(stream), move |msg, _, _| match msg {
+				rt::producers::WlMessage::Request {
+					object,
+					op,
+					params,
+					fds,
+				} => {
+					let mut clients = state::CLIENTS.lock().unwrap();
+
+					let client = clients.get_mut(&fd).unwrap();
+					client.received_fds.extend(fds);
+
+					client.ensure_objects_capacity();
+
+					let Some(object) = client.get_resource_mut(object) else {
+						return Err(format!("unknown object '{object}'"))?;
+					};
+
+					object.handle(client, op, &params)?;
+
+					state::process_focus_changes(&mut clients)
+				}
+				rt::producers::WlMessage::Closed => {
+					let mut clients = state::CLIENTS.lock().unwrap();
+
+					state::CHANGES
+						.lock()
+						.unwrap()
+						.push(state::Change::RemoveClient(fd));
+
+					state::process_focus_changes(&mut clients)
+				}
+			});
+
+			Ok(())
+		},
+	);
+
+	runtime.run(&mut state)?;
+
+	drop(runtime);
 	std::fs::remove_file(path)?;
 
 	tty.set_keyboard_mode(old_keyboard_mode)?;
