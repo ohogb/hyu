@@ -3,11 +3,16 @@ use crate::{wl, Point, Result};
 pub struct Pointer {
 	object_id: wl::Id<Self>,
 	seat_id: wl::Id<wl::Seat>,
+	pub should_hide_cursor: bool,
 }
 
 impl Pointer {
 	pub fn new(object_id: wl::Id<Self>, seat_id: wl::Id<wl::Seat>) -> Self {
-		Self { object_id, seat_id }
+		Self {
+			object_id,
+			seat_id,
+			should_hide_cursor: false,
+		}
 	}
 
 	pub fn enter(
@@ -124,10 +129,18 @@ impl Pointer {
 }
 
 impl wl::Object for Pointer {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:set_cursor
+				let (_serial, surface, _hotspot_x, _hotspot_y): (
+					u32,
+					wl::Id<wl::Surface>,
+					i32,
+					i32,
+				) = wlm::decode::from_slice(params)?;
+
+				self.should_hide_cursor = surface.is_null();
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:release

@@ -200,8 +200,20 @@ impl Renderer {
 			}
 		}
 
-		let cursor_pos = compositor.pointer_position;
-		self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
+		let should_hide_cursor = if let Some(a) = &compositor.pointer_over {
+			let client = compositor.clients.get(&a.fd).unwrap();
+			client
+				.objects_mut::<wl::Pointer>()
+				.iter()
+				.fold(false, |acc, x| acc | x.should_hide_cursor)
+		} else {
+			false
+		};
+
+		if !should_hide_cursor {
+			let cursor_pos = compositor.pointer_position;
+			self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
+		}
 
 		Ok(())
 	}
