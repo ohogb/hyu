@@ -87,6 +87,8 @@ fn main() -> Result<()> {
 	runtime.on(
 		rt::producers::UnixListener::new(socket),
 		|(stream, _), state, runtime| {
+			stream.set_nonblocking(true)?;
+
 			let stream = Stream::new(stream);
 			let fd = stream.get().as_raw_fd();
 
