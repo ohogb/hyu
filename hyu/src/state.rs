@@ -402,8 +402,14 @@ impl CompositorState {
 			if let Some(PointerOver { fd, surface, .. }) = old {
 				let client = self.clients.get_mut(&fd).unwrap();
 
+				let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+				let serial = display.new_serial();
+
 				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.leave(client, surface).unwrap();
+					pointer.leave(client, serial, surface).unwrap();
+				}
+
+				for pointer in client.objects_mut::<wl::Pointer>() {
 					pointer.frame(client).unwrap();
 				}
 			}
@@ -417,8 +423,14 @@ impl CompositorState {
 			{
 				let client = self.clients.get_mut(&fd).unwrap();
 
+				let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+				let serial = display.new_serial();
+
 				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.enter(client, surface, position).unwrap();
+					pointer.enter(client, serial, surface, position).unwrap();
+				}
+
+				for pointer in client.objects_mut::<wl::Pointer>() {
 					pointer.frame(client).unwrap();
 				}
 			}
@@ -429,6 +441,9 @@ impl CompositorState {
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
 				pointer.motion(client, position).unwrap();
+			}
+
+			for pointer in client.objects_mut::<wl::Pointer>() {
 				pointer.frame(client).unwrap();
 			}
 		}
@@ -451,8 +466,14 @@ impl CompositorState {
 		if let Some(PointerOver { fd, toplevel, .. }) = self.pointer_over {
 			let client = self.clients.get_mut(&fd).unwrap();
 
+			let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+			let serial = display.new_serial();
+
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.button(client, button, input_state).unwrap();
+				pointer.button(client, serial, button, input_state).unwrap();
+			}
+
+			for pointer in client.objects_mut::<wl::Pointer>() {
 				pointer.frame(client).unwrap();
 			}
 
@@ -478,7 +499,10 @@ impl CompositorState {
 				pointer.axis_source(client, 0)?;
 				pointer.axis_discrete(client, axis, discrete)?;
 				pointer.axis(client, axis, value)?;
-				pointer.frame(client)?;
+			}
+
+			for pointer in client.objects_mut::<wl::Pointer>() {
+				pointer.frame(client).unwrap();
 			}
 		}
 

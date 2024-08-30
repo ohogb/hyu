@@ -13,17 +13,16 @@ impl Pointer {
 	pub fn enter(
 		&mut self,
 		client: &mut wl::Client,
+		serial: u32,
 		surface: wl::Id<wl::Surface>,
 		position: Point,
 	) -> Result<()> {
-		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
-
 		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (
-				display.new_serial(),
+				serial,
 				surface,
 				fixed::types::I24F8::from_num(position.0),
 				fixed::types::I24F8::from_num(position.1),
@@ -31,14 +30,17 @@ impl Pointer {
 		})
 	}
 
-	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
-		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
-
+	pub fn leave(
+		&mut self,
+		client: &mut wl::Client,
+		serial: u32,
+		surface: wl::Id<wl::Surface>,
+	) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
-			args: (display.new_serial(), surface),
+			args: (serial, surface),
 		})
 	}
 
@@ -58,7 +60,13 @@ impl Pointer {
 		})
 	}
 
-	pub fn button(&mut self, client: &mut wl::Client, button: u32, state: u32) -> Result<()> {
+	pub fn button(
+		&mut self,
+		client: &mut wl::Client,
+		serial: u32,
+		button: u32,
+		state: u32,
+	) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 		let time = display.get_time().as_millis();
 
@@ -66,7 +74,7 @@ impl Pointer {
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
-			args: (display.new_serial(), time as u32, button, state),
+			args: (serial, time as u32, button, state),
 		})
 	}
 
