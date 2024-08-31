@@ -36,7 +36,8 @@ pub struct State {
 
 pub struct CompositorState {
 	pub clients: std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
-	pub window_stack: std::collections::VecDeque<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>,
+	pub windows: Vec<std::rc::Rc<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>>,
+	pub focused_window: Option<std::rc::Weak<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>>,
 	pub changes: Vec<Change>,
 	pub pointer_over: Option<PointerOver>,
 	pub pointer_position: Point,
@@ -48,7 +49,8 @@ impl CompositorState {
 	pub fn new(render_tx: rt::producers::Sender<()>) -> Self {
 		Self {
 			clients: Default::default(),
-			window_stack: Default::default(),
+			windows: Default::default(),
+			focused_window: Default::default(),
 			changes: Default::default(),
 			pointer_over: Default::default(),
 			pointer_position: Default::default(),
@@ -95,17 +97,20 @@ impl CompositorState {
 	}
 
 	pub fn process_focus_changes(&mut self) -> Result<()> {
-		let old = self.window_stack.iter().next().cloned();
+		let old = self.get_focused_window();
 
 		let mut should_leave_from_old = false;
-		let mut should_recompute_size_and_pos = false;
 
-		for (i, change) in std::mem::take(&mut self.changes).into_iter().enumerate() {
-			should_recompute_size_and_pos = true;
+		let changes = std::mem::take(&mut self.changes);
+		let should_recompute_size_and_pos = !changes.is_empty();
 
+		for (i, change) in changes.into_iter().enumerate() {
 			let x = match change {
 				Change::Push(fd, id) => {
-					self.window_stack.push_front((fd, id));
+					let rc = std::rc::Rc::new((fd, id));
+
+					self.windows.insert(0, rc.clone());
+					self.focused_window = Some(std::rc::Rc::downgrade(&rc));
 
 					let client = self.clients.get_mut(&fd).unwrap();
 
@@ -115,7 +120,12 @@ impl CompositorState {
 					true
 				}
 				Change::RemoveToplevel(fd, id) => {
-					self.window_stack.retain(|&x| x != (fd, id));
+					self.windows.retain(|x| **x != (fd, id));
+
+					if self.get_focused_window().is_none() {
+						self.focused_window =
+							self.windows.first().map(|x| std::rc::Rc::downgrade(x));
+					}
 
 					if let Some(value) = &self.pointer_over {
 						if value.fd == fd && value.toplevel == id {
@@ -135,8 +145,13 @@ impl CompositorState {
 					false
 				}
 				Change::RemoveClient(fd) => {
-					self.window_stack.retain(|&(x, _)| x != fd);
+					self.windows.retain(|x| x.0 != fd);
 					self.clients.remove(&fd);
+
+					if self.get_focused_window().is_none() {
+						self.focused_window =
+							self.windows.first().map(|x| std::rc::Rc::downgrade(x));
+					}
 
 					if let Some(value) = &self.pointer_over {
 						if value.fd == fd {
@@ -147,11 +162,13 @@ impl CompositorState {
 					false
 				}
 				Change::Pick(fd, toplevel) => {
-					let size_before = self.window_stack.len();
-					self.window_stack.retain(|&x| x != (fd, toplevel));
-					assert!(self.window_stack.len() == (size_before - 1));
+					self.focused_window = self
+						.windows
+						.iter()
+						.find(|x| ***x == (fd, toplevel))
+						.map(|x| std::rc::Rc::downgrade(x));
 
-					self.window_stack.push_front((fd, toplevel));
+					assert!(self.focused_window.is_some());
 					true
 				}
 			};
@@ -161,11 +178,13 @@ impl CompositorState {
 			}
 		}
 
-		let current = self.window_stack.iter().next().cloned();
+		let current = self.get_focused_window();
 
-		if old == current && !should_recompute_size_and_pos {
+		if !should_recompute_size_and_pos {
 			return Ok(());
 		}
+
+		self.render_tx.send(()).unwrap();
 
 		const GAP: i32 = 0;
 		const WIDTH: i32 = 2560;
@@ -196,54 +215,32 @@ impl CompositorState {
 			}
 		};
 
-		let mut index = 0;
+		for (index, (fd, xdg_toplevel)) in self.windows.iter().map(|x| **x).enumerate() {
+			let client = self.clients.get_mut(&fd).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
 
-		for client in self.clients.values_mut() {
-			for xdg_toplevel in client.objects_mut::<wl::XdgToplevel>() {
-				let (pos, size) = get_pos_and_size(index as _, self.window_stack.len() as _);
+			let (pos, size) = get_pos_and_size(index as _, self.windows.len() as _);
 
-				xdg_toplevel.position = pos;
-				xdg_toplevel.size = Some(size);
+			xdg_toplevel.position = pos;
+			xdg_toplevel.size = Some(size);
 
-				if Some((client.fd, xdg_toplevel.object_id)) != old
-					&& Some((client.fd, xdg_toplevel.object_id)) != current
-				{
-					xdg_toplevel.configure(client)?;
-				}
+			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
+			let surface = client.get_object(xdg_surface.surface)?;
 
-				index += 1;
-			}
-		}
-
-		if should_leave_from_old {
-			if let Some((fd, id)) = old {
-				let client = self.clients.get_mut(&fd).unwrap();
-
-				let xdg_toplevel = client.get_object_mut(id).unwrap();
-				let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-				let surface = client.get_object(xdg_surface.surface)?;
-
+			if should_leave_from_old && old == Some((fd, xdg_toplevel.object_id)) {
 				for keyboard in client.objects_mut::<wl::Keyboard>() {
 					keyboard.leave(client, surface.object_id)?;
 				}
 
 				xdg_toplevel.remove_state(4);
-				xdg_toplevel.configure(client)?;
-			}
-		}
+			} else if current == Some((fd, xdg_toplevel.object_id)) {
+				for keyboard in client.objects_mut::<wl::Keyboard>() {
+					keyboard.enter(client, surface.object_id)?;
+				}
 
-		if let Some((fd, id)) = current {
-			let client = self.clients.get_mut(&fd).unwrap();
-
-			let xdg_toplevel = client.get_object_mut(id).unwrap();
-			let xdg_surface = client.get_object(xdg_toplevel.surface)?;
-			let surface = client.get_object(xdg_surface.surface)?;
-
-			for keyboard in client.objects_mut::<wl::Keyboard>() {
-				keyboard.enter(client, surface.object_id)?;
+				xdg_toplevel.add_state(4);
 			}
 
-			xdg_toplevel.add_state(4);
 			xdg_toplevel.configure(client)?;
 		}
 
@@ -266,12 +263,12 @@ impl CompositorState {
 
 		let mut moving = None;
 
-		'outer: for (client, window) in &self.window_stack {
+		'outer: for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
 			if self.pointer_over.is_some() {
 				break;
 			}
 
-			let client = self.clients.get_mut(client).unwrap();
+			let client = self.clients.get_mut(&fd).unwrap();
 
 			for seat in client.objects_mut::<wl::Seat>() {
 				if seat.moving_toplevel.is_some() {
@@ -343,7 +340,7 @@ impl CompositorState {
 				}
 			}
 
-			let toplevel = client.get_object(*window).unwrap();
+			let toplevel = client.get_object(xdg_toplevel).unwrap();
 			let xdg_surface = client.get_object(toplevel.surface).unwrap();
 			let surface = client.get_object(xdg_surface.surface).unwrap();
 
@@ -477,11 +474,11 @@ impl CompositorState {
 				pointer.frame(client).unwrap();
 			}
 
-			let Some(&topmost) = self.window_stack.front() else {
+			let Some(focused_window) = self.get_focused_window() else {
 				panic!();
 			};
 
-			if topmost != (fd, toplevel) {
+			if focused_window != (fd, toplevel) {
 				self.changes.push(Change::Pick(fd, toplevel));
 			}
 
@@ -535,9 +532,9 @@ impl CompositorState {
 			}
 
 			if code == 46 && input_state == 1 {
-				if let Some((fd, xdg_toplevel)) = self.window_stack.front() {
-					let client = self.clients.get_mut(fd).unwrap();
-					let xdg_toplevel = client.get_object(*xdg_toplevel)?;
+				if let Some((fd, xdg_toplevel)) = self.get_focused_window() {
+					let client = self.clients.get_mut(&fd).unwrap();
+					let xdg_toplevel = client.get_object(xdg_toplevel)?;
 
 					xdg_toplevel.close(client)?;
 				}
@@ -546,8 +543,8 @@ impl CompositorState {
 			}
 		}
 
-		if let Some((client, _window)) = self.window_stack.iter().next() {
-			let client = self.clients.get_mut(client).unwrap();
+		if let Some((fd, _)) = self.get_focused_window() {
+			let client = self.clients.get_mut(&fd).unwrap();
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				if keyboard.key_states[code as usize] != (input_state != 0) {
@@ -558,6 +555,15 @@ impl CompositorState {
 				keyboard.modifiers(client, depressed).unwrap();
 			}
 		}
+
 		Ok(())
+	}
+
+	pub fn get_focused_window(&self) -> Option<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)> {
+		self.focused_window
+			.as_ref()
+			.map(|x| x.upgrade())
+			.flatten()
+			.map(|x| *x)
 	}
 }

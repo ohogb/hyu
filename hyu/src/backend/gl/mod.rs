@@ -154,8 +154,8 @@ impl Renderer {
 			GLOW.clear(glow::COLOR_BUFFER_BIT);
 		}
 
-		for (client, window) in compositor.window_stack.iter().rev() {
-			let client = compositor.clients.get_mut(client).unwrap();
+		for (fd, xdg_toplevel) in compositor.windows.iter().map(|x| **x) {
+			let client = compositor.clients.get_mut(&fd).unwrap();
 
 			fn draw(
 				this: &mut Renderer,
@@ -181,7 +181,7 @@ impl Renderer {
 				Ok(())
 			}
 
-			let toplevel = client.get_object(*window)?;
+			let toplevel = client.get_object(xdg_toplevel)?;
 
 			let xdg_surface = client.get_object(toplevel.surface)?;
 			let surface = client.get_object_mut(xdg_surface.surface)?;
@@ -225,8 +225,8 @@ impl Renderer {
 		tv_usec: u32,
 		sequence: u32,
 	) -> Result<()> {
-		for (client, window) in compositor.window_stack.iter().rev() {
-			let client = compositor.clients.get_mut(client).unwrap();
+		for (fd, xdg_toplevel) in compositor.windows.iter().map(|x| **x) {
+			let client = compositor.clients.get_mut(&fd).unwrap();
 			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 
 			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
@@ -240,7 +240,7 @@ impl Renderer {
 				)
 			};
 
-			let toplevel = client.get_object(*window)?;
+			let toplevel = client.get_object(xdg_toplevel)?;
 			let xdg_surface = client.get_object(toplevel.surface)?;
 			let surface = client.get_object_mut(xdg_surface.surface)?;
 
