@@ -541,6 +541,64 @@ impl CompositorState {
 
 				return Ok(());
 			}
+
+			if code == 36 && input_state == 1 {
+				let Some((fd, xdg_toplevel)) = self.get_focused_window() else {
+					return Ok(());
+				};
+
+				let Some(index) = self
+					.windows
+					.iter()
+					.enumerate()
+					.find(|(_, x)| ***x == (fd, xdg_toplevel))
+					.map(|(x, _)| x)
+				else {
+					return Ok(());
+				};
+
+				if index >= (self.windows.len() - 1) {
+					return Ok(());
+				};
+
+				let Some((fd, xdg_toplevel)) = self.windows.get(index + 1).map(|x| **x) else {
+					panic!();
+				};
+
+				self.changes.push(Change::Pick(fd, xdg_toplevel));
+				self.process_focus_changes()?;
+
+				return Ok(());
+			}
+
+			if code == 37 && input_state == 1 {
+				let Some((fd, xdg_toplevel)) = self.get_focused_window() else {
+					return Ok(());
+				};
+
+				let Some(index) = self
+					.windows
+					.iter()
+					.enumerate()
+					.find(|(_, x)| ***x == (fd, xdg_toplevel))
+					.map(|(x, _)| x)
+				else {
+					return Ok(());
+				};
+
+				if index <= 0 {
+					return Ok(());
+				};
+
+				let Some((fd, xdg_toplevel)) = self.windows.get(index - 1).map(|x| **x) else {
+					panic!();
+				};
+
+				self.changes.push(Change::Pick(fd, xdg_toplevel));
+				self.process_focus_changes()?;
+
+				return Ok(());
+			}
 		}
 
 		if let Some((fd, _)) = self.get_focused_window() {
