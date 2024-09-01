@@ -215,6 +215,9 @@ impl CompositorState {
 			}
 		};
 
+		let mut leave = None;
+		let mut enter = None;
+
 		for (index, (fd, xdg_toplevel)) in self.windows.iter().map(|x| **x).enumerate() {
 			let client = self.clients.get_mut(&fd).unwrap();
 			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
@@ -228,19 +231,37 @@ impl CompositorState {
 			let surface = client.get_object(xdg_surface.surface)?;
 
 			if should_leave_from_old && old == Some((fd, xdg_toplevel.object_id)) {
-				for keyboard in client.objects_mut::<wl::Keyboard>() {
-					keyboard.leave(client, surface.object_id)?;
-				}
-
-				xdg_toplevel.remove_state(4);
+				leave = Some((fd, xdg_toplevel.object_id, surface.object_id));
+				continue;
 			} else if current == Some((fd, xdg_toplevel.object_id)) {
-				for keyboard in client.objects_mut::<wl::Keyboard>() {
-					keyboard.enter(client, surface.object_id)?;
-				}
-
-				xdg_toplevel.add_state(4);
+				enter = Some((fd, xdg_toplevel.object_id, surface.object_id));
+				continue;
 			}
 
+			xdg_toplevel.configure(client)?;
+		}
+
+		if let Some((fd, xdg_toplevel, surface)) = leave {
+			let client = self.clients.get_mut(&fd).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
+
+			for keyboard in client.objects_mut::<wl::Keyboard>() {
+				keyboard.leave(client, surface)?;
+			}
+
+			xdg_toplevel.remove_state(4);
+			xdg_toplevel.configure(client)?;
+		}
+
+		if let Some((fd, xdg_toplevel, surface)) = enter {
+			let client = self.clients.get_mut(&fd).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
+
+			for keyboard in client.objects_mut::<wl::Keyboard>() {
+				keyboard.enter(client, surface)?;
+			}
+
+			xdg_toplevel.add_state(4);
 			xdg_toplevel.configure(client)?;
 		}
 
