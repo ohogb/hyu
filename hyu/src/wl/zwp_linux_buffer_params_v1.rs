@@ -1,3 +1,5 @@
+use color_eyre::eyre::OptionExt as _;
+
 use crate::{egl, wl, Point, Result};
 
 pub struct ZwpLinuxBufferParamsV1 {
@@ -83,7 +85,7 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 
 				let image = crate::egl::DISPLAY
 					.create_image(0x3270, &attributes)
-					.ok_or("failed to create egl image")?;
+					.ok_or_eyre("failed to create egl image")?;
 
 				eprintln!("image: {image:?}",);
 
@@ -96,7 +98,7 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 					),
 				);
 			}
-			_ => Err(format!("unknown op '{op}' in ZwpLinuxBufferParamsV1"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxBufferParamsV1"),
 		}
 
 		Ok(())

@@ -119,7 +119,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.done(client)?;
 			}
-			_ => Err(format!("unknown op '{op}' in ZwpLinuxDmabufV1"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxDmabufV1"),
 		}
 
 		Ok(())

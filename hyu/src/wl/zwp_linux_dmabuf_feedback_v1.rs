@@ -91,7 +91,7 @@ impl wl::Object for ZwpLinuxDmabufFeedbackV1 {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:request:destroy
 				client.remove_object(self.object_id)?;
 			}
-			_ => Err(format!("unknown op '{op}' in ZwpLinuxDmabufFeedbackV1"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxDmabufFeedbackV1"),
 		}
 
 		Ok(())

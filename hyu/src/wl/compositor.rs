@@ -22,7 +22,7 @@ impl wl::Object for Compositor {
 				let id: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
 				client.new_object(id, wl::Region::new(id));
 			}
-			_ => Err(format!("unknown op '{op}' in Compositor"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Compositor"),
 		}
 
 		Ok(())

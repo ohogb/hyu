@@ -19,7 +19,7 @@ impl wl::Object for DataDeviceManager {
 
 				client.new_object(id, wl::DataDevice::new(seat));
 			}
-			_ => Err(format!("unknown op '{op}' in DataDeviceManager"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in DataDeviceManager"),
 		}
 
 		Ok(())

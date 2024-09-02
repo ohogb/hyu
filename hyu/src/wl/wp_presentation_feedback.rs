@@ -49,10 +49,6 @@ impl WpPresentationFeedback {
 
 impl wl::Object for WpPresentationFeedback {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
-		match op {
-			_ => Err(format!("unknown op '{op}' in WpPresentationFeedback"))?,
-		}
-
-		Ok(())
+		color_eyre::eyre::bail!("unknown op '{op}' in WpPresentationFeedback");
 	}
 }

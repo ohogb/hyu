@@ -98,7 +98,7 @@ impl wl::Object for Keyboard {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_keyboard:request:release
 			}
-			_ => Err(format!("unknown op '{op}' in Keyboard"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Keyboard"),
 		}
 
 		Ok(())

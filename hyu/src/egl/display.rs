@@ -149,7 +149,7 @@ impl Display {
 		if ret == 1 {
 			Ok(())
 		} else {
-			Err("make_current failed")?
+			color_eyre::eyre::bail!("make_current failed");
 		}
 	}
 

@@ -16,7 +16,7 @@ impl wl::Object for DataDevice {
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_data_device:request:release
 			}
-			_ => Err(format!("unknown op '{op}' in DataDevice"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in DataDevice"),
 		}
 
 		Ok(())

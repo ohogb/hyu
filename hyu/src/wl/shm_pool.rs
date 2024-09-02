@@ -112,7 +112,7 @@ impl wl::Object for ShmPool {
 				self.size = size;
 				*self.map.get() = Map::new(size as _, self.fd)?;
 			}
-			_ => Err(format!("unknown op '{op}' in ShmPool"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in ShmPool"),
 		}
 
 		Ok(())

@@ -29,7 +29,7 @@ impl wl::Object for Shm {
 
 				client.new_object(id, wl::ShmPool::new(id, fd, size)?);
 			}
-			_ => Err(format!("unknown op '{op}' in Shm"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Shm"),
 		}
 
 		Ok(())

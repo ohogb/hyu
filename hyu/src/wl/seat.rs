@@ -52,7 +52,7 @@ impl wl::Object for Seat {
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:release
 			}
-			_ => Err(format!("unknown op '{op}' in Seat"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Seat"),
 		}
 
 		Ok(())

@@ -58,7 +58,7 @@ impl wl::Object for SubSurface {
 
 				*mode = wl::SubSurfaceMode::Desync;
 			}
-			_ => Err(format!("unknown op '{op}' in SubSurface"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in SubSurface"),
 		}
 
 		Ok(())

@@ -63,15 +63,15 @@ impl XdgPositioner {
 
 	pub fn finalize(&self, xdg_surface: &wl::XdgSurface) -> Result<(Point, Point)> {
 		let Some(anchor) = &self.anchor else {
-			return Err("anchor not set")?;
+			color_eyre::eyre::bail!("anchor not set");
 		};
 
 		let Some(anchor_rect) = &self.anchor_rect else {
-			return Err("anchor rect not set")?;
+			color_eyre::eyre::bail!("anchor rect not set");
 		};
 
 		let Some(size) = self.size else {
-			return Err("size not set")?;
+			color_eyre::eyre::bail!("size not set");
 		};
 
 		let factor = anchor.translation_factor();
@@ -139,7 +139,7 @@ impl wl::Object for XdgPositioner {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_parent_configure
 				let _serial: u32 = wlm::decode::from_slice(params)?;
 			}
-			_ => Err(format!("unknown op '{op}' in XdgPositioner"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in XdgPositioner"),
 		}
 
 		Ok(())

@@ -24,6 +24,6 @@ impl Callback {
 
 impl wl::Object for Callback {
 	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
-		Err(format!("unknown op '{op}' in Callback"))?
+		color_eyre::eyre::bail!("unknown op '{op}' in Callback");
 	}
 }

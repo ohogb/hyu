@@ -3,6 +3,7 @@ use crate::{egl, rt, state, Result};
 mod device;
 pub mod gbm;
 
+use color_eyre::eyre::OptionExt as _;
 use device::*;
 use glow::HasContext as _;
 
@@ -124,7 +125,7 @@ impl Screen {
 				0x34325258,
 				(1 << 0) | (1 << 2),
 			)
-			.ok_or("failed to create gbm surface")?;
+			.ok_or_eyre("failed to create gbm surface")?;
 
 		let connector_crtc_id = connector.find_property("CRTC_ID").unwrap();
 
@@ -144,7 +145,7 @@ impl Screen {
 
 		let window_surface = display
 			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
-			.ok_or("failed to create window surface")?;
+			.ok_or_eyre("failed to create window surface")?;
 
 		Ok(Self {
 			connector,
@@ -182,7 +183,7 @@ impl Screen {
 		let bo = self
 			.gbm_surface
 			.lock_front_buffer()
-			.ok_or("failed to lock front buffer")?;
+			.ok_or_eyre("failed to lock front buffer")?;
 
 		let fb = bo.get_fb(&device)?;
 
@@ -269,16 +270,17 @@ pub fn initialize_state() -> Result<State> {
 		.collect::<Vec<_>>();
 
 	let gbm_device = gbm::Device::create(device.get_fd());
-	let display = egl::Display::from_gbm(&gbm_device).ok_or("failed to get platform display")?;
+	let display =
+		egl::Display::from_gbm(&gbm_device).ok_or_eyre("failed to get platform display")?;
 
 	egl::enable_debugging();
 
 	display
 		.initialize()
-		.ok_or("failed to initialize egl display")?;
+		.ok_or_eyre("failed to initialize egl display")?;
 
 	if egl::bind_api(0x30A0) != 1 {
-		Err("failed to bind gl api")?;
+		color_eyre::eyre::bail!("failed to bind gl api");
 	}
 
 	let configs = display.choose_config(
@@ -294,11 +296,11 @@ pub fn initialize_state() -> Result<State> {
 			let ret = display.get_config_attrib(config, 0x302E).unwrap();
 			ret == 0x34325258
 		})
-		.ok_or("failed to find config with gbm format")?;
+		.ok_or_eyre("failed to find config with gbm format")?;
 
 	let context = display
 		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3038])
-		.ok_or("failed to create context")?;
+		.ok_or_eyre("failed to create context")?;
 
 	unsafe {
 		crate::egl::DISPLAY.initialize(display.clone());

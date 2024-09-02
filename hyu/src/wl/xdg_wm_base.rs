@@ -42,7 +42,7 @@ impl wl::Object for XdgWmBase {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:pong
 				let _serial: u32 = wlm::decode::from_slice(params)?;
 			}
-			_ => Err(format!("unknown op '{op}' in XdgWmBase"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in XdgWmBase"),
 		}
 
 		Ok(())

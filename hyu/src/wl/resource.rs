@@ -27,7 +27,7 @@ macro_rules! implement {
                 fn from(x: Resource) -> Self {
                     match x {
                         Resource::$children(x) => Self::Ok(x),
-                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                        _ => color_eyre::eyre::bail!(concat!("resource is not of type '", stringify!($children), "'")),
                     }
                 }
             }
@@ -36,7 +36,7 @@ macro_rules! implement {
                 fn from(x: &'a Resource) -> Self {
                     match x {
                         Resource::$children(x) => Self::Ok(x),
-                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                        _ => color_eyre::eyre::bail!(concat!("resource is not of type '", stringify!($children), "'")),
                     }
                 }
             }
@@ -45,7 +45,7 @@ macro_rules! implement {
                 fn from(x: &'a mut Resource) -> Self {
                     match x {
                         Resource::$children(x) => Self::Ok(x),
-                        _ => Err(concat!("resource is not of type '", stringify!($children), "'"))?,
+                        _ => color_eyre::eyre::bail!(concat!("resource is not of type '", stringify!($children), "'")),
                     }
                 }
             }

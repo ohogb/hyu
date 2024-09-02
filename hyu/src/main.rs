@@ -24,7 +24,7 @@ use wl::Object as _;
 
 use std::os::fd::AsRawFd as _;
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub type Result<T> = color_eyre::Result<T>;
 
 #[derive(clap::Parser)]
 struct Args {
@@ -41,6 +41,8 @@ impl<T: FnMut()> Drop for Defer<T> {
 }
 
 fn main() -> Result<()> {
+	color_eyre::install()?;
+
 	let args = Args::parse();
 
 	let tty = tty::Device::open_current()?;
@@ -130,7 +132,7 @@ fn main() -> Result<()> {
 						client.ensure_objects_capacity();
 
 						let Some(object) = client.get_resource_mut(object) else {
-							return Err(format!("unknown object '{object}'"))?;
+							color_eyre::eyre::bail!("unknown object '{object}'");
 						};
 
 						object.handle(client, op, &params)?;

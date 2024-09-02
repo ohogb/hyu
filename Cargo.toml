@@ -9,6 +9,7 @@ members = [
 ]
 
 [workspace.dependencies]
+color-eyre = { version = "0.6.3", default-features = false }
 serde = { version = "1.0.197", features = ["derive"] }
 
 [profile.release]

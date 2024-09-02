@@ -99,7 +99,7 @@ impl wl::Object for XdgSurface {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:ack_configure
 				let _serial: u32 = wlm::decode::from_slice(params)?;
 			}
-			_ => Err(format!("unknown op '{op}' in XdgSurface"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in XdgSurface"),
 		}
 
 		Ok(())

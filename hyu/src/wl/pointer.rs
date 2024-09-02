@@ -145,7 +145,7 @@ impl wl::Object for Pointer {
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:release
 			}
-			_ => Err(format!("unknown op '{op}' in Pointer"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Pointer"),
 		}
 
 		Ok(())

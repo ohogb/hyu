@@ -79,7 +79,7 @@ impl wl::Object for Output {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_output:request:release
 			}
-			_ => Err(format!("unknown op '{op}' in Output"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Output"),
 		}
 
 		Ok(())

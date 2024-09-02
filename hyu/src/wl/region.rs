@@ -27,7 +27,7 @@ impl wl::Object for Region {
 				let (x, y, w, h): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 				self.areas.push((Point(x, y), Point(w, h)));
 			}
-			_ => Err(format!("unknown op '{op}' in Region"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Region"),
 		}
 
 		Ok(())

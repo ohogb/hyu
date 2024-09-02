@@ -36,7 +36,7 @@ impl wl::Object for WpPresentation {
 				let surface = client.get_object_mut(surface)?;
 				surface.pending_presentation_feedback = Some(callback);
 			}
-			_ => Err(format!("unknown op '{op}' in WpPresentation"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in WpPresentation"),
 		}
 
 		Ok(())

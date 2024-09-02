@@ -80,7 +80,7 @@ impl wl::Object for XdgPopup {
 				let (position, size) = positioner.finalize(parent_xdg_surface)?;
 				self.configure(client, position, size)?;
 			}
-			_ => Err(format!("unknown op '{op}' in XdgPopup"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in XdgPopup"),
 		}
 
 		Ok(())

@@ -3,6 +3,8 @@ use std::{
 	os::fd::{FromRawFd as _, IntoRawFd as _},
 };
 
+use color_eyre::eyre::OptionExt as _;
+
 use crate::{rt, wl, xkb, Point, Result};
 
 pub enum Change {
@@ -60,12 +62,12 @@ impl CompositorState {
 	}
 
 	pub fn initialize_xkb_state(&mut self, layout: impl AsRef<str>) -> Result<()> {
-		let xkb_context = xkb::Context::create().ok_or("failed to create xkb context")?;
+		let xkb_context = xkb::Context::create().ok_or_eyre("failed to create xkb context")?;
 
 		let xkb_keymap =
-			xkb::Keymap::create(&xkb_context, layout).ok_or("failed to create xkb keymap")?;
+			xkb::Keymap::create(&xkb_context, layout).ok_or_eyre("failed to create xkb keymap")?;
 
-		let xkb_state = xkb::State::new(&xkb_keymap).ok_or("failed to create xkb state")?;
+		let xkb_state = xkb::State::new(&xkb_keymap).ok_or_eyre("failed to create xkb state")?;
 
 		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
 		nix::unistd::unlink(&path)?;
@@ -537,7 +539,7 @@ impl CompositorState {
 
 		if (depressed & 64) != 0 {
 			if code == 1 && input_state == 1 {
-				return Err("quit")?;
+				color_eyre::eyre::bail!("quit");
 				// return Ok(());
 			}
 

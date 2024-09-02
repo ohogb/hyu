@@ -40,7 +40,7 @@ impl wl::Object for Registry {
 				let global = display.get_global(name).unwrap();
 				global.bind(client, client_object)?;
 			}
-			_ => Err(format!("unknown op '{op}' in Registry"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Registry"),
 		}
 
 		Ok(())

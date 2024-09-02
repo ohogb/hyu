@@ -40,25 +40,31 @@ impl Renderer {
 
 			GLOW.clear_color(0.2, 0.2, 0.2, 1.0);
 
-			let vertex_shader = GLOW.create_shader(glow::VERTEX_SHADER)?;
+			let vertex_shader = GLOW
+				.create_shader(glow::VERTEX_SHADER)
+				.map_err(|x| color_eyre::eyre::eyre!(x))?;
 
 			GLOW.shader_source(vertex_shader, include_str!("vertex_shader.glsl"));
 			GLOW.compile_shader(vertex_shader);
 
 			if !GLOW.get_shader_compile_status(vertex_shader) {
-				Err(GLOW.get_shader_info_log(vertex_shader))?
+				color_eyre::eyre::bail!(GLOW.get_shader_info_log(vertex_shader));
 			}
 
-			let fragment_shader = GLOW.create_shader(glow::FRAGMENT_SHADER)?;
+			let fragment_shader = GLOW
+				.create_shader(glow::FRAGMENT_SHADER)
+				.map_err(|x| color_eyre::eyre::eyre!(x))?;
 
 			GLOW.shader_source(fragment_shader, include_str!("fragment_shader.glsl"));
 			GLOW.compile_shader(fragment_shader);
 
 			if !GLOW.get_shader_compile_status(fragment_shader) {
-				Err(GLOW.get_shader_info_log(fragment_shader))?
+				color_eyre::eyre::bail!(GLOW.get_shader_info_log(fragment_shader));
 			}
 
-			let program = GLOW.create_program()?;
+			let program = GLOW
+				.create_program()
+				.map_err(|x| color_eyre::eyre::eyre!(x))?;
 
 			GLOW.attach_shader(program, vertex_shader);
 			GLOW.attach_shader(program, fragment_shader);
@@ -66,7 +72,7 @@ impl Renderer {
 			GLOW.link_program(program);
 
 			if !GLOW.get_program_link_status(program) {
-				Err(GLOW.get_program_info_log(program))?
+				color_eyre::eyre::bail!(GLOW.get_program_info_log(program));
 			}
 
 			GLOW.delete_shader(vertex_shader);
@@ -74,8 +80,13 @@ impl Renderer {
 
 			GLOW.use_program(Some(program));
 
-			let vertex_array = GLOW.create_vertex_array()?;
-			let vertex_buffer = GLOW.create_buffer()?;
+			let vertex_array = GLOW
+				.create_vertex_array()
+				.map_err(|x| color_eyre::eyre::eyre!(x))?;
+
+			let vertex_buffer = GLOW
+				.create_buffer()
+				.map_err(|x| color_eyre::eyre::eyre!(x))?;
 
 			GLOW.bind_vertex_array(Some(vertex_array));
 			GLOW.bind_buffer(glow::ARRAY_BUFFER, Some(vertex_buffer));

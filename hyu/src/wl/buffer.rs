@@ -168,7 +168,7 @@ impl wl::Object for Buffer {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy
 				client.remove_object(self.object_id)?;
 			}
-			_ => Err(format!("unknown op '{op}' in Buffer"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Buffer"),
 		}
 
 		Ok(())

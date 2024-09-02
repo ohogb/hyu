@@ -7,7 +7,7 @@ pub struct Message<T> {
 }
 
 impl<T: serde::Serialize> Message<T> {
-	pub fn to_vec(&self) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+	pub fn to_vec(&self) -> color_eyre::eyre::Result<Vec<u8>> {
 		let mut ret = Vec::new();
 
 		ret.write_all(&self.object_id.to_ne_bytes())?;

@@ -77,7 +77,7 @@ impl<'object> Client {
 	{
 		self.get_resource(*id)
 			.ok_or_else(|| {
-				format!(
+				color_eyre::eyre::eyre!(
 					"object '{}@{}' does not exist",
 					std::any::type_name::<T>(),
 					*id
@@ -92,7 +92,7 @@ impl<'object> Client {
 	{
 		self.get_resource_mut(*id)
 			.ok_or_else(|| {
-				format!(
+				color_eyre::eyre::eyre!(
 					"object '{}@{}' does not exist",
 					std::any::type_name::<T>(),
 					*id

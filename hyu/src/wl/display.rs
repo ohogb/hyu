@@ -77,7 +77,7 @@ impl wl::Object for Display {
 					)?;
 				}
 			}
-			_ => Err(format!("unknown op '{op}' in Display"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Display"),
 		}
 
 		Ok(())

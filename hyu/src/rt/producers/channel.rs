@@ -11,7 +11,10 @@ pub struct Sender<T> {
 
 impl<T: 'static> Sender<T> {
 	pub fn send(&self, value: T) -> Result<()> {
-		self.sender.send(value)?;
+		self.sender
+			.send(value)
+			.map_err(|_| color_eyre::eyre::eyre!("failed to send value"))?;
+
 		self.event.write(1)?;
 
 		Ok(())

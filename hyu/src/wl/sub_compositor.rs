@@ -36,7 +36,7 @@ impl wl::Object for SubCompositor {
 
 				client.new_object(id, wl::SubSurface::new(id, surface_id, parent_id));
 			}
-			_ => Err(format!("unknown op '{op}' in SubCompositor"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in SubCompositor"),
 		}
 
 		Ok(())

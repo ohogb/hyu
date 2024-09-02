@@ -250,7 +250,7 @@ impl Surface {
 
 	pub fn set_role(&mut self, role: SurfaceRole) -> Result<()> {
 		if self.role.is_some() {
-			Err(format!("surface '{}' already has a role", *self.object_id))?;
+			color_eyre::eyre::bail!("surface '{}' already has a role", *self.object_id);
 		}
 
 		self.role = Some(role);
@@ -355,7 +355,7 @@ impl wl::Object for Surface {
 				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
 					wlm::decode::from_slice(params)?;
 			}
-			_ => Err(format!("unknown op '{op}' in Surface"))?,
+			_ => color_eyre::eyre::bail!("unknown op '{op}' in Surface"),
 		}
 
 		Ok(())
