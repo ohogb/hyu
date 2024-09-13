@@ -13,6 +13,8 @@ pub enum Change {
 	RemoveSurface(std::os::fd::RawFd, wl::Id<wl::Surface>),
 	RemoveClient(std::os::fd::RawFd),
 	Pick(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
+	MoveDown(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
+	MoveUp(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
 }
 
 #[derive(Clone, Copy)]
@@ -172,6 +174,42 @@ impl CompositorState {
 
 					assert!(self.focused_window.is_some());
 					true
+				}
+				Change::MoveDown(fd, xdg_toplevel) => {
+					let Some(index) = self
+						.windows
+						.iter()
+						.enumerate()
+						.find(|(_, x)| ***x == (fd, xdg_toplevel))
+						.map(|(x, _)| x)
+					else {
+						continue;
+					};
+
+					if index >= (self.windows.len() - 1) {
+						continue;
+					};
+
+					self.windows.swap(index, index + 1);
+					false
+				}
+				Change::MoveUp(fd, xdg_toplevel) => {
+					let Some(index) = self
+						.windows
+						.iter()
+						.enumerate()
+						.find(|(_, x)| ***x == (fd, xdg_toplevel))
+						.map(|(x, _)| x)
+					else {
+						continue;
+					};
+
+					if index <= 0 {
+						continue;
+					};
+
+					self.windows.swap(index, index - 1);
+					false
 				}
 			};
 
@@ -565,6 +603,30 @@ impl CompositorState {
 				return Ok(());
 			}
 
+			if (depressed & 1) != 0 {
+				if code == 36 && input_state == 1 {
+					let Some((fd, xdg_toplevel)) = self.get_focused_window() else {
+						return Ok(());
+					};
+
+					self.changes.push(Change::MoveDown(fd, xdg_toplevel));
+					self.process_focus_changes()?;
+
+					return Ok(());
+				}
+
+				if code == 37 && input_state == 1 {
+					let Some((fd, xdg_toplevel)) = self.get_focused_window() else {
+						return Ok(());
+					};
+
+					self.changes.push(Change::MoveUp(fd, xdg_toplevel));
+					self.process_focus_changes()?;
+
+					return Ok(());
+				}
+			}
+
 			if code == 36 && input_state == 1 {
 				let Some((fd, xdg_toplevel)) = self.get_focused_window() else {
 					return Ok(());
@@ -622,6 +684,8 @@ impl CompositorState {
 
 				return Ok(());
 			}
+
+			return Ok(());
 		}
 
 		if let Some((fd, _)) = self.get_focused_window() {
