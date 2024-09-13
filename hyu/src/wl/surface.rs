@@ -18,7 +18,6 @@ pub enum SurfaceRole {
 }
 
 pub enum SurfaceTexture {
-	Wgpu(wgpu::Texture, wgpu::BindGroup),
 	Gl(glow::NativeTexture),
 }
 
@@ -133,75 +132,6 @@ impl Surface {
 			let surface = client.get_object_mut(sub_surface.surface)?;
 
 			surface.presentation_feedback(time, refresh, sequence, flags, client)?;
-		}
-
-		Ok(())
-	}
-
-	pub fn wgpu_do_textures(
-		&mut self,
-		client: &mut wl::Client,
-		device: &wgpu::Device,
-		queue: &wgpu::Queue,
-		sampler: &wgpu::Sampler,
-		bind_group_layout: &wgpu::BindGroupLayout,
-	) -> Result<()> {
-		if let Some(buffer) = &self.current_buffer {
-			if let Some((size, ..)) = &self.data {
-				assert!(buffer.size == *size);
-			}
-
-			let (_, texture) = self.data.get_or_insert_with(|| {
-				let texture = device.create_texture(&wgpu::TextureDescriptor {
-					size: wgpu::Extent3d {
-						width: buffer.size.0 as _,
-						height: buffer.size.1 as _,
-						depth_or_array_layers: 1,
-					},
-					mip_level_count: 1,
-					sample_count: 1,
-					dimension: wgpu::TextureDimension::D2,
-					format: wgpu::TextureFormat::Bgra8UnormSrgb,
-					usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-					label: None,
-					view_formats: &[],
-				});
-
-				let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-					layout: bind_group_layout,
-					entries: &[
-						wgpu::BindGroupEntry {
-							binding: 0,
-							resource: wgpu::BindingResource::TextureView(
-								&texture.create_view(&wgpu::TextureViewDescriptor::default()),
-							),
-						},
-						wgpu::BindGroupEntry {
-							binding: 1,
-							resource: wgpu::BindingResource::Sampler(sampler),
-						},
-					],
-					label: None,
-				});
-
-				(buffer.size, SurfaceTexture::Wgpu(texture, bind_group))
-			});
-
-			let SurfaceTexture::Wgpu(texture, _) = texture else {
-				panic!();
-			};
-
-			buffer.wgpu_get_pixels(client, queue, texture)?;
-
-			buffer.release(client)?;
-			self.current_buffer = None;
-		}
-
-		for i in &self.children {
-			let sub_surface = client.get_object(*i)?;
-			let surface = client.get_object_mut(sub_surface.surface)?;
-
-			surface.wgpu_do_textures(client, device, queue, sampler, bind_group_layout)?;
 		}
 
 		Ok(())

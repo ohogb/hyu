@@ -31,52 +31,6 @@ impl Buffer {
 		}
 	}
 
-	pub fn wgpu_get_pixels(
-		&self,
-		_client: &wl::Client,
-		queue: &wgpu::Queue,
-		texture: &wgpu::Texture,
-	) -> Result<()> {
-		match &self.storage {
-			BufferStorage::Shm {
-				map,
-				offset,
-				stride,
-				..
-			} => {
-				let map = map.get().as_slice();
-
-				let start = *offset as usize;
-				let end = start + (stride * self.size.1) as usize;
-
-				let buffer = &map[start..end];
-
-				queue.write_texture(
-					wgpu::ImageCopyTexture {
-						texture,
-						mip_level: 0,
-						origin: wgpu::Origin3d::ZERO,
-						aspect: wgpu::TextureAspect::All,
-					},
-					buffer,
-					wgpu::ImageDataLayout {
-						offset: 0,
-						bytes_per_row: Some(*stride as _),
-						rows_per_image: Some(self.size.1 as _),
-					},
-					wgpu::Extent3d {
-						width: self.size.0 as _,
-						height: self.size.1 as _,
-						depth_or_array_layers: 1,
-					},
-				);
-			}
-			BufferStorage::Dmabuf { .. } => todo!(),
-		}
-
-		Ok(())
-	}
-
 	pub fn gl_get_pixels(
 		&self,
 		_client: &wl::Client,
