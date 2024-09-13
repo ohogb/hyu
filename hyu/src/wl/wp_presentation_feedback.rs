@@ -1,5 +1,3 @@
-use nix::sys::time::TimeValLike;
-
 use crate::{wl, Result};
 
 pub struct WpPresentationFeedback {

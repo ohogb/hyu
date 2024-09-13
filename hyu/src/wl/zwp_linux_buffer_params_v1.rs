@@ -1,6 +1,6 @@
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{egl, wl, Point, Result};
+use crate::{wl, Point, Result};
 
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,

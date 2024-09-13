@@ -3,7 +3,7 @@ use winit::platform::{
 	wayland::{EventLoopBuilderExtWayland as _, WindowBuilderExtWayland as _},
 };
 
-use crate::{state, Result};
+use crate::Result;
 
 pub trait WinitRendererSetup {
 	fn setup(

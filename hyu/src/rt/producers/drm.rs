@@ -1,4 +1,4 @@
-use std::{io::Read as _, os::fd::AsRawFd as _};
+use std::io::Read as _;
 
 use crate::{rt::Producer, Result};
 

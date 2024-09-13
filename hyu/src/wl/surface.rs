@@ -141,9 +141,7 @@ impl Surface {
 		if let Some(buffer) = &self.current_buffer {
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
-					let SurfaceTexture::Gl(tex) = tex else {
-						unreachable!();
-					};
+					let SurfaceTexture::Gl(tex) = tex;
 
 					unsafe {
 						glow.delete_texture(*tex);
@@ -158,9 +156,7 @@ impl Surface {
 				(buffer.size, SurfaceTexture::Gl(texture))
 			});
 
-			let SurfaceTexture::Gl(texture) = texture else {
-				panic!();
-			};
+			let SurfaceTexture::Gl(texture) = texture;
 
 			buffer.gl_get_pixels(client, glow, *texture)?;
 
