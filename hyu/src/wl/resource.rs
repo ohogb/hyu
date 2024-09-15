@@ -59,6 +59,7 @@ implement![
 	Compositor,
 	DataDevice,
 	DataDeviceManager,
+	DataSource,
 	Display,
 	Keyboard,
 	Output,
