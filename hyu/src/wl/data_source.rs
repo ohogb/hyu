@@ -21,6 +21,10 @@ impl wl::Object for DataSource {
 				// https://wayland.app/protocols/wayland#wl_data_source:request:destroy
 				client.remove_object(self.object_id)?;
 			}
+			2 => {
+				// https://wayland.app/protocols/wayland#wl_data_source:request:set_actions
+				let _dnd_actions: u32 = wlm::decode::from_slice(params)?;
+			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in DataSource"),
 		}
 
