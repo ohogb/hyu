@@ -312,7 +312,20 @@ impl CompositorState {
 		let cursor_position = Point(cursor_position.0, cursor_position.1);
 
 		self.pointer_position = cursor_position;
-		self.render_tx.send(())?;
+
+		let should_hide_cursor = if let Some(a) = &self.pointer_over {
+			let client = self.clients.get(&a.fd).unwrap();
+			client
+				.objects_mut::<wl::Pointer>()
+				.iter()
+				.fold(false, |acc, x| acc | x.should_hide_cursor)
+		} else {
+			false
+		};
+
+		if !should_hide_cursor {
+			self.render_tx.send(())?;
+		}
 
 		for client in self.clients.values_mut() {
 			for seat in client.objects_mut::<wl::Seat>() {
