@@ -2,6 +2,7 @@ use crate::{wl, Point, Result};
 
 pub struct Pointer {
 	object_id: wl::Id<Self>,
+	#[expect(dead_code)]
 	seat_id: wl::Id<wl::Seat>,
 	pub should_hide_cursor: bool,
 }

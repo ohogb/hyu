@@ -18,7 +18,6 @@ extern "C" {
 		native_window: u64,
 		attrib_list: u64,
 	) -> u64;
-	fn eglGetConfigs(display: u64, configs: u64, config_size: i32, num_config: u64) -> u32;
 	fn eglMakeCurrent(display: u64, draw: u64, read: u64, context: u64) -> u32;
 	fn eglSwapBuffers(display: u64, surface: u64) -> u32;
 	fn eglQuerySurface(display: u64, surface: u64, attribute: i32, value: u64) -> u32;

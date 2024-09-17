@@ -51,15 +51,14 @@ fn main() -> Result<()> {
 	let keymap = args.keymap.unwrap_or_default();
 	let card = std::sync::Arc::from(
 		args.card
-			.as_ref()
-			.map(|x| x.as_path())
+			.as_deref()
 			.unwrap_or_else(|| std::path::Path::new("/dev/dri/card0")),
 	);
 
 	let tty = tty::Device::open_current()?;
 
-	tty.set_mode(1)?;
 	let old_keyboard_mode = tty.get_keyboard_mode()?;
+	tty.set_mode(1)?;
 	tty.set_keyboard_mode(4)?;
 
 	let _restorer = Defer(|| {
@@ -145,7 +144,7 @@ fn main() -> Result<()> {
 							color_eyre::eyre::bail!("unknown object '{object}'");
 						};
 
-						object.handle(client, op, &params)?;
+						object.handle(client, op, params)?;
 
 						state
 							.compositor

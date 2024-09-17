@@ -11,7 +11,7 @@ pub fn initialize_state() -> Result<State> {
 	Ok(State { x: 0.0, y: 0.0 })
 }
 
-pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State) -> Result<()> {
+pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State) -> Result<()> {
 	let udev = udev::Instance::new();
 	let context = Context::create_from_udev(udev);
 	let ret = context.assign();

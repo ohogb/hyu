@@ -127,8 +127,7 @@ impl CompositorState {
 					self.windows.retain(|x| **x != (fd, id));
 
 					if self.get_focused_window().is_none() {
-						self.focused_window =
-							self.windows.first().map(|x| std::rc::Rc::downgrade(x));
+						self.focused_window = self.windows.first().map(std::rc::Rc::downgrade);
 					}
 
 					if let Some(value) = &self.pointer_over {
@@ -153,8 +152,7 @@ impl CompositorState {
 					self.clients.remove(&fd);
 
 					if self.get_focused_window().is_none() {
-						self.focused_window =
-							self.windows.first().map(|x| std::rc::Rc::downgrade(x));
+						self.focused_window = self.windows.first().map(std::rc::Rc::downgrade);
 					}
 
 					if let Some(value) = &self.pointer_over {
@@ -170,7 +168,7 @@ impl CompositorState {
 						.windows
 						.iter()
 						.find(|x| ***x == (fd, toplevel))
-						.map(|x| std::rc::Rc::downgrade(x));
+						.map(std::rc::Rc::downgrade);
 
 					assert!(self.focused_window.is_some());
 					true
@@ -204,7 +202,7 @@ impl CompositorState {
 						continue;
 					};
 
-					if index <= 0 {
+					if index == 0 {
 						continue;
 					};
 
@@ -333,7 +331,7 @@ impl CompositorState {
 			}
 		}
 
-		let old = std::mem::replace(&mut self.pointer_over, None);
+		let old = std::mem::take(&mut self.pointer_over);
 
 		let mut moving = None;
 
@@ -684,7 +682,7 @@ impl CompositorState {
 					return Ok(());
 				};
 
-				if index <= 0 {
+				if index == 0 {
 					return Ok(());
 				};
 
@@ -720,8 +718,7 @@ impl CompositorState {
 	pub fn get_focused_window(&self) -> Option<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)> {
 		self.focused_window
 			.as_ref()
-			.map(|x| x.upgrade())
-			.flatten()
+			.and_then(|x| x.upgrade())
 			.map(|x| *x)
 	}
 }

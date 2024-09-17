@@ -1,6 +1,6 @@
 use glow::HasContext;
 use glutin::{
-	context::{AsRawContext as _, NotCurrentGlContext as _},
+	context::NotCurrentGlContext as _,
 	display::{AsRawDisplay as _, GlDisplay as _},
 	surface::GlSurface as _,
 };
@@ -20,7 +20,6 @@ pub static GLOW: crate::GlobalWrapper<glow::Context> = crate::GlobalWrapper::emp
 
 pub struct Renderer {
 	vertices: Vec<Vertex>,
-	start_time: std::time::Instant,
 	width: usize,
 	height: usize,
 	cursor_texture: glow::NativeTexture,
@@ -153,7 +152,6 @@ impl Renderer {
 
 		Ok(Renderer {
 			vertices: Vec::new(),
-			start_time: std::time::Instant::now(),
 			width,
 			height,
 			cursor_texture,

@@ -9,6 +9,7 @@ use glow::HasContext as _;
 
 pub struct State {
 	device: Device,
+	#[expect(dead_code)]
 	gbm_device: gbm::Device,
 	egl_display: egl::Display,
 	screen: Screen,
@@ -29,6 +30,7 @@ pub enum ScreenState {
 struct Screen {
 	connector: PropWrapper<Connector>,
 	mode: ModeInfo,
+	#[expect(dead_code)]
 	encoder: Encoder,
 	crtc: PropWrapper<Crtc>,
 	plane: PropWrapper<Plane>,
@@ -65,7 +67,7 @@ impl Screen {
 		display: &egl::Display,
 		config: &egl::Config,
 	) -> Result<Self> {
-		let connector = PropWrapper::new(connector, &device);
+		let connector = PropWrapper::new(connector, device);
 
 		let mode = connector
 			.modes()
@@ -76,7 +78,7 @@ impl Screen {
 
 		let encoder = device.get_encoder(connector.encoder_id)?;
 
-		let crtc = PropWrapper::new(device.get_crtc(encoder.crtc_id)?, &device);
+		let crtc = PropWrapper::new(device.get_crtc(encoder.crtc_id)?, device);
 
 		let plane_resources = device.get_plane_resources()?;
 		dbg!(&plane_resources);
@@ -102,7 +104,7 @@ impl Screen {
 					return false;
 				}
 
-				let props = x.get_props(&device).unwrap();
+				let props = x.get_props(device).unwrap();
 
 				for (&id, &value) in std::iter::zip(props.prop_ids(), props.prop_values()) {
 					let prop = device.get_prop(id).unwrap();
@@ -116,7 +118,7 @@ impl Screen {
 			})
 			.unwrap();
 
-		let plane = PropWrapper::new(plane.clone(), &device);
+		let plane = PropWrapper::new(plane.clone(), device);
 
 		let gbm_surface = gbm_device
 			.create_surface(
@@ -173,19 +175,13 @@ impl Screen {
 		})
 	}
 
-	pub fn render(
-		&mut self,
-		device: &Device,
-		display: &egl::Display,
-		ctx: &mut AtomicHelper,
-		modeset: bool,
-	) -> Result<()> {
+	pub fn render(&mut self, device: &Device, ctx: &mut AtomicHelper, modeset: bool) -> Result<()> {
 		let bo = self
 			.gbm_surface
 			.lock_front_buffer()
 			.ok_or_eyre("failed to lock front buffer")?;
 
-		let fb = bo.get_fb(&device)?;
+		let fb = bo.get_fb(device)?;
 
 		if modeset {
 			ctx.add_property(
@@ -230,14 +226,12 @@ impl Screen {
 
 		if modeset {
 			flags |= 0x400;
-		}
-
-		if false {
+		} else if false {
 			flags |= 0x2;
 		}
 
 		device
-			.commit(&ctx, flags, &mut has_flipped as *mut _ as _)
+			.commit(ctx, flags, &mut has_flipped as *mut _ as _)
 			.unwrap();
 
 		ctx.clear();
@@ -307,7 +301,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	}
 
 	let mut screen = Screen::create(
-		connectors.iter().next().unwrap().clone(),
+		connectors.first().unwrap().clone(),
 		&device,
 		&resources,
 		&gbm_device,
@@ -332,7 +326,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	display.swap_buffers(&screen.window_surface);
 
 	let mut ctx = device.begin_atomic();
-	screen.render(&device, &display, &mut ctx, true)?;
+	screen.render(&device, &mut ctx, true)?;
 
 	let renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
 
@@ -408,12 +402,10 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 				.egl_display
 				.swap_buffers(&state.drm.screen.window_surface);
 
-			state.drm.screen.render(
-				&state.drm.device,
-				&state.drm.egl_display,
-				&mut state.drm.context,
-				false,
-			)
+			state
+				.drm
+				.screen
+				.render(&state.drm.device, &mut state.drm.context, false)
 		},
 	);
 

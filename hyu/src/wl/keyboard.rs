@@ -2,6 +2,7 @@ use crate::{wl, Result};
 
 pub struct Keyboard {
 	object_id: wl::Id<Self>,
+	#[expect(dead_code)]
 	seat_id: wl::Id<wl::Seat>,
 	pub key_states: [bool; 0x100],
 	keymap: (std::os::fd::RawFd, u64),
