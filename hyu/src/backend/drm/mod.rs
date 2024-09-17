@@ -298,13 +298,12 @@ pub fn initialize_state() -> Result<State> {
 		})
 		.ok_or_eyre("failed to find config with gbm format")?;
 
-	let context = display
+	let mut context = display
 		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3038])
 		.ok_or_eyre("failed to create context")?;
 
 	unsafe {
 		crate::egl::DISPLAY.initialize(display.clone());
-		crate::egl::CONTEXT.initialize(std::sync::Mutex::new(context.clone()));
 	}
 
 	let mut screen = Screen::create(
@@ -316,8 +315,7 @@ pub fn initialize_state() -> Result<State> {
 		config,
 	)?;
 
-	let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-	let access_holder = context_lock.access(&display, Some(&screen.window_surface))?;
+	let _ = std::mem::ManuallyDrop::new(context.access(&display, Some(&screen.window_surface))?);
 
 	let glow = unsafe {
 		glow::Context::from_loader_function(|x| {
@@ -337,9 +335,6 @@ pub fn initialize_state() -> Result<State> {
 	screen.render(&device, &display, &mut ctx, true)?;
 
 	let renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
-
-	drop(access_holder);
-	drop(context_lock);
 
 	let context = device.begin_atomic();
 
@@ -407,20 +402,11 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 				return Ok(());
 			}
 
-			let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-			let access_holder = context_lock.access(
-				&state.drm.egl_display,
-				Some(&state.drm.screen.window_surface),
-			)?;
-
 			state.drm.renderer.before(&mut state.compositor)?;
 			state
 				.drm
 				.egl_display
 				.swap_buffers(&state.drm.screen.window_surface);
-
-			drop(access_holder);
-			drop(context_lock);
 
 			state.drm.screen.render(
 				&state.drm.device,

@@ -376,12 +376,7 @@ impl backend::winit::WinitRendererSetup for Setup {
 				glutin::display::RawDisplay::Egl(x) => x,
 			};
 
-			let raw_context = match context.raw_context() {
-				glutin::context::RawContext::Egl(x) => x,
-			};
-
 			crate::egl::DISPLAY.initialize(std::mem::transmute(raw_display));
-			crate::egl::CONTEXT.initialize(std::sync::Mutex::new(std::mem::transmute(raw_context)));
 
 			egl::enable_debugging();
 

@@ -205,9 +205,6 @@ impl Surface {
 		}
 
 		if self.current_buffer.is_some() {
-			let mut context_lock = crate::egl::CONTEXT.lock().unwrap();
-			let _access_holder = context_lock.access(&crate::egl::DISPLAY, None)?;
-
 			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
