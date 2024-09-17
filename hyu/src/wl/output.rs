@@ -74,10 +74,13 @@ impl Output {
 }
 
 impl wl::Object for Output {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_output:request:release
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Output"),
 		}

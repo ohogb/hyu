@@ -130,7 +130,7 @@ impl Pointer {
 }
 
 impl wl::Object for Pointer {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:set_cursor
@@ -145,6 +145,9 @@ impl wl::Object for Pointer {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:release
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Pointer"),
 		}
