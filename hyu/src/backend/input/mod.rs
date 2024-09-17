@@ -38,8 +38,15 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State
 				state.input.x += pointer.get_dx();
 				state.input.y += pointer.get_dy();
 
-				state.input.x = state.input.x.clamp(0.0, 2560.0);
-				state.input.y = state.input.y.clamp(0.0, 1440.0);
+				state.input.x = state
+					.input
+					.x
+					.clamp(0.0, (state.compositor.width - 1) as f64);
+
+				state.input.y = state
+					.input
+					.y
+					.clamp(0.0, (state.compositor.height - 1) as f64);
 
 				state
 					.compositor

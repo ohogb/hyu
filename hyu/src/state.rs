@@ -47,10 +47,12 @@ pub struct CompositorState {
 	pub pointer_position: Point,
 	pub xkb_state: Option<XkbState>,
 	pub render_tx: rt::producers::Sender<()>,
+	pub width: u16,
+	pub height: u16,
 }
 
 impl CompositorState {
-	pub fn new(render_tx: rt::producers::Sender<()>) -> Self {
+	pub fn new(render_tx: rt::producers::Sender<()>, width: u16, height: u16) -> Self {
 		Self {
 			clients: Default::default(),
 			windows: Default::default(),
@@ -60,6 +62,8 @@ impl CompositorState {
 			pointer_position: Default::default(),
 			xkb_state: Default::default(),
 			render_tx,
+			width,
+			height,
 		}
 	}
 
@@ -225,8 +229,9 @@ impl CompositorState {
 		self.render_tx.send(()).unwrap();
 
 		const GAP: i32 = 0;
-		const WIDTH: i32 = 2560;
-		const HEIGHT: i32 = 1440;
+
+		let width = self.width as i32;
+		let height = self.height as i32;
 
 		let get_pos_and_size = |index: u32, amount: u32| -> (Point, Point) {
 			match amount {
@@ -235,18 +240,18 @@ impl CompositorState {
 				}
 				1 => (
 					Point(0 + GAP, 0 + GAP),
-					Point(WIDTH - GAP * 2, HEIGHT - GAP * 2),
+					Point(width - GAP * 2, height - GAP * 2),
 				),
 				2.. => match index {
 					0 => (
 						Point(0 + GAP, 0 + GAP),
-						Point(WIDTH / 2 - GAP * 2, HEIGHT - GAP * 2),
+						Point(width / 2 - GAP * 2, height - GAP * 2),
 					),
 					1.. => {
-						let frac = ((1. / (amount - 1) as f32) * HEIGHT as f32) as i32;
+						let frac = ((1. / (amount - 1) as f32) * height as f32) as i32;
 						(
-							Point(WIDTH / 2 + GAP, frac * (index as i32 - 1) + GAP),
-							Point(WIDTH / 2 - GAP * 2, frac - GAP * 2),
+							Point(width / 2 + GAP, frac * (index as i32 - 1) + GAP),
+							Point(width / 2 - GAP * 2, frac - GAP * 2),
 						)
 					}
 				},

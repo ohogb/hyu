@@ -78,11 +78,13 @@ fn main() -> Result<()> {
 	let drm_state = backend::drm::initialize_state(&card)?;
 
 	let render_tx = drm_state.render_tx.clone();
+	let width = drm_state.screen.mode.hdisplay;
+	let height = drm_state.screen.mode.vdisplay;
 
 	let mut state = state::State {
 		drm: drm_state,
 		input: backend::input::initialize_state()?,
-		compositor: state::CompositorState::new(render_tx),
+		compositor: state::CompositorState::new(render_tx, width, height),
 	};
 
 	state.compositor.initialize_xkb_state(keymap)?;

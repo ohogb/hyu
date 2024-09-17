@@ -12,7 +12,7 @@ pub struct State {
 	#[expect(dead_code)]
 	gbm_device: gbm::Device,
 	egl_display: egl::Display,
-	screen: Screen,
+	pub screen: Screen,
 	renderer: crate::backend::gl::Renderer,
 	context: AtomicHelper,
 	pub render_tx: rt::producers::Sender<()>,
@@ -27,9 +27,9 @@ pub enum ScreenState {
 	Idle,
 }
 
-struct Screen {
+pub struct Screen {
 	connector: PropWrapper<Connector>,
-	mode: ModeInfo,
+	pub mode: ModeInfo,
 	#[expect(dead_code)]
 	encoder: Encoder,
 	crtc: PropWrapper<Crtc>,
@@ -328,7 +328,11 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
 
-	let renderer = crate::backend::gl::Renderer::create(glow, 2560, 1440)?;
+	let renderer = crate::backend::gl::Renderer::create(
+		glow,
+		screen.mode.hdisplay as _,
+		screen.mode.vdisplay as _,
+	)?;
 
 	let context = device.begin_atomic();
 
