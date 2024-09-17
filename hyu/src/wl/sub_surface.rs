@@ -48,7 +48,9 @@ impl wl::Object for SubSurface {
 					panic!();
 				};
 
-				*mode = wl::SubSurfaceMode::Sync;
+				*mode = wl::SubSurfaceMode::Sync {
+					state_to_apply: Default::default(),
+				};
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_desync

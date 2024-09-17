@@ -30,7 +30,7 @@ impl SurfaceState {
 }
 
 pub enum SubSurfaceMode {
-	Sync,
+	Sync { state_to_apply: SurfaceState },
 	Desync,
 }
 
@@ -179,13 +179,6 @@ impl Surface {
 			self.current.buffer = None;
 		}
 
-		for i in &self.children {
-			let sub_surface = client.get_object(*i)?;
-			let surface = client.get_object_mut(sub_surface.surface)?;
-
-			surface.gl_do_textures(client, glow)?;
-		}
-
 		Ok(())
 	}
 
@@ -204,13 +197,60 @@ impl Surface {
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
 	pub fn commit(&mut self, client: &mut wl::Client) -> Result<()> {
-		self.pending.apply_to(&mut self.current);
+		let mut synced_sub_surface = false;
 
-		if self.current.buffer.is_some() {
-			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+		if let Some(SurfaceRole::SubSurface { mode, .. }) = &mut self.role {
+			if let SubSurfaceMode::Sync { state_to_apply } = mode {
+				self.pending.apply_to(state_to_apply);
+				synced_sub_surface = true;
+			}
 		}
 
-		client.render_tx.send(())?;
+		if !synced_sub_surface {
+			self.pending.apply_to(&mut self.current);
+
+			if self.current.buffer.is_some() {
+				self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+			}
+
+			self.depth_first_sub_tree(client, &mut |client, _, surface| {
+				let Some(SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
+					panic!();
+				};
+
+				// TODO: check if parent should override mode
+				if let SubSurfaceMode::Sync { state_to_apply } = mode {
+					state_to_apply.apply_to(&mut surface.current);
+
+					if surface.current.buffer.is_some() {
+						surface.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+					}
+				}
+
+				Ok(())
+			})?;
+
+			// TODO: maybe should only render if buffer changed, but then frame notifications
+			// wouldn't be sent, figure out a better time to send frame notifications
+			client.render_tx.send(())?;
+		}
+
+		Ok(())
+	}
+
+	pub fn depth_first_sub_tree(
+		&self,
+		client: &mut wl::Client,
+		callback: &mut impl FnMut(&mut wl::Client, &mut wl::SubSurface, &mut wl::Surface) -> Result<()>,
+	) -> Result<()> {
+		for &child in &self.children {
+			let sub_surface = client.get_object_mut(child)?;
+			let surface = client.get_object_mut(sub_surface.surface)?;
+
+			callback(client, sub_surface, surface)?;
+			surface.depth_first_sub_tree(client, callback)?;
+		}
+
 		Ok(())
 	}
 }

@@ -32,7 +32,9 @@ impl wl::Object for SubCompositor {
 
 				let surface = client.get_object_mut(surface_id)?;
 				surface.set_role(wl::SurfaceRole::SubSurface {
-					mode: wl::SubSurfaceMode::Sync,
+					mode: wl::SubSurfaceMode::Sync {
+						state_to_apply: Default::default(),
+					},
 					parent: parent_id,
 				})?;
 
