@@ -15,7 +15,9 @@ impl wl::Object for SubCompositor {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:get_subsurface

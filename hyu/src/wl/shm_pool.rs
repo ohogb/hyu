@@ -103,7 +103,9 @@ impl wl::Object for ShmPool {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize

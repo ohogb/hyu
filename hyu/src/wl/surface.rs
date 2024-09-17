@@ -221,7 +221,10 @@ impl wl::Object for Surface {
 				client
 					.changes
 					.push(state::Change::RemoveSurface(client.fd, self.object_id));
-				client.remove_object(self.object_id)?;
+
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach

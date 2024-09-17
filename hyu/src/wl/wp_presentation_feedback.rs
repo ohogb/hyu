@@ -41,7 +41,11 @@ impl WpPresentationFeedback {
 			),
 		})?;
 
-		client.remove_object(self.object_id)
+		unsafe {
+			client.remove_object(self.object_id)?;
+		}
+
+		Ok(())
 	}
 }
 

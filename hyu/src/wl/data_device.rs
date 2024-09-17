@@ -33,7 +33,9 @@ impl wl::Object for DataDevice {
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_data_device:request:release
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in DataDevice"),
 		}

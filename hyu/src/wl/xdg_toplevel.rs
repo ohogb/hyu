@@ -83,7 +83,9 @@ impl wl::Object for XdgToplevel {
 					.changes
 					.push(state::Change::RemoveToplevel(client.fd, self.object_id));
 
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_parent

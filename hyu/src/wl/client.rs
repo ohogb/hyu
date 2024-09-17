@@ -60,7 +60,7 @@ impl<'object> Client {
 		self.get_object_mut(id).unwrap()
 	}
 
-	pub fn remove_object<T>(&mut self, id: wl::Id<T>) -> Result<()> {
+	pub unsafe fn remove_object<T>(&mut self, id: wl::Id<T>) -> Result<()> {
 		assert!(self.objects[*id as usize].is_some());
 		// TODO: check that it's type T
 

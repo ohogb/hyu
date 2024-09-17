@@ -61,7 +61,9 @@ impl wl::Object for XdgPopup {
 				let parent = client.get_object_mut(self.parent_xdg_surface)?;
 				parent.popups.retain(|&x| x != self.object_id);
 
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:grab

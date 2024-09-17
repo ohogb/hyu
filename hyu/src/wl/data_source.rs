@@ -19,7 +19,9 @@ impl wl::Object for DataSource {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_data_source:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_data_source:request:set_actions

@@ -76,7 +76,9 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:create_params

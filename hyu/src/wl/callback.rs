@@ -18,7 +18,11 @@ impl Callback {
 			args: data,
 		})?;
 
-		client.remove_object(self.object_id)
+		unsafe {
+			client.remove_object(self.object_id)?;
+		}
+
+		Ok(())
 	}
 }
 

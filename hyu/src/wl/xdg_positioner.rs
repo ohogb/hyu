@@ -97,7 +97,9 @@ impl wl::Object for XdgPositioner {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:set_size

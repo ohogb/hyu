@@ -24,7 +24,9 @@ impl wl::Object for WpPresentation {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/presentation-time#wp_presentation:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/presentation-time#wp_presentation:request:feedback

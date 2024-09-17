@@ -31,7 +31,9 @@ impl wl::Object for SubSurface {
 					parent.children.retain(|&x| x != self.object_id);
 				}
 
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:set_position

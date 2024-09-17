@@ -20,7 +20,9 @@ impl wl::Object for Region {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_region:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_region:request:add

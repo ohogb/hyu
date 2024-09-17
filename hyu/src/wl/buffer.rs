@@ -120,7 +120,9 @@ impl wl::Object for Buffer {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy
-				client.remove_object(self.object_id)?;
+				unsafe {
+					client.remove_object(self.object_id)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Buffer"),
 		}
