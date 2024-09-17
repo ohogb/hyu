@@ -8,10 +8,11 @@ use crate::{wl, Result};
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
 	formats: (std::os::fd::RawFd, u64),
+	card: std::sync::Arc<std::path::Path>,
 }
 
 impl ZwpLinuxDmabufV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Result<Self> {
+	pub fn new(object_id: wl::Id<Self>, card: std::sync::Arc<std::path::Path>) -> Result<Self> {
 		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
 		nix::unistd::unlink(&path)?;
 
@@ -41,6 +42,7 @@ impl ZwpLinuxDmabufV1 {
 		Ok(Self {
 			object_id,
 			formats: (fd, size),
+			card,
 		})
 	}
 
@@ -89,7 +91,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.format_table(client)?;
 
-				let dev = nix::sys::stat::stat("/dev/dri/card1")?.st_rdev;
+				let dev = nix::sys::stat::stat(self.card.as_ref())?.st_rdev;
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
@@ -109,7 +111,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.format_table(client)?;
 
-				let dev = nix::sys::stat::stat("/dev/dri/card1")?.st_rdev;
+				let dev = nix::sys::stat::stat(self.card.as_ref())?.st_rdev;
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
@@ -137,7 +139,7 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 
 	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		client.new_object(id, Self::new(id)?);
+		client.new_object(id, Self::new(id, self.card.clone())?);
 
 		/*object.format(client, 0x34325241)?;
 		object.modifier(client, 0x34325241, 0, 0)?;

@@ -251,8 +251,8 @@ impl Screen {
 	}
 }
 
-pub fn initialize_state() -> Result<State> {
-	let device = Device::open("/dev/dri/card1")?;
+pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
+	let device = Device::open(card)?;
 	device.set_client_capability(2, 1)?;
 	device.set_client_capability(3, 1)?;
 

@@ -30,6 +30,9 @@ pub type Result<T> = color_eyre::Result<T>;
 struct Args {
 	#[arg(short, long)]
 	keymap: Option<String>,
+
+	#[arg(short, long)]
+	card: Option<std::path::PathBuf>,
 }
 
 struct Defer<T: FnMut()>(T);
@@ -44,6 +47,14 @@ fn main() -> Result<()> {
 	color_eyre::install()?;
 
 	let args = Args::parse();
+
+	let keymap = args.keymap.unwrap_or_default();
+	let card = std::sync::Arc::from(
+		args.card
+			.as_ref()
+			.map(|x| x.as_path())
+			.unwrap_or_else(|| std::path::Path::new("/dev/dri/card0")),
+	);
 
 	let tty = tty::Device::open_current()?;
 
@@ -65,7 +76,8 @@ fn main() -> Result<()> {
 		std::fs::remove_file(&path)?;
 	}
 
-	let drm_state = backend::drm::initialize_state()?;
+	let drm_state = backend::drm::initialize_state(&card)?;
+
 	let render_tx = drm_state.render_tx.clone();
 
 	let mut state = state::State {
@@ -74,9 +86,7 @@ fn main() -> Result<()> {
 		compositor: state::CompositorState::new(render_tx),
 	};
 
-	state
-		.compositor
-		.initialize_xkb_state(args.keymap.unwrap_or_default())?;
+	state.compositor.initialize_xkb_state(keymap)?;
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
@@ -88,7 +98,7 @@ fn main() -> Result<()> {
 
 	runtime.on(
 		rt::producers::UnixListener::new(socket),
-		|(stream, _), state, runtime| {
+		move |(stream, _), state, runtime| {
 			stream.set_nonblocking(true)?;
 
 			let stream = Stream::new(stream);
@@ -109,7 +119,7 @@ fn main() -> Result<()> {
 			));
 			display.push_global(wl::Output::new(wl::Id::null()));
 			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
-			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null())?);
+			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null(), card.clone())?);
 			display.push_global(wl::WpPresentation::new(wl::Id::null()));
 
 			client.ensure_objects_capacity();
