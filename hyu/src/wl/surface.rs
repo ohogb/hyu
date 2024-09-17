@@ -2,6 +2,33 @@ use glow::HasContext;
 
 use crate::{state, wl, Point, Result};
 
+#[derive(Default)]
+pub struct SurfaceState {
+	pub buffer: Option<wl::Buffer>,
+	pub frame_callbacks: Vec<wl::Id<wl::Callback>>,
+	pub input_region: Option<wl::Region>,
+	pub presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
+}
+
+impl SurfaceState {
+	pub fn apply_to(&mut self, other: &mut Self) {
+		if let Some(buffer) = std::mem::take(&mut self.buffer) {
+			other.buffer = Some(buffer);
+		}
+
+		other.frame_callbacks.extend(&self.frame_callbacks);
+		self.frame_callbacks.clear();
+
+		if let Some(region) = std::mem::take(&mut self.input_region) {
+			other.input_region = Some(region);
+		}
+
+		if let Some(presentation_feedback) = std::mem::take(&mut self.presentation_feedback) {
+			other.presentation_feedback = Some(presentation_feedback);
+		}
+	}
+}
+
 pub enum SubSurfaceMode {
 	Sync,
 	Desync,
@@ -24,16 +51,10 @@ pub enum SurfaceTexture {
 pub struct Surface {
 	pub object_id: wl::Id<Self>,
 	pub children: Vec<wl::Id<wl::SubSurface>>,
-	pending_buffer: Option<wl::Buffer>,
-	current_buffer: Option<wl::Buffer>,
-	pending_frame_callbacks: Vec<wl::Id<wl::Callback>>,
-	current_frame_callbacks: Vec<wl::Id<wl::Callback>>,
-	pending_input_region: Option<wl::Region>,
-	pub current_input_region: Option<wl::Region>,
 	pub data: Option<(Point, SurfaceTexture)>,
 	pub role: Option<SurfaceRole>,
-	pub pending_presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
-	pub current_presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
+	pub pending: SurfaceState,
+	pub current: SurfaceState,
 }
 
 impl Surface {
@@ -41,16 +62,10 @@ impl Surface {
 		Self {
 			object_id,
 			children: Vec::new(),
-			pending_buffer: None,
-			current_buffer: None,
-			pending_frame_callbacks: Vec::new(),
-			current_frame_callbacks: Vec::new(),
-			pending_input_region: None,
-			current_input_region: None,
 			data: None,
 			role: None,
-			pending_presentation_feedback: None,
-			current_presentation_feedback: None,
+			pending: Default::default(),
+			current: Default::default(),
 		}
 	}
 
@@ -87,12 +102,12 @@ impl Surface {
 	}
 
 	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
-		for &callback in &self.current_frame_callbacks {
+		for &callback in &self.current.frame_callbacks {
 			let callback = client.get_object(callback)?.clone();
 			callback.done(client, ms)?;
 		}
 
-		self.current_frame_callbacks.clear();
+		self.current.frame_callbacks.clear();
 
 		for i in &self.children {
 			let sub_surface = client.get_object(*i)?;
@@ -112,7 +127,7 @@ impl Surface {
 		flags: u32,
 		client: &mut wl::Client,
 	) -> Result<()> {
-		if let Some(presentation_feedback) = self.current_presentation_feedback {
+		if let Some(presentation_feedback) = self.current.presentation_feedback {
 			let presentation_feedback = client.get_object(presentation_feedback)?;
 
 			let output = client
@@ -124,7 +139,7 @@ impl Surface {
 			presentation_feedback.sync_output(client, output)?;
 			presentation_feedback.presented(client, time, refresh, sequence, flags)?;
 
-			self.current_presentation_feedback = None;
+			self.current.presentation_feedback = None;
 		}
 
 		for &child in &self.children {
@@ -138,7 +153,7 @@ impl Surface {
 	}
 
 	pub fn gl_do_textures(&mut self, client: &mut wl::Client, glow: &glow::Context) -> Result<()> {
-		if let Some(buffer) = &self.current_buffer {
+		if let Some(buffer) = &self.current.buffer {
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
 					let SurfaceTexture::Gl(tex) = tex;
@@ -161,7 +176,7 @@ impl Surface {
 			buffer.gl_get_pixels(client, glow, *texture)?;
 
 			buffer.release(client)?;
-			self.current_buffer = None;
+			self.current.buffer = None;
 		}
 
 		for i in &self.children {
@@ -189,26 +204,9 @@ impl Surface {
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
 	pub fn commit(&mut self, client: &mut wl::Client) -> Result<()> {
-		if let Some(buffer) = std::mem::take(&mut self.pending_buffer) {
-			self.current_buffer = Some(buffer);
-		}
+		self.pending.apply_to(&mut self.current);
 
-		self.current_frame_callbacks
-			.extend(&self.pending_frame_callbacks);
-
-		self.pending_frame_callbacks.clear();
-
-		if let Some(region) = &self.pending_input_region {
-			self.current_input_region = Some(region.clone());
-			self.pending_input_region = None;
-		}
-
-		if let Some(presentation_feedback) = std::mem::take(&mut self.pending_presentation_feedback)
-		{
-			self.current_presentation_feedback = Some(presentation_feedback);
-		}
-
-		if self.current_buffer.is_some() {
+		if self.current.buffer.is_some() {
 			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 		}
 
@@ -238,7 +236,7 @@ impl wl::Object for Surface {
 				assert!(x == 0);
 				assert!(y == 0);
 
-				self.pending_buffer = if !buffer.is_null() {
+				self.pending.buffer = if !buffer.is_null() {
 					let buffer = client.get_object(buffer)?;
 					Some(buffer.clone())
 				} else {
@@ -253,7 +251,7 @@ impl wl::Object for Surface {
 				let callback: wl::Id<wl::Callback> = wlm::decode::from_slice(params)?;
 				client.new_object(callback, wl::Callback::new(callback));
 
-				self.pending_frame_callbacks.push(callback);
+				self.pending.frame_callbacks.push(callback);
 			}
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_opaque_region
@@ -268,7 +266,7 @@ impl wl::Object for Surface {
 					client.get_object(region)?.clone()
 				};
 
-				self.pending_input_region = Some(region);
+				self.pending.input_region = Some(region);
 			}
 			6 => {
 				self.commit(client)?;

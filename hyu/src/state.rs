@@ -370,7 +370,7 @@ impl CompositorState {
 				surface_position: Point,
 				surface: &wl::Surface,
 			) -> bool {
-				if let Some(input_region) = &surface.current_input_region {
+				if let Some(input_region) = &surface.current.input_region {
 					for area in &input_region.areas {
 						let position = surface_position + area.0;
 

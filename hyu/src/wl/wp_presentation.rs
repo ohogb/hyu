@@ -36,7 +36,7 @@ impl wl::Object for WpPresentation {
 				client.new_object(callback, wl::WpPresentationFeedback::new(callback));
 
 				let surface = client.get_object_mut(surface)?;
-				surface.pending_presentation_feedback = Some(callback);
+				surface.pending.presentation_feedback = Some(callback);
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in WpPresentation"),
 		}
