@@ -175,7 +175,11 @@ impl Surface {
 	}
 
 	pub fn set_role(&mut self, role: SurfaceRole) -> Result<()> {
-		if self.role.is_some() {
+		if let Some(old_role) = &self.role {
+			if std::mem::discriminant(old_role) == std::mem::discriminant(&role) {
+				return Ok(());
+			}
+
 			color_eyre::eyre::bail!("surface '{}' already has a role", *self.object_id);
 		}
 
