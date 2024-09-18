@@ -232,7 +232,7 @@ impl Surface {
 
 			// TODO: maybe should only render if buffer changed, but then frame notifications
 			// wouldn't be sent, figure out a better time to send frame notifications
-			client.render_tx.send(())?;
+			client.render_tx.notify()?;
 		}
 
 		Ok(())

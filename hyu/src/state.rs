@@ -46,13 +46,13 @@ pub struct CompositorState {
 	pub pointer_over: Option<PointerOver>,
 	pub pointer_position: Point,
 	pub xkb_state: Option<XkbState>,
-	pub render_tx: rt::producers::Sender<()>,
+	pub render_tx: rt::producers::Notifier,
 	pub width: u16,
 	pub height: u16,
 }
 
 impl CompositorState {
-	pub fn new(render_tx: rt::producers::Sender<()>, width: u16, height: u16) -> Self {
+	pub fn new(render_tx: rt::producers::Notifier, width: u16, height: u16) -> Self {
 		Self {
 			clients: Default::default(),
 			windows: Default::default(),
@@ -226,7 +226,7 @@ impl CompositorState {
 			return Ok(());
 		}
 
-		self.render_tx.send(()).unwrap();
+		self.render_tx.notify().unwrap();
 
 		const GAP: i32 = 0;
 
@@ -327,7 +327,7 @@ impl CompositorState {
 		};
 
 		if !should_hide_cursor {
-			self.render_tx.send(())?;
+			self.render_tx.notify()?;
 		}
 
 		for client in self.clients.values_mut() {

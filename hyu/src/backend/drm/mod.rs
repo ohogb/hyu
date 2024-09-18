@@ -15,8 +15,8 @@ pub struct State {
 	pub screen: Screen,
 	renderer: crate::backend::gl::Renderer,
 	context: AtomicHelper,
-	pub render_tx: rt::producers::Sender<()>,
-	render_rx: Option<rt::producers::Channel<()>>,
+	pub render_tx: rt::producers::Notifier,
+	render_rx: Option<rt::producers::EventFd>,
 }
 
 pub enum ScreenState {
@@ -356,7 +356,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 
 	let context = device.begin_atomic();
 
-	let (tx, rx) = rt::producers::Channel::new()?;
+	let (tx, rx) = rt::producers::EventFd::new()?;
 
 	let state = State {
 		device,
@@ -401,7 +401,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 						.after(&mut state.compositor, tv_sec, tv_usec, sequence)?;
 
 					if needs_rerender {
-						state.drm.render_tx.send(())?;
+						state.drm.render_tx.notify()?;
 					}
 				}
 			}
@@ -434,7 +434,5 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 	);
 
 	// initial render
-	state.drm.render_tx.send(())?;
-
-	Ok(())
+	state.drm.render_tx.notify()
 }

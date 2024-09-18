@@ -9,7 +9,7 @@ pub struct Client {
 	highest_index: u32,
 	pub stream: crate::Stream,
 	pub changes: Vec<state::Change>,
-	pub render_tx: rt::producers::Sender<()>,
+	pub render_tx: rt::producers::Notifier,
 }
 
 impl<'object> Client {
@@ -17,7 +17,7 @@ impl<'object> Client {
 		fd: std::os::fd::RawFd,
 		start_position: Point,
 		stream: crate::Stream,
-		render_tx: rt::producers::Sender<()>,
+		render_tx: rt::producers::Notifier,
 	) -> Self {
 		Self {
 			fd,

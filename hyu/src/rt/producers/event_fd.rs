@@ -27,7 +27,7 @@ impl EventFd {
 
 impl Producer for EventFd {
 	type Message<'a> = ();
-	type Ret = ();
+	type Ret = Result<()>;
 
 	fn fd(&self) -> std::os::fd::RawFd {
 		self.0.as_raw_fd()
@@ -38,7 +38,7 @@ impl Producer for EventFd {
 		callback: &mut impl FnMut(Self::Message<'_>) -> Self::Ret,
 	) -> Result<std::ops::ControlFlow<()>> {
 		self.read()?;
-		callback(());
+		callback(())?;
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
