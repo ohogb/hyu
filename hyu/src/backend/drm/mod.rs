@@ -36,26 +36,40 @@ pub struct Screen {
 	plane: PropWrapper<Plane>,
 	gbm_surface: gbm::Surface,
 
-	connector_crtc_id: u32,
-
-	crtc_mode_id: u32,
-	crtc_active: u32,
-
-	plane_fb_id: u32,
-	plane_crtc_id: u32,
-	plane_src_x: u32,
-	plane_src_y: u32,
-	plane_src_w: u32,
-	plane_src_h: u32,
-	plane_crtc_x: u32,
-	plane_crtc_y: u32,
-	plane_crtc_w: u32,
-	plane_crtc_h: u32,
+	props: Props,
 
 	window_surface: egl::Surface,
 	old_bo: Option<gbm::BufferObject>,
 
 	state: ScreenState,
+}
+
+struct ConnectorProps {
+	crtc_id: u32,
+}
+
+struct CrtcProps {
+	mode_id: u32,
+	active: u32,
+}
+
+struct PlaneProps {
+	fb_id: u32,
+	crtc_id: u32,
+	src_x: u32,
+	src_y: u32,
+	src_w: u32,
+	src_h: u32,
+	crtc_x: u32,
+	crtc_y: u32,
+	crtc_w: u32,
+	crtc_h: u32,
+}
+
+struct Props {
+	connector: ConnectorProps,
+	crtc: CrtcProps,
+	plane: PlaneProps,
 }
 
 impl Screen {
@@ -129,21 +143,27 @@ impl Screen {
 			)
 			.ok_or_eyre("failed to create gbm surface")?;
 
-		let connector_crtc_id = connector.find_property("CRTC_ID").unwrap();
-
-		let crtc_mode_id = crtc.find_property("MODE_ID").unwrap();
-		let crtc_active = crtc.find_property("ACTIVE").unwrap();
-
-		let plane_fb_id = plane.find_property("FB_ID").unwrap();
-		let plane_crtc_id = plane.find_property("CRTC_ID").unwrap();
-		let plane_src_x = plane.find_property("SRC_X").unwrap();
-		let plane_src_y = plane.find_property("SRC_Y").unwrap();
-		let plane_src_w = plane.find_property("SRC_W").unwrap();
-		let plane_src_h = plane.find_property("SRC_H").unwrap();
-		let plane_crtc_x = plane.find_property("CRTC_X").unwrap();
-		let plane_crtc_y = plane.find_property("CRTC_Y").unwrap();
-		let plane_crtc_w = plane.find_property("CRTC_W").unwrap();
-		let plane_crtc_h = plane.find_property("CRTC_H").unwrap();
+		let props = Props {
+			connector: ConnectorProps {
+				crtc_id: connector.find_property("CRTC_ID").unwrap(),
+			},
+			crtc: CrtcProps {
+				mode_id: crtc.find_property("MODE_ID").unwrap(),
+				active: crtc.find_property("ACTIVE").unwrap(),
+			},
+			plane: PlaneProps {
+				fb_id: plane.find_property("FB_ID").unwrap(),
+				crtc_id: plane.find_property("CRTC_ID").unwrap(),
+				src_x: plane.find_property("SRC_X").unwrap(),
+				src_y: plane.find_property("SRC_Y").unwrap(),
+				src_w: plane.find_property("SRC_W").unwrap(),
+				src_h: plane.find_property("SRC_H").unwrap(),
+				crtc_x: plane.find_property("CRTC_X").unwrap(),
+				crtc_y: plane.find_property("CRTC_Y").unwrap(),
+				crtc_w: plane.find_property("CRTC_W").unwrap(),
+				crtc_h: plane.find_property("CRTC_H").unwrap(),
+			},
+		};
 
 		let window_surface = display
 			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
@@ -156,19 +176,7 @@ impl Screen {
 			crtc,
 			plane,
 			gbm_surface,
-			connector_crtc_id,
-			crtc_mode_id,
-			crtc_active,
-			plane_fb_id,
-			plane_crtc_id,
-			plane_src_x,
-			plane_src_y,
-			plane_src_w,
-			plane_src_h,
-			plane_crtc_x,
-			plane_crtc_y,
-			plane_crtc_w,
-			plane_crtc_h,
+			props,
 			window_surface,
 			old_bo: None,
 			state: ScreenState::Idle,
@@ -186,7 +194,7 @@ impl Screen {
 		if modeset {
 			ctx.add_property(
 				&self.connector,
-				self.connector_crtc_id,
+				self.props.connector.crtc_id,
 				self.crtc.get_id() as _,
 			);
 
@@ -197,29 +205,41 @@ impl Screen {
 				)
 			})?;
 
-			ctx.add_property(&self.crtc, self.crtc_mode_id, blob as _);
-			ctx.add_property(&self.crtc, self.crtc_active, 1);
+			ctx.add_property(&self.crtc, self.props.crtc.mode_id, blob as _);
+			ctx.add_property(&self.crtc, self.props.crtc.active, 1);
 		}
 
-		ctx.add_property(&self.plane, self.plane_fb_id, fb as _);
-		ctx.add_property(&self.plane, self.plane_crtc_id, self.crtc.get_id() as _);
-		ctx.add_property(&self.plane, self.plane_src_x, 0);
-		ctx.add_property(&self.plane, self.plane_src_y, 0);
+		ctx.add_property(&self.plane, self.props.plane.fb_id, fb as _);
 		ctx.add_property(
 			&self.plane,
-			self.plane_src_w,
+			self.props.plane.crtc_id,
+			self.crtc.get_id() as _,
+		);
+		ctx.add_property(&self.plane, self.props.plane.src_x, 0);
+		ctx.add_property(&self.plane, self.props.plane.src_y, 0);
+		ctx.add_property(
+			&self.plane,
+			self.props.plane.src_w,
 			((self.mode.hdisplay as u32) << 16) as _,
 		);
 		ctx.add_property(
 			&self.plane,
-			self.plane_src_h,
+			self.props.plane.src_h,
 			((self.mode.vdisplay as u32) << 16) as _,
 		);
 
-		ctx.add_property(&self.plane, self.plane_crtc_x, 0);
-		ctx.add_property(&self.plane, self.plane_crtc_y, 0);
-		ctx.add_property(&self.plane, self.plane_crtc_w, self.mode.hdisplay as _);
-		ctx.add_property(&self.plane, self.plane_crtc_h, self.mode.vdisplay as _);
+		ctx.add_property(&self.plane, self.props.plane.crtc_x, 0);
+		ctx.add_property(&self.plane, self.props.plane.crtc_y, 0);
+		ctx.add_property(
+			&self.plane,
+			self.props.plane.crtc_w,
+			self.mode.hdisplay as _,
+		);
+		ctx.add_property(
+			&self.plane,
+			self.props.plane.crtc_h,
+			self.mode.vdisplay as _,
+		);
 
 		let mut has_flipped = false;
 		let mut flags = 0x200 | 0x1;
