@@ -16,7 +16,7 @@ pub struct Renderer {
 	vertices: Vec<Vertex>,
 	width: usize,
 	height: usize,
-	cursor_texture: glow::NativeTexture,
+	pub cursor_texture: glow::NativeTexture,
 }
 
 impl Renderer {
@@ -157,68 +157,7 @@ impl Renderer {
 			GLOW.clear(glow::COLOR_BUFFER_BIT);
 		}
 
-		for (fd, xdg_toplevel) in compositor.windows.iter().map(|x| **x) {
-			let client = compositor.clients.get_mut(&fd).unwrap();
-
-			fn draw(
-				this: &mut Renderer,
-				client: &mut wl::Client,
-				toplevel_position: Point,
-				xdg_surface: &wl::XdgSurface,
-				surface: &mut wl::Surface,
-			) -> Result<()> {
-				for (position, size, surface_id) in surface.get_front_buffers(client) {
-					let surface = client.get_object(surface_id)?;
-
-					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
-						panic!();
-					};
-
-					this.quad(
-						toplevel_position - xdg_surface.position + position,
-						size,
-						texture,
-					);
-				}
-
-				Ok(())
-			}
-
-			let toplevel = client.get_object(xdg_toplevel)?;
-
-			let xdg_surface = client.get_object(toplevel.surface)?;
-			let surface = client.get_object_mut(xdg_surface.surface)?;
-
-			draw(self, client, toplevel.position, xdg_surface, surface)?;
-
-			for &popup in &xdg_surface.popups {
-				let popup = client.get_object(popup)?;
-
-				let xdg_surface = client.get_object(popup.xdg_surface)?;
-				let surface = client.get_object_mut(xdg_surface.surface)?;
-
-				let position = toplevel.position + popup.position;
-
-				draw(self, client, position, xdg_surface, surface)?;
-			}
-		}
-
-		let should_hide_cursor = if let Some(a) = &compositor.pointer_over {
-			let client = compositor.clients.get(&a.fd).unwrap();
-			client
-				.objects_mut::<wl::Pointer>()
-				.iter()
-				.fold(false, |acc, x| acc | x.should_hide_cursor)
-		} else {
-			false
-		};
-
-		if !should_hide_cursor {
-			let cursor_pos = compositor.pointer_position;
-			self.quad(cursor_pos, Point(2, 2), &self.cursor_texture.clone());
-		}
-
-		Ok(())
+		compositor.render(self)
 	}
 
 	pub fn after(
@@ -263,7 +202,7 @@ impl Renderer {
 		Ok(())
 	}
 
-	fn quad(&mut self, position: Point, size: Point, texture: &glow::NativeTexture) {
+	pub fn quad(&mut self, position: Point, size: Point, texture: &glow::NativeTexture) {
 		let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
 			[
 				input[0] as f32 / self.width as f32 * 2.0 - 1.0,

@@ -726,4 +726,67 @@ impl CompositorState {
 			.and_then(|x| x.upgrade())
 			.map(|x| *x)
 	}
+
+	pub fn render(&mut self, gl: &mut crate::backend::gl::Renderer) -> Result<()> {
+		for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
+			let client = self.clients.get_mut(&fd).unwrap();
+
+			let mut draw = |client: &mut wl::Client,
+			                toplevel_position: Point,
+			                xdg_surface: &wl::XdgSurface,
+			                surface: &mut wl::Surface|
+			 -> Result<()> {
+				for (position, size, surface_id) in surface.get_front_buffers(client) {
+					let surface = client.get_object(surface_id)?;
+
+					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
+						panic!();
+					};
+
+					gl.quad(
+						toplevel_position - xdg_surface.position + position,
+						size,
+						texture,
+					);
+				}
+
+				Ok(())
+			};
+
+			let toplevel = client.get_object(xdg_toplevel)?;
+
+			let xdg_surface = client.get_object(toplevel.surface)?;
+			let surface = client.get_object_mut(xdg_surface.surface)?;
+
+			draw(client, toplevel.position, xdg_surface, surface)?;
+
+			for &popup in &xdg_surface.popups {
+				let popup = client.get_object(popup)?;
+
+				let xdg_surface = client.get_object(popup.xdg_surface)?;
+				let surface = client.get_object_mut(xdg_surface.surface)?;
+
+				let position = toplevel.position + popup.position;
+
+				draw(client, position, xdg_surface, surface)?;
+			}
+		}
+
+		let should_hide_cursor = if let Some(a) = &self.pointer_over {
+			let client = self.clients.get(&a.fd).unwrap();
+			client
+				.objects_mut::<wl::Pointer>()
+				.iter()
+				.fold(false, |acc, x| acc | x.should_hide_cursor)
+		} else {
+			false
+		};
+
+		if !should_hide_cursor {
+			let cursor_pos = self.pointer_position;
+			gl.quad(cursor_pos, Point(2, 2), &gl.cursor_texture.clone());
+		}
+
+		Ok(())
+	}
 }
