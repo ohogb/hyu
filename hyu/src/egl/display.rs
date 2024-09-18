@@ -22,6 +22,7 @@ extern "C" {
 	fn eglSwapBuffers(display: u64, surface: u64) -> u32;
 	fn eglQuerySurface(display: u64, surface: u64, attribute: i32, value: u64) -> u32;
 	fn eglGetProcAddress(name: *const i8) -> usize;
+	fn eglDestroyImage(display: u64, image: u64) -> u32;
 }
 
 #[derive(Debug, Clone)]
@@ -183,6 +184,10 @@ impl Display {
 		});
 
 		EGL_CREATE_IMAGE_KHR(self.as_ptr(), 0, target, 0, attributes.as_ptr() as _)
+	}
+
+	pub fn destroy_image(&self, image: &egl::Image) -> bool {
+		unsafe { eglDestroyImage(self.as_ptr(), image.as_ptr()) != 0 }
 	}
 
 	pub fn as_ptr(&self) -> u64 {

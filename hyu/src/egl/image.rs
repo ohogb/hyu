@@ -23,3 +23,10 @@ impl Image {
 		self.ptr.get()
 	}
 }
+
+impl Drop for Image {
+	fn drop(&mut self) {
+		let ret = crate::egl::DISPLAY.destroy_image(self);
+		assert!(ret);
+	}
+}

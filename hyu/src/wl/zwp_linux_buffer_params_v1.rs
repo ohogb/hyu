@@ -89,8 +89,6 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 					.create_image(0x3270, &attributes)
 					.ok_or_eyre("failed to create egl image")?;
 
-				eprintln!("image: {image:?}",);
-
 				client.new_object(
 					buffer_id,
 					wl::Buffer::new(
