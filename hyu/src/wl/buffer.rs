@@ -2,7 +2,6 @@ use glow::HasContext;
 
 use crate::{egl, wl, Client, Point, Result};
 
-#[derive(Clone)]
 pub enum BufferStorage {
 	Shm {
 		map: wl::SharedMap,
@@ -15,7 +14,6 @@ pub enum BufferStorage {
 	},
 }
 
-#[derive(Clone)]
 pub struct Buffer {
 	object_id: wl::Id<Self>,
 	pub size: Point,

@@ -4,7 +4,7 @@ use crate::{state, wl, Client, Point, Result};
 
 #[derive(Default)]
 pub struct SurfaceState {
-	pub buffer: Option<wl::Buffer>,
+	pub buffer: Option<wl::Id<wl::Buffer>>,
 	pub frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pub input_region: Option<wl::Region>,
 	pub presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
@@ -151,6 +151,8 @@ impl Surface {
 
 	pub fn gl_do_textures(&mut self, client: &mut Client, glow: &glow::Context) -> Result<()> {
 		if let Some(buffer) = &self.current.buffer {
+			let buffer = client.get_object(*buffer)?;
+
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
 					let SurfaceTexture::Gl(tex) = tex;
@@ -274,8 +276,7 @@ impl wl::Object for Surface {
 				assert!(y == 0);
 
 				self.pending.buffer = if !buffer.is_null() {
-					let buffer = client.get_object(buffer)?;
-					Some(buffer.clone())
+					Some(buffer)
 				} else {
 					None
 				};

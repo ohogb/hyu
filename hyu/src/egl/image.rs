@@ -3,7 +3,7 @@ extern "C" {
 	fn eglGetProcAddress(name: *const i8) -> usize;
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[repr(transparent)]
 pub struct Image {
 	ptr: std::num::NonZeroU64,
