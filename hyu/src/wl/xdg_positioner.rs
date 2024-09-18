@@ -1,4 +1,4 @@
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 pub enum Direction {
 	Top,
@@ -93,7 +93,7 @@ impl XdgPositioner {
 }
 
 impl wl::Object for XdgPositioner {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_positioner:request:destroy

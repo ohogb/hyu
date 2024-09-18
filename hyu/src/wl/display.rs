@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct Display {
 	object_id: wl::Id<Self>,
@@ -17,7 +17,7 @@ impl Display {
 		}
 	}
 
-	pub fn delete_id<T>(&self, client: &mut wl::Client, id: wl::Id<T>) -> Result<()> {
+	pub fn delete_id<T>(&self, client: &mut Client, id: wl::Id<T>) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_display:event:delete_id
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -47,7 +47,7 @@ impl Display {
 }
 
 impl wl::Object for Display {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_display:request:sync

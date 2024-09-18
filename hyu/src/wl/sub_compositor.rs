@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct SubCompositor {
 	object_id: wl::Id<Self>,
@@ -11,7 +11,7 @@ impl SubCompositor {
 }
 
 impl wl::Object for SubCompositor {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subcompositor:request:destroy
@@ -56,7 +56,7 @@ impl wl::Global for SubCompositor {
 		1
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 		Ok(())
 	}

@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{egl, wl, Point, Result};
+use crate::{egl, wl, Client, Point, Result};
 
 #[derive(Clone)]
 pub enum BufferStorage {
@@ -33,7 +33,7 @@ impl Buffer {
 
 	pub fn gl_get_pixels(
 		&self,
-		_client: &wl::Client,
+		_client: &Client,
 		glow: &glow::Context,
 		texture: glow::NativeTexture,
 	) -> Result<()> {
@@ -105,7 +105,7 @@ impl Buffer {
 		Ok(())
 	}
 
-	pub fn release(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn release(&self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_buffer:event:release
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -116,7 +116,7 @@ impl Buffer {
 }
 
 impl wl::Object for Buffer {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy

@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct DataDevice {
 	object_id: wl::Id<Self>,
@@ -15,7 +15,7 @@ impl DataDevice {
 }
 
 impl wl::Object for DataDevice {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_data_device:request:start_drag

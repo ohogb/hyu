@@ -3,7 +3,7 @@ use std::{
 	os::fd::{FromRawFd as _, IntoRawFd as _},
 };
 
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
@@ -46,7 +46,7 @@ impl ZwpLinuxDmabufV1 {
 		})
 	}
 
-	pub fn format(&self, client: &mut wl::Client, format: u32) -> Result<()> {
+	pub fn format(&self, client: &mut Client, format: u32) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:event:format
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -57,7 +57,7 @@ impl ZwpLinuxDmabufV1 {
 
 	pub fn modifier(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		format: u32,
 		modifier_hi: u32,
 		modifier_lo: u32,
@@ -72,7 +72,7 @@ impl ZwpLinuxDmabufV1 {
 }
 
 impl wl::Object for ZwpLinuxDmabufV1 {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:destroy
@@ -139,7 +139,7 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 		5
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
 		client.new_object(id, Self::new(id, self.card.clone())?);
 

@@ -1,4 +1,4 @@
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 pub struct Seat {
 	pub object_id: wl::Id<Self>,
@@ -17,7 +17,7 @@ impl Seat {
 		}
 	}
 
-	fn capabilities(&self, client: &mut wl::Client, capabilities: u32) -> Result<()> {
+	fn capabilities(&self, client: &mut Client, capabilities: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_seat:event:capabilities
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -32,7 +32,7 @@ impl Seat {
 }
 
 impl wl::Object for Seat {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_seat:request:get_pointer
@@ -71,7 +71,7 @@ impl wl::Global for Seat {
 		7
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		let seat = client.new_object(
 			wl::Id::new(object_id),
 			Self::new(wl::Id::new(object_id), self.keymap),

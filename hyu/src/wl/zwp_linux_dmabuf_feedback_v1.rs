@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct ZwpLinuxDmabufFeedbackV1 {
 	object_id: wl::Id<Self>,
@@ -10,7 +10,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		Self { object_id, formats }
 	}
 
-	pub fn done(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn done(&self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:done
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -19,7 +19,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		})
 	}
 
-	pub fn format_table(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn format_table(&self, client: &mut Client) -> Result<()> {
 		let (fd, size) = self.formats;
 
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:format_table
@@ -34,7 +34,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		Ok(())
 	}
 
-	pub fn main_device(&self, client: &mut wl::Client, device: &[nix::libc::dev_t]) -> Result<()> {
+	pub fn main_device(&self, client: &mut Client, device: &[nix::libc::dev_t]) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:main_device
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -43,7 +43,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		})
 	}
 
-	pub fn tranche_done(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn tranche_done(&self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_done
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -54,7 +54,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 
 	pub fn tranche_target_device(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		device: &[nix::libc::dev_t],
 	) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_target_device
@@ -65,7 +65,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		})
 	}
 
-	pub fn tranche_formats(&self, client: &mut wl::Client, indices: &[u16]) -> Result<()> {
+	pub fn tranche_formats(&self, client: &mut Client, indices: &[u16]) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_formats
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -74,7 +74,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 		})
 	}
 
-	pub fn tranche_flags(&self, client: &mut wl::Client, flags: u32) -> Result<()> {
+	pub fn tranche_flags(&self, client: &mut Client, flags: u32) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:event:tranche_flags
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -85,7 +85,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 }
 
 impl wl::Object for ZwpLinuxDmabufFeedbackV1 {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_feedback_v1:request:destroy

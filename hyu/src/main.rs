@@ -4,6 +4,7 @@
 #![feature(sync_unsafe_cell)]
 
 pub mod backend;
+mod client;
 pub mod egl;
 mod global_wrapper;
 mod point;
@@ -14,6 +15,7 @@ pub mod tty;
 pub mod wl;
 pub mod xkb;
 
+pub use client::*;
 pub use global_wrapper::*;
 pub use point::*;
 pub use stream::*;
@@ -106,7 +108,7 @@ fn main() -> Result<()> {
 			let fd = stream.get().as_raw_fd();
 
 			let mut client =
-				wl::Client::new(fd, Point(0, 0), stream.clone(), state.drm.render_tx.clone());
+				Client::new(fd, Point(0, 0), stream.clone(), state.drm.render_tx.clone());
 
 			let mut display = wl::Display::new(wl::Id::new(1));
 

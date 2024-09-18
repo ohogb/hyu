@@ -1,6 +1,5 @@
 mod buffer;
 mod callback;
-mod client;
 mod compositor;
 mod data_device;
 mod data_device_manager;
@@ -32,7 +31,6 @@ mod zwp_linux_dmabuf_v1;
 
 pub use buffer::*;
 pub use callback::*;
-pub use client::*;
 pub use compositor::*;
 pub use data_device::*;
 pub use data_device_manager::*;
@@ -62,14 +60,14 @@ pub use zwp_linux_buffer_params_v1::*;
 pub use zwp_linux_dmabuf_feedback_v1::*;
 pub use zwp_linux_dmabuf_v1::*;
 
-use crate::{wl, Result};
+use crate::{Client, Result};
 
 pub trait Global {
 	fn get_name(&self) -> &'static str;
 	fn get_version(&self) -> u32;
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()>;
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()>;
 }
 
 pub trait Object {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()>;
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()>;
 }

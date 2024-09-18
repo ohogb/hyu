@@ -1,6 +1,6 @@
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,
@@ -17,7 +17,7 @@ impl ZwpLinuxBufferParamsV1 {
 }
 
 impl wl::Object for ZwpLinuxBufferParamsV1 {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_buffer_params_v1:request:destroy

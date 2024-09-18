@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{rt, wl, xkb, Point, Result};
+use crate::{rt, wl, xkb, Client, Point, Result};
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
@@ -39,7 +39,7 @@ pub struct State {
 }
 
 pub struct CompositorState {
-	pub clients: std::collections::HashMap<std::os::fd::RawFd, wl::Client>,
+	pub clients: std::collections::HashMap<std::os::fd::RawFd, Client>,
 	pub windows: Vec<std::rc::Rc<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>>,
 	pub focused_window: Option<std::rc::Weak<(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>)>>,
 	pub changes: Vec<Change>,
@@ -387,7 +387,7 @@ impl CompositorState {
 
 			fn do_stuff(
 				pointer_over: &mut Option<PointerOver>,
-				client: &mut wl::Client,
+				client: &mut Client,
 				toplevel: &wl::XdgToplevel,
 				surface: &wl::Surface,
 				cursor_position: Point,
@@ -731,7 +731,7 @@ impl CompositorState {
 		for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
 			let client = self.clients.get_mut(&fd).unwrap();
 
-			let mut draw = |client: &mut wl::Client,
+			let mut draw = |client: &mut Client,
 			                toplevel_position: Point,
 			                xdg_surface: &wl::XdgSurface,
 			                surface: &mut wl::Surface|

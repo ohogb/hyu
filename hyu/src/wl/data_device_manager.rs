@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 #[derive(Debug)]
 pub struct DataDeviceManager {}
@@ -10,7 +10,7 @@ impl DataDeviceManager {
 }
 
 impl wl::Object for DataDeviceManager {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:create_data_source
@@ -40,7 +40,7 @@ impl wl::Global for DataDeviceManager {
 		3
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		client.new_object(wl::Id::new(object_id), Self::new());
 		Ok(())
 	}

@@ -1,4 +1,4 @@
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 struct Ptr(std::ptr::NonNull<std::ffi::c_void>);
 
@@ -74,7 +74,7 @@ impl ShmPool {
 }
 
 impl wl::Object for ShmPool {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:create_buffer

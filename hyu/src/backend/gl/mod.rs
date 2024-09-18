@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{state, wl, Point, Result};
+use crate::{state, wl, Client, Point, Result};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -171,7 +171,7 @@ impl Renderer {
 			let client = compositor.clients.get_mut(&fd).unwrap();
 			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 
-			let frame = |client: &mut wl::Client, surface: &mut wl::Surface| -> Result<()> {
+			let frame = |client: &mut Client, surface: &mut wl::Surface| -> Result<()> {
 				surface.frame(display.get_time().as_millis() as u32, client)?;
 				surface.presentation_feedback(
 					std::time::Duration::from_micros(tv_sec as u64 * 1_000_000 + tv_usec as u64),

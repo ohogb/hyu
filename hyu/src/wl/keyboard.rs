@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct Keyboard {
 	object_id: wl::Id<Self>,
@@ -22,7 +22,7 @@ impl Keyboard {
 		}
 	}
 
-	pub fn keymap(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn keymap(&mut self, client: &mut Client) -> Result<()> {
 		let (fd, size) = self.keymap;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:keymap
@@ -37,7 +37,7 @@ impl Keyboard {
 		Ok(())
 	}
 
-	pub fn enter(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
+	pub fn enter(&mut self, client: &mut Client, surface: wl::Id<wl::Surface>) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:enter
@@ -50,7 +50,7 @@ impl Keyboard {
 		self.modifiers(client, 0)
 	}
 
-	pub fn leave(&mut self, client: &mut wl::Client, surface: wl::Id<wl::Surface>) -> Result<()> {
+	pub fn leave(&mut self, client: &mut Client, surface: wl::Id<wl::Surface>) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:leave
@@ -61,7 +61,7 @@ impl Keyboard {
 		})
 	}
 
-	pub fn key(&mut self, client: &mut wl::Client, key: u32, state: u32) -> Result<()> {
+	pub fn key(&mut self, client: &mut Client, key: u32, state: u32) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:key
@@ -72,7 +72,7 @@ impl Keyboard {
 		})
 	}
 
-	pub fn modifiers(&mut self, client: &mut wl::Client, depressed: u32) -> Result<()> {
+	pub fn modifiers(&mut self, client: &mut Client, depressed: u32) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:modifiers
@@ -83,7 +83,7 @@ impl Keyboard {
 		})
 	}
 
-	pub fn repeat_info(&mut self, client: &mut wl::Client, rate: i32, delay: i32) -> Result<()> {
+	pub fn repeat_info(&mut self, client: &mut Client, rate: i32, delay: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_keyboard:event:repeat_info
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -94,7 +94,7 @@ impl Keyboard {
 }
 
 impl wl::Object for Keyboard {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_keyboard:request:release

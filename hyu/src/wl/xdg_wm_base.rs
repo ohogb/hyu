@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct XdgWmBase {
 	object_id: wl::Id<Self>,
@@ -9,7 +9,7 @@ impl XdgWmBase {
 		Self { object_id }
 	}
 
-	pub fn ping(&self, client: &mut wl::Client, serial: u32) -> Result<()> {
+	pub fn ping(&self, client: &mut Client, serial: u32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_wm_base:event:ping
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -20,7 +20,7 @@ impl XdgWmBase {
 }
 
 impl wl::Object for XdgWmBase {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:destroy
@@ -60,7 +60,7 @@ impl wl::Global for XdgWmBase {
 		6
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 		Ok(())
 	}

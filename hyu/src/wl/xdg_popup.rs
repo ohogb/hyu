@@ -1,4 +1,4 @@
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 pub struct XdgPopup {
 	object_id: wl::Id<Self>,
@@ -23,12 +23,7 @@ impl XdgPopup {
 		}
 	}
 
-	pub fn configure(
-		&mut self,
-		client: &mut wl::Client,
-		position: Point,
-		size: Point,
-	) -> Result<()> {
+	pub fn configure(&mut self, client: &mut Client, position: Point, size: Point) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:configure
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -43,7 +38,7 @@ impl XdgPopup {
 		xdg_surface.configure(client)
 	}
 
-	pub fn repositioned(&self, client: &mut wl::Client, token: u32) -> Result<()> {
+	pub fn repositioned(&self, client: &mut Client, token: u32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:repositioned
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -54,7 +49,7 @@ impl XdgPopup {
 }
 
 impl wl::Object for XdgPopup {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_popup:request:destroy

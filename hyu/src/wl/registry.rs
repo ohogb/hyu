@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct Registry {
 	object_id: wl::Id<Self>,
@@ -12,7 +12,7 @@ impl Registry {
 
 	pub fn global(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		name: u32,
 		interface: impl AsRef<str>,
 		version: u32,
@@ -26,7 +26,7 @@ impl Registry {
 }
 
 impl wl::Object for Registry {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_registry:request:bind

@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct Output {
 	pub object_id: wl::Id<Self>,
@@ -11,7 +11,7 @@ impl Output {
 
 	fn geometry(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		x: i32,
 		y: i32,
 		physical_width: i32,
@@ -40,7 +40,7 @@ impl Output {
 
 	fn mode(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		flags: u32,
 		width: i32,
 		height: i32,
@@ -54,7 +54,7 @@ impl Output {
 		})
 	}
 
-	fn done(&self, client: &mut wl::Client) -> Result<()> {
+	fn done(&self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:done
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -63,7 +63,7 @@ impl Output {
 		})
 	}
 
-	fn scale(&self, client: &mut wl::Client, factor: i32) -> Result<()> {
+	fn scale(&self, client: &mut Client, factor: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:scale
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -74,7 +74,7 @@ impl Output {
 }
 
 impl wl::Object for Output {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_output:request:release
@@ -98,7 +98,7 @@ impl wl::Global for Output {
 		3
 	}
 
-	fn bind(&self, client: &mut wl::Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
 		let output = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
 		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;

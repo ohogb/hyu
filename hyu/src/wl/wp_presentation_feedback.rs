@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{wl, Client, Result};
 
 pub struct WpPresentationFeedback {
 	object_id: wl::Id<Self>,
@@ -9,7 +9,7 @@ impl WpPresentationFeedback {
 		Self { object_id }
 	}
 
-	pub fn sync_output(&self, client: &mut wl::Client, output: wl::Id<wl::Output>) -> Result<()> {
+	pub fn sync_output(&self, client: &mut Client, output: wl::Id<wl::Output>) -> Result<()> {
 		// https://wayland.app/protocols/presentation-time#wp_presentation_feedback:event:sync_output
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -20,7 +20,7 @@ impl WpPresentationFeedback {
 
 	pub fn presented(
 		&self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		time: std::time::Duration,
 		till_next_refresh: u32,
 		sequence: u64,
@@ -50,7 +50,7 @@ impl WpPresentationFeedback {
 }
 
 impl wl::Object for WpPresentationFeedback {
-	fn handle(&mut self, _client: &mut wl::Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(&mut self, _client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
 		color_eyre::eyre::bail!("unknown op '{op}' in WpPresentationFeedback");
 	}
 }

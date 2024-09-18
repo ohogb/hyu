@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{state, wl, Point, Result};
+use crate::{state, wl, Client, Point, Result};
 
 #[derive(Default)]
 pub struct SurfaceState {
@@ -73,10 +73,7 @@ impl Surface {
 		self.children.push(child);
 	}
 
-	pub fn get_front_buffers(
-		&self,
-		client: &wl::Client,
-	) -> Vec<(Point, Point, wl::Id<wl::Surface>)> {
+	pub fn get_front_buffers(&self, client: &Client) -> Vec<(Point, Point, wl::Id<wl::Surface>)> {
 		let Some(data) = self.data.as_ref() else {
 			return Vec::new();
 		};
@@ -101,7 +98,7 @@ impl Surface {
 		ret
 	}
 
-	pub fn frame(&mut self, ms: u32, client: &mut wl::Client) -> Result<()> {
+	pub fn frame(&mut self, ms: u32, client: &mut Client) -> Result<()> {
 		for &callback in &self.current.frame_callbacks {
 			let callback = client.get_object(callback)?.clone();
 			callback.done(client, ms)?;
@@ -125,7 +122,7 @@ impl Surface {
 		refresh: u32,
 		sequence: u64,
 		flags: u32,
-		client: &mut wl::Client,
+		client: &mut Client,
 	) -> Result<()> {
 		if let Some(presentation_feedback) = self.current.presentation_feedback {
 			let presentation_feedback = client.get_object(presentation_feedback)?;
@@ -152,7 +149,7 @@ impl Surface {
 		Ok(())
 	}
 
-	pub fn gl_do_textures(&mut self, client: &mut wl::Client, glow: &glow::Context) -> Result<()> {
+	pub fn gl_do_textures(&mut self, client: &mut Client, glow: &glow::Context) -> Result<()> {
 		if let Some(buffer) = &self.current.buffer {
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
@@ -196,7 +193,7 @@ impl Surface {
 	}
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
-	pub fn commit(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn commit(&mut self, client: &mut Client) -> Result<()> {
 		let mut synced_sub_surface = false;
 
 		if let Some(SurfaceRole::SubSurface { mode, .. }) = &mut self.role {
@@ -240,8 +237,8 @@ impl Surface {
 
 	pub fn depth_first_sub_tree(
 		&self,
-		client: &mut wl::Client,
-		callback: &mut impl FnMut(&mut wl::Client, &mut wl::SubSurface, &mut wl::Surface) -> Result<()>,
+		client: &mut Client,
+		callback: &mut impl FnMut(&mut Client, &mut wl::SubSurface, &mut wl::Surface) -> Result<()>,
 	) -> Result<()> {
 		for &child in &self.children {
 			let sub_surface = client.get_object_mut(child)?;
@@ -256,7 +253,7 @@ impl Surface {
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy

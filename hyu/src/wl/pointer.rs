@@ -1,4 +1,4 @@
-use crate::{wl, Point, Result};
+use crate::{wl, Client, Point, Result};
 
 pub struct Pointer {
 	object_id: wl::Id<Self>,
@@ -18,7 +18,7 @@ impl Pointer {
 
 	pub fn enter(
 		&mut self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		serial: u32,
 		surface: wl::Id<wl::Surface>,
 		position: Point,
@@ -38,7 +38,7 @@ impl Pointer {
 
 	pub fn leave(
 		&mut self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		serial: u32,
 		surface: wl::Id<wl::Surface>,
 	) -> Result<()> {
@@ -50,7 +50,7 @@ impl Pointer {
 		})
 	}
 
-	pub fn motion(&mut self, client: &mut wl::Client, position: Point) -> Result<()> {
+	pub fn motion(&mut self, client: &mut Client, position: Point) -> Result<()> {
 		let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 		let time = display.get_time().as_millis();
 
@@ -68,7 +68,7 @@ impl Pointer {
 
 	pub fn button(
 		&mut self,
-		client: &mut wl::Client,
+		client: &mut Client,
 		serial: u32,
 		button: u32,
 		state: u32,
@@ -84,7 +84,7 @@ impl Pointer {
 		})
 	}
 
-	pub fn axis(&mut self, client: &mut wl::Client, axis: u32, value: f64) -> Result<()> {
+	pub fn axis(&mut self, client: &mut Client, axis: u32, value: f64) -> Result<()> {
 		let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 		let time = display.get_time().as_millis();
 
@@ -96,7 +96,7 @@ impl Pointer {
 		})
 	}
 
-	pub fn frame(&mut self, client: &mut wl::Client) -> Result<()> {
+	pub fn frame(&mut self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:frame
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -105,7 +105,7 @@ impl Pointer {
 		})
 	}
 
-	pub fn axis_source(&mut self, client: &mut wl::Client, axis_source: u32) -> Result<()> {
+	pub fn axis_source(&mut self, client: &mut Client, axis_source: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_source
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -114,12 +114,7 @@ impl Pointer {
 		})
 	}
 
-	pub fn axis_discrete(
-		&mut self,
-		client: &mut wl::Client,
-		axis: u32,
-		discrete: i32,
-	) -> Result<()> {
+	pub fn axis_discrete(&mut self, client: &mut Client, axis: u32, discrete: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_discrete
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,
@@ -130,7 +125,7 @@ impl Pointer {
 }
 
 impl wl::Object for Pointer {
-	fn handle(&mut self, client: &mut wl::Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_pointer:request:set_cursor
