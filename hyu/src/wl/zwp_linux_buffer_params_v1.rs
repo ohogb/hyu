@@ -99,6 +99,10 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 						wl::BufferStorage::Dmabuf { image },
 					),
 				);
+
+				for &(fd, ..) in &self.buffers {
+					nix::unistd::close(fd)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxBufferParamsV1"),
 		}
