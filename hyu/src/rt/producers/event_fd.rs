@@ -2,12 +2,22 @@ use std::os::fd::AsRawFd as _;
 
 use crate::{rt::Producer, Result};
 
+#[derive(Clone)]
+pub struct Notifier(std::sync::Arc<nix::sys::eventfd::EventFd>);
+
+impl Notifier {
+	pub fn notify(&self) -> Result<()> {
+		self.0.write(1)?;
+		Ok(())
+	}
+}
+
 pub struct EventFd(std::sync::Arc<nix::sys::eventfd::EventFd>);
 
 impl EventFd {
-	pub fn new() -> Result<(std::sync::Arc<nix::sys::eventfd::EventFd>, Self)> {
+	pub fn new() -> Result<(Notifier, Self)> {
 		let a = std::sync::Arc::new(nix::sys::eventfd::EventFd::new()?);
-		Ok((a.clone(), Self(a)))
+		Ok((Notifier(a.clone()), Self(a)))
 	}
 
 	pub fn read(&mut self) -> Result<u64> {

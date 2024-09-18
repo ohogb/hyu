@@ -6,7 +6,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Sender<T> {
 	sender: std::sync::mpsc::Sender<T>,
-	event: std::sync::Arc<nix::sys::eventfd::EventFd>,
+	event: producers::Notifier,
 }
 
 impl<T: 'static> Sender<T> {
@@ -15,9 +15,7 @@ impl<T: 'static> Sender<T> {
 			.send(value)
 			.map_err(|_| color_eyre::eyre::eyre!("failed to send value"))?;
 
-		self.event.write(1)?;
-
-		Ok(())
+		self.event.notify()
 	}
 }
 
