@@ -7,6 +7,7 @@ pub struct SurfaceState {
 	pub buffer: Option<wl::Id<wl::Buffer>>,
 	pub frame_callbacks: Vec<wl::Id<wl::Callback>>,
 	pub input_region: Option<wl::Region>,
+	pub offset: Option<(i32, i32)>,
 	pub presentation_feedback: Option<wl::Id<wl::WpPresentationFeedback>>,
 }
 
@@ -21,6 +22,10 @@ impl SurfaceState {
 
 		if let Some(region) = std::mem::take(&mut self.input_region) {
 			other.input_region = Some(region);
+		}
+
+		if let Some(offset) = std::mem::take(&mut self.offset) {
+			other.offset = Some(offset);
 		}
 
 		if let Some(presentation_feedback) = std::mem::take(&mut self.presentation_feedback) {
@@ -269,17 +274,16 @@ impl wl::Object for Surface {
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:attach
-				let (buffer, x, y): (wl::Id<wl::Buffer>, u32, u32) =
+				let (buffer, x, y): (wl::Id<wl::Buffer>, i32, i32) =
 					wlm::decode::from_slice(params)?;
-
-				assert!(x == 0);
-				assert!(y == 0);
 
 				self.pending.buffer = if !buffer.is_null() {
 					Some(buffer)
 				} else {
 					None
 				};
+
+				self.pending.offset = Some((x, y));
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage
@@ -320,6 +324,11 @@ impl wl::Object for Surface {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage_buffer
 				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
 					wlm::decode::from_slice(params)?;
+			}
+			10 => {
+				// https://wayland.app/protocols/wayland#wl_surface:request:offset
+				let (x, y): (i32, i32) = wlm::decode::from_slice(params)?;
+				self.pending.offset = Some((x, y));
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Surface"),
 		}
