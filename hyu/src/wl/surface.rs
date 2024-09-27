@@ -287,6 +287,7 @@ impl wl::Object for Surface {
 			}
 			2 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage
+				let (_x, _y, _w, _h): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 			}
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
@@ -297,6 +298,7 @@ impl wl::Object for Surface {
 			}
 			4 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_opaque_region
+				let _region: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
 			}
 			5 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_input_region
@@ -315,14 +317,15 @@ impl wl::Object for Surface {
 			}
 			7 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform
+				let _transform: i32 = wlm::decode::from_slice(params)?;
 			}
 			8 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_scale
-				let _scale: u32 = wlm::decode::from_slice(params)?;
+				let _scale: i32 = wlm::decode::from_slice(params)?;
 			}
 			9 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:damage_buffer
-				let (_x, _y, _width, _height): (u32, u32, u32, u32) =
+				let (_x, _y, _width, _height): (i32, i32, i32, i32) =
 					wlm::decode::from_slice(params)?;
 			}
 			10 => {
