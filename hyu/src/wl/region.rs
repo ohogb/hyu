@@ -29,6 +29,10 @@ impl wl::Object for Region {
 				let (x, y, w, h): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
 				self.areas.push((Point(x, y), Point(w, h)));
 			}
+			2 => {
+				// https://wayland.app/protocols/wayland#wl_region:request:subtract
+				let (_x, _y, _w, _h): (i32, i32, i32, i32) = wlm::decode::from_slice(params)?;
+			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Region"),
 		}
 
