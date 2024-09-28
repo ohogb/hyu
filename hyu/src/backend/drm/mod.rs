@@ -313,7 +313,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 		.ok_or_eyre("failed to find config with gbm format")?;
 
 	let mut context = display
-		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3038])
+		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3100, 0x3101, 0x3038])
 		.ok_or_eyre("failed to create context")?;
 
 	unsafe {
