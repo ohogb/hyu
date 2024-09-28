@@ -124,7 +124,7 @@ impl Surface {
 	pub fn presentation_feedback(
 		&mut self,
 		time: std::time::Duration,
-		refresh: u32,
+		till_next_refresh: std::time::Duration,
 		sequence: u64,
 		flags: u32,
 		client: &mut Client,
@@ -139,7 +139,7 @@ impl Surface {
 				.object_id;
 
 			presentation_feedback.sync_output(client, output)?;
-			presentation_feedback.presented(client, time, refresh, sequence, flags)?;
+			presentation_feedback.presented(client, time, till_next_refresh, sequence, flags)?;
 
 			self.current.presentation_feedback = None;
 		}
@@ -148,7 +148,7 @@ impl Surface {
 			let sub_surface = client.get_object(child)?;
 			let surface = client.get_object_mut(sub_surface.surface)?;
 
-			surface.presentation_feedback(time, refresh, sequence, flags, client)?;
+			surface.presentation_feedback(time, till_next_refresh, sequence, flags, client)?;
 		}
 
 		Ok(())
@@ -233,10 +233,6 @@ impl Surface {
 
 				Ok(())
 			})?;
-
-			// TODO: maybe should only render if buffer changed, but then frame notifications
-			// wouldn't be sent, figure out a better time to send frame notifications
-			client.render_tx.notify()?;
 		}
 
 		Ok(())

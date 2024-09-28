@@ -163,9 +163,10 @@ impl Renderer {
 	pub fn after(
 		&mut self,
 		compositor: &mut state::CompositorState,
-		tv_sec: u32,
-		tv_usec: u32,
+		duration: std::time::Duration,
+		till_next_refresh: std::time::Duration,
 		sequence: u32,
+		flags: u32,
 	) -> Result<()> {
 		for (fd, xdg_toplevel) in compositor.windows.iter().map(|x| **x) {
 			let client = compositor.clients.get_mut(&fd).unwrap();
@@ -174,10 +175,10 @@ impl Renderer {
 			let frame = |client: &mut Client, surface: &mut wl::Surface| -> Result<()> {
 				surface.frame(display.get_time().as_millis() as u32, client)?;
 				surface.presentation_feedback(
-					std::time::Duration::from_micros(tv_sec as u64 * 1_000_000 + tv_usec as u64),
-					0,
+					duration,
+					till_next_refresh,
 					sequence as _,
-					0x2,
+					flags,
 					client,
 				)
 			};

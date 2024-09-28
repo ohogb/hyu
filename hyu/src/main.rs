@@ -79,14 +79,13 @@ fn main() -> Result<()> {
 
 	let drm_state = backend::drm::initialize_state(&card)?;
 
-	let render_tx = drm_state.render_tx.clone();
 	let width = drm_state.screen.mode.hdisplay;
 	let height = drm_state.screen.mode.vdisplay;
 
 	let mut state = state::State {
 		drm: drm_state,
 		input: backend::input::initialize_state()?,
-		compositor: state::CompositorState::new(render_tx, width, height),
+		compositor: state::CompositorState::new(width, height),
 	};
 
 	state.compositor.initialize_xkb_state(keymap)?;
@@ -107,8 +106,7 @@ fn main() -> Result<()> {
 			let stream = Stream::new(stream);
 			let fd = stream.get().as_raw_fd();
 
-			let mut client =
-				Client::new(fd, Point(0, 0), stream.clone(), state.drm.render_tx.clone());
+			let mut client = Client::new(fd, Point(0, 0), stream.clone());
 
 			let mut display = wl::Display::new(wl::Id::new(1));
 

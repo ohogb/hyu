@@ -1,4 +1,4 @@
-use crate::{rt, state, wl, Point, Result};
+use crate::{state, wl, Point, Result};
 
 pub struct Client {
 	pub fd: std::os::fd::RawFd,
@@ -9,16 +9,10 @@ pub struct Client {
 	highest_index: u32,
 	pub stream: crate::Stream,
 	pub changes: Vec<state::Change>,
-	pub render_tx: rt::producers::Notifier,
 }
 
 impl<'object> Client {
-	pub fn new(
-		fd: std::os::fd::RawFd,
-		start_position: Point,
-		stream: crate::Stream,
-		render_tx: rt::producers::Notifier,
-	) -> Self {
+	pub fn new(fd: std::os::fd::RawFd, start_position: Point, stream: crate::Stream) -> Self {
 		Self {
 			fd,
 			objects: Vec::new(),
@@ -28,7 +22,6 @@ impl<'object> Client {
 			highest_index: 0,
 			stream,
 			changes: Vec::new(),
-			render_tx,
 		}
 	}
 

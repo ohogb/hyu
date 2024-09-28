@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{rt, wl, xkb, Client, Point, Result};
+use crate::{wl, xkb, Client, Point, Result};
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
@@ -46,13 +46,12 @@ pub struct CompositorState {
 	pub pointer_over: Option<PointerOver>,
 	pub pointer_position: Point,
 	pub xkb_state: Option<XkbState>,
-	pub render_tx: rt::producers::Notifier,
 	pub width: u16,
 	pub height: u16,
 }
 
 impl CompositorState {
-	pub fn new(render_tx: rt::producers::Notifier, width: u16, height: u16) -> Self {
+	pub fn new(width: u16, height: u16) -> Self {
 		Self {
 			clients: Default::default(),
 			windows: Default::default(),
@@ -61,7 +60,6 @@ impl CompositorState {
 			pointer_over: Default::default(),
 			pointer_position: Default::default(),
 			xkb_state: Default::default(),
-			render_tx,
 			width,
 			height,
 		}
@@ -226,8 +224,6 @@ impl CompositorState {
 			return Ok(());
 		}
 
-		self.render_tx.notify().unwrap();
-
 		const GAP: i32 = 0;
 
 		let width = self.width as i32;
@@ -315,20 +311,6 @@ impl CompositorState {
 		let cursor_position = Point(cursor_position.0, cursor_position.1);
 
 		self.pointer_position = cursor_position;
-
-		let should_hide_cursor = if let Some(a) = &self.pointer_over {
-			let client = self.clients.get(&a.fd).unwrap();
-			client
-				.objects_mut::<wl::Pointer>()
-				.iter()
-				.fold(false, |acc, x| acc | x.should_hide_cursor)
-		} else {
-			false
-		};
-
-		if !should_hide_cursor {
-			self.render_tx.notify()?;
-		}
 
 		for client in self.clients.values_mut() {
 			for seat in client.objects_mut::<wl::Seat>() {

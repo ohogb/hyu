@@ -15,15 +15,10 @@ pub struct State {
 	pub screen: Screen,
 	renderer: crate::backend::gl::Renderer,
 	context: AtomicHelper,
-	pub render_tx: rt::producers::Notifier,
-	render_rx: Option<rt::producers::EventFd>,
 }
 
 pub enum ScreenState {
-	WaitingForPageFlip {
-		bo: gbm::BufferObject,
-		needs_rerender: bool,
-	},
+	WaitingForPageFlip { bo: gbm::BufferObject },
 	Idle,
 }
 
@@ -42,6 +37,9 @@ pub struct Screen {
 	old_bo: Option<gbm::BufferObject>,
 
 	state: ScreenState,
+
+	timer_tx: std::sync::Arc<nix::sys::timerfd::TimerFd>,
+	timer_rx: Option<rt::producers::TimerFd>,
 }
 
 struct ConnectorProps {
@@ -169,6 +167,8 @@ impl Screen {
 			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
 			.ok_or_eyre("failed to create window surface")?;
 
+		let (timer_tx, timer_rx) = rt::producers::TimerFd::new()?;
+
 		Ok(Self {
 			connector,
 			mode,
@@ -180,6 +180,8 @@ impl Screen {
 			window_surface,
 			old_bo: None,
 			state: ScreenState::Idle,
+			timer_tx,
+			timer_rx: Some(timer_rx),
 		})
 	}
 
@@ -256,10 +258,7 @@ impl Screen {
 
 		ctx.clear();
 
-		self.state = ScreenState::WaitingForPageFlip {
-			bo,
-			needs_rerender: false,
-		};
+		self.state = ScreenState::WaitingForPageFlip { bo };
 
 		Ok(())
 	}
@@ -356,8 +355,6 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 
 	let context = device.begin_atomic();
 
-	let (tx, rx) = rt::producers::EventFd::new()?;
-
 	let state = State {
 		device,
 		gbm_device,
@@ -365,8 +362,6 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 		screen,
 		renderer,
 		context,
-		render_tx: tx,
-		render_rx: Some(rx),
 	};
 
 	Ok(state)
@@ -383,7 +378,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 					sequence,
 					..
 				} => {
-					let ScreenState::WaitingForPageFlip { bo, needs_rerender } =
+					let ScreenState::WaitingForPageFlip { bo } =
 						std::mem::replace(&mut state.drm.screen.state, ScreenState::Idle)
 					else {
 						panic!();
@@ -395,14 +390,31 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 
 					state.drm.screen.old_bo = Some(bo);
 
-					state
-						.drm
-						.renderer
-						.after(&mut state.compositor, tv_sec, tv_usec, sequence)?;
+					let duration = std::time::Duration::from_micros(
+						tv_sec as u64 * 1_000_000 + tv_usec as u64,
+					);
 
-					if needs_rerender {
-						state.drm.render_tx.notify()?;
-					}
+					let till_next_refresh = std::time::Duration::from_micros(
+						1_000_000 / state.drm.screen.mode.vrefresh as u64,
+					);
+
+					state.drm.renderer.after(
+						&mut state.compositor,
+						duration,
+						till_next_refresh,
+						sequence,
+						0x1 | 0x2 | 0x4,
+					)?;
+
+					let next_render =
+						duration + till_next_refresh - std::time::Duration::from_micros(1_000);
+
+					state.drm.screen.timer_tx.set(
+						nix::sys::timerfd::Expiration::OneShot(
+							nix::sys::time::TimeSpec::from_duration(next_render),
+						),
+						nix::sys::timerfd::TimerSetTimeFlags::TFD_TIMER_ABSTIME,
+					)?;
 				}
 			}
 
@@ -411,13 +423,10 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 	);
 
 	runtime.on(
-		std::mem::take(&mut state.drm.render_rx).unwrap(),
+		std::mem::take(&mut state.drm.screen.timer_rx).unwrap(),
 		|_, state, _| {
-			if let ScreenState::WaitingForPageFlip { needs_rerender, .. } =
-				&mut state.drm.screen.state
-			{
-				*needs_rerender = true;
-				return Ok(());
+			if let ScreenState::WaitingForPageFlip { .. } = &state.drm.screen.state {
+				panic!();
 			}
 
 			state.drm.renderer.before(&mut state.compositor)?;
@@ -433,6 +442,5 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 		},
 	);
 
-	// initial render
-	state.drm.render_tx.notify()
+	Ok(())
 }

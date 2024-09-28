@@ -22,7 +22,7 @@ impl WpPresentationFeedback {
 		&self,
 		client: &mut Client,
 		time: std::time::Duration,
-		till_next_refresh: u32,
+		till_next_refresh: std::time::Duration,
 		sequence: u64,
 		flags: u32,
 	) -> Result<()> {
@@ -34,7 +34,7 @@ impl WpPresentationFeedback {
 				((time.as_secs() >> 32) & 0xFFFFFFFF) as u32,
 				(time.as_secs() & 0xFFFFFFFF) as u32,
 				(((time.as_nanos() % 1_000_000_000) as u64) & 0xFFFFFFFF) as u32,
-				till_next_refresh,
+				till_next_refresh.as_nanos() as u32,
 				((sequence >> 32) & 0xFFFFFFFF) as u32,
 				(sequence & 0xFFFFFFFF) as u32,
 				flags,
