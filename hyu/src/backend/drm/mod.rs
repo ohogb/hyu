@@ -1,10 +1,9 @@
-use crate::{egl, rt, state, Result};
+use crate::{egl, gbm, rt, state, Result};
 
 mod device;
-pub mod gbm;
 
 use color_eyre::eyre::OptionExt as _;
-use device::*;
+pub use device::*;
 use glow::HasContext as _;
 
 pub struct State {

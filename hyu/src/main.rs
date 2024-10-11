@@ -6,6 +6,7 @@
 pub mod backend;
 mod client;
 pub mod egl;
+pub mod gbm;
 mod global_wrapper;
 pub mod libinput;
 mod point;
