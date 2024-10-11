@@ -1,4 +1,4 @@
-use crate::{backend::drm, Result};
+use crate::{drm, Result};
 
 #[link(name = "gbm")]
 extern "C" {

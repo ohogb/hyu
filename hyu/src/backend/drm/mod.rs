@@ -1,19 +1,19 @@
-use crate::{egl, gbm, rt, state, Result};
-
-mod device;
+use crate::{
+	drm::{self, HasProps as _, Object as _},
+	egl, gbm, rt, state, Result,
+};
 
 use color_eyre::eyre::OptionExt as _;
-pub use device::*;
 use glow::HasContext as _;
 
 pub struct State {
-	device: Device,
+	device: drm::Device,
 	#[expect(dead_code)]
 	gbm_device: gbm::Device,
 	egl_display: egl::Display,
 	pub screen: Screen,
 	renderer: crate::backend::gl::Renderer,
-	context: AtomicHelper,
+	context: drm::AtomicHelper,
 }
 
 pub enum ScreenState {
@@ -22,12 +22,12 @@ pub enum ScreenState {
 }
 
 pub struct Screen {
-	connector: PropWrapper<Connector>,
-	pub mode: ModeInfo,
+	connector: drm::PropWrapper<drm::Connector>,
+	pub mode: drm::ModeInfo,
 	#[expect(dead_code)]
-	encoder: Encoder,
-	crtc: PropWrapper<Crtc>,
-	plane: PropWrapper<Plane>,
+	encoder: drm::Encoder,
+	crtc: drm::PropWrapper<drm::Crtc>,
+	plane: drm::PropWrapper<drm::Plane>,
 	gbm_surface: gbm::Surface,
 
 	props: Props,
@@ -71,14 +71,14 @@ struct Props {
 
 impl Screen {
 	pub fn create(
-		connector: Connector,
-		device: &Device,
-		resources: &Card,
+		connector: drm::Connector,
+		device: &drm::Device,
+		resources: &drm::Card,
 		gbm_device: &gbm::Device,
 		display: &egl::Display,
 		config: &egl::Config,
 	) -> Result<Self> {
-		let connector = PropWrapper::new(connector, device);
+		let connector = drm::PropWrapper::new(connector, device);
 
 		let mode = connector
 			.modes()
@@ -89,7 +89,7 @@ impl Screen {
 
 		let encoder = device.get_encoder(connector.encoder_id)?;
 
-		let crtc = PropWrapper::new(device.get_crtc(encoder.crtc_id)?, device);
+		let crtc = drm::PropWrapper::new(device.get_crtc(encoder.crtc_id)?, device);
 
 		let plane_resources = device.get_plane_resources()?;
 		dbg!(&plane_resources);
@@ -129,7 +129,7 @@ impl Screen {
 			})
 			.unwrap();
 
-		let plane = PropWrapper::new(plane.clone(), device);
+		let plane = drm::PropWrapper::new(plane.clone(), device);
 
 		let gbm_surface = gbm_device
 			.create_surface(
@@ -184,7 +184,12 @@ impl Screen {
 		})
 	}
 
-	pub fn render(&mut self, device: &Device, ctx: &mut AtomicHelper, modeset: bool) -> Result<()> {
+	pub fn render(
+		&mut self,
+		device: &drm::Device,
+		ctx: &mut drm::AtomicHelper,
+		modeset: bool,
+	) -> Result<()> {
 		let bo = self
 			.gbm_surface
 			.lock_front_buffer()
@@ -202,7 +207,7 @@ impl Screen {
 			let blob = device.create_blob(unsafe {
 				std::slice::from_raw_parts(
 					&self.mode as *const _ as *const u8,
-					std::mem::size_of::<ModeInfo>(),
+					std::mem::size_of::<drm::ModeInfo>(),
 				)
 			})?;
 
@@ -264,7 +269,7 @@ impl Screen {
 }
 
 pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
-	let device = Device::open(card)?;
+	let device = drm::Device::open(card)?;
 	device.set_client_capability(2, 1)?;
 	device.set_client_capability(3, 1)?;
 
