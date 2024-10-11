@@ -175,8 +175,5 @@ fn main() -> Result<()> {
 	drop(runtime);
 	std::fs::remove_file(path)?;
 
-	tty.set_keyboard_mode(old_keyboard_mode)?;
-	tty.set_mode(0)?;
-
 	Ok(())
 }
