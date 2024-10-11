@@ -87,10 +87,8 @@ fn main() -> Result<()> {
 	let mut state = state::State {
 		drm: drm_state,
 		input: backend::input::initialize_state()?,
-		compositor: state::CompositorState::new(width, height),
+		compositor: state::CompositorState::create(width, height, keymap)?,
 	};
-
-	state.compositor.initialize_xkb_state(keymap)?;
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
@@ -118,7 +116,7 @@ fn main() -> Result<()> {
 			display.push_global(wl::DataDeviceManager::new());
 			display.push_global(wl::Seat::new(
 				wl::Id::null(),
-				state.compositor.get_xkb_keymap(),
+				state.compositor.xkb_state.keymap_file,
 			));
 			display.push_global(wl::Output::new(wl::Id::null()));
 			display.push_global(wl::XdgWmBase::new(wl::Id::null()));

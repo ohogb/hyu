@@ -45,27 +45,13 @@ pub struct CompositorState {
 	pub changes: Vec<Change>,
 	pub pointer_over: Option<PointerOver>,
 	pub pointer_position: Point,
-	pub xkb_state: Option<XkbState>,
+	pub xkb_state: XkbState,
 	pub width: u16,
 	pub height: u16,
 }
 
 impl CompositorState {
-	pub fn new(width: u16, height: u16) -> Self {
-		Self {
-			clients: Default::default(),
-			windows: Default::default(),
-			focused_window: Default::default(),
-			changes: Default::default(),
-			pointer_over: Default::default(),
-			pointer_position: Default::default(),
-			xkb_state: Default::default(),
-			width,
-			height,
-		}
-	}
-
-	pub fn initialize_xkb_state(&mut self, layout: impl AsRef<str>) -> Result<()> {
+	pub fn create(width: u16, height: u16, layout: impl AsRef<str>) -> Result<Self> {
 		let xkb_context = xkb::Context::create().ok_or_eyre("failed to create xkb context")?;
 
 		let xkb_keymap =
@@ -82,24 +68,22 @@ impl CompositorState {
 		let size = file.stream_len()?;
 		let fd = file.into_raw_fd();
 
-		self.xkb_state = Some(XkbState {
-			_context: xkb_context,
-			_keymap: xkb_keymap,
-			state: xkb_state,
-			keymap_file: (fd, size),
-		});
-
-		Ok(())
-	}
-
-	pub fn get_xkb_keymap(&mut self) -> (std::os::fd::RawFd, u64) {
-		let lock = &self.xkb_state;
-
-		let Some(xkb_state) = lock else {
-			panic!();
-		};
-
-		xkb_state.keymap_file
+		Ok(Self {
+			clients: Default::default(),
+			windows: Default::default(),
+			focused_window: Default::default(),
+			changes: Default::default(),
+			pointer_over: Default::default(),
+			pointer_position: Default::default(),
+			xkb_state: XkbState {
+				_context: xkb_context,
+				_keymap: xkb_keymap,
+				state: xkb_state,
+				keymap_file: (fd, size),
+			},
+			width,
+			height,
+		})
 	}
 
 	pub fn process_focus_changes(&mut self) -> Result<()> {
@@ -296,11 +280,7 @@ impl CompositorState {
 			let client = self.clients.get_mut(&fd).unwrap();
 			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
 
-			let Some(xkb_state) = &self.xkb_state else {
-				panic!();
-			};
-
-			let depressed = xkb_state.state.serialize_mods(1);
+			let depressed = self.xkb_state.state.serialize_mods(1);
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				keyboard.enter(client, surface)?;
@@ -526,12 +506,8 @@ impl CompositorState {
 	}
 
 	pub fn on_keyboard_button(&mut self, code: u32, input_state: u32) -> Result<()> {
-		let Some(xkb_state) = &self.xkb_state else {
-			panic!();
-		};
-
-		xkb_state.state.update_key(code + 8, input_state as _);
-		let depressed = xkb_state.state.serialize_mods(1);
+		self.xkb_state.state.update_key(code + 8, input_state as _);
+		let depressed = self.xkb_state.state.serialize_mods(1);
 
 		if (depressed & 64) != 0 {
 			if code == 1 && input_state == 1 {
