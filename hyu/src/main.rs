@@ -13,6 +13,7 @@ mod state;
 pub mod store;
 mod stream;
 pub mod tty;
+pub mod udev;
 pub mod wl;
 pub mod xkb;
 

@@ -9,7 +9,7 @@ pub struct Instance {
 }
 
 impl Instance {
-	pub fn new() -> Self {
-		unsafe { udev_new() }.unwrap()
+	pub fn create() -> Option<Self> {
+		unsafe { udev_new() }
 	}
 }

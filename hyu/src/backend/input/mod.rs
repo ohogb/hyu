@@ -1,6 +1,6 @@
-pub mod udev;
+use color_eyre::eyre::OptionExt as _;
 
-use crate::{rt, state, Result};
+use crate::{rt, state, udev, Result};
 
 pub struct State {
 	x: f64,
@@ -12,7 +12,7 @@ pub fn initialize_state() -> Result<State> {
 }
 
 pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State) -> Result<()> {
-	let udev = udev::Instance::new();
+	let udev = udev::Instance::create().ok_or_eyre("failed to create udev instance")?;
 	let context = Context::create_from_udev(udev);
 	let ret = context.assign();
 	assert!(ret != -1);
