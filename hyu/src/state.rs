@@ -243,7 +243,7 @@ impl CompositorState {
 
 		for (index, (fd, xdg_toplevel)) in self.windows.iter().map(|x| **x).enumerate() {
 			let client = self.clients.get_mut(&fd).unwrap();
-			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel)?;
 
 			let (pos, size) = get_pos_and_size(index as _, self.windows.len() as _);
 
@@ -266,7 +266,7 @@ impl CompositorState {
 
 		if let Some((fd, xdg_toplevel, surface)) = leave {
 			let client = self.clients.get_mut(&fd).unwrap();
-			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel)?;
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				keyboard.leave(client, surface)?;
@@ -278,7 +278,7 @@ impl CompositorState {
 
 		if let Some((fd, xdg_toplevel, surface)) = enter {
 			let client = self.clients.get_mut(&fd).unwrap();
-			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
+			let xdg_toplevel = client.get_object_mut(xdg_toplevel)?;
 
 			let depressed = self.xkb_state.state.serialize_mods(1);
 
@@ -321,14 +321,14 @@ impl CompositorState {
 				false
 			}
 
-			fn do_stuff(
+			fn recurse(
 				pointer_over: &mut Option<PointerOver>,
 				client: &mut Client,
 				toplevel: &wl::XdgToplevel,
 				surface: &wl::Surface,
 				cursor_position: Point,
 				surface_position: Point,
-			) {
+			) -> Result<()> {
 				if is_cursor_over_surface(cursor_position, surface_position, surface) {
 					*pointer_over = Some(PointerOver {
 						fd: client.fd,
@@ -340,17 +340,19 @@ impl CompositorState {
 
 				for child in &surface.children {
 					let sub_surface = client.get_object(*child).unwrap();
-					let surface = client.get_object(sub_surface.surface).unwrap();
+					let surface = client.get_object(sub_surface.surface)?;
 
-					do_stuff(
+					recurse(
 						pointer_over,
 						client,
 						toplevel,
 						surface,
 						cursor_position,
 						surface_position + sub_surface.position,
-					);
+					)?;
 				}
+
+				Ok(())
 			}
 
 			let toplevel = client.get_object(xdg_toplevel)?;
@@ -366,28 +368,28 @@ impl CompositorState {
 
 				let position = (position - xdg_surface.position) + popup.position;
 
-				do_stuff(
+				recurse(
 					&mut new,
 					client,
 					toplevel,
 					surface,
 					self.pointer_position,
 					position,
-				);
+				)?;
 
 				if new.is_some() {
 					break 'outer;
 				}
 			}
 
-			do_stuff(
+			recurse(
 				&mut new,
 				client,
 				toplevel,
 				surface,
 				self.pointer_position,
 				position,
-			);
+			)?;
 
 			if new.is_some() {
 				break;
@@ -628,10 +630,10 @@ impl CompositorState {
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				if keyboard.key_states[code as usize] != (input_state != 0) {
 					keyboard.key_states[code as usize] = input_state != 0;
-					keyboard.key(client, code, input_state).unwrap();
+					keyboard.key(client, code, input_state)?;
 				}
 
-				keyboard.modifiers(client, depressed).unwrap();
+				keyboard.modifiers(client, depressed)?;
 			}
 		}
 
@@ -654,7 +656,7 @@ impl CompositorState {
 			                xdg_surface: &wl::XdgSurface,
 			                surface: &mut wl::Surface|
 			 -> Result<()> {
-				for (position, size, surface_id) in surface.get_front_buffers(client) {
+				for (position, size, surface_id) in surface.get_front_buffers(client)? {
 					let surface = client.get_object(surface_id)?;
 
 					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {

@@ -78,29 +78,32 @@ impl Surface {
 		self.children.push(child);
 	}
 
-	pub fn get_front_buffers(&self, client: &Client) -> Vec<(Point, Point, wl::Id<wl::Surface>)> {
+	pub fn get_front_buffers(
+		&self,
+		client: &Client,
+	) -> Result<Vec<(Point, Point, wl::Id<wl::Surface>)>> {
 		let Some(data) = self.data.as_ref() else {
-			return Vec::new();
+			return Ok(Vec::new());
 		};
 
 		let mut ret = Vec::new();
 		ret.push((Point(0, 0), data.0, self.object_id));
 
 		for i in &self.children {
-			let sub_surface = client.get_object(*i).unwrap();
-			let surface = client.get_object(sub_surface.surface).unwrap();
+			let sub_surface = client.get_object(*i)?;
+			let surface = client.get_object(sub_surface.surface)?;
 
 			let position = sub_surface.position;
 
 			ret.extend(
 				surface
-					.get_front_buffers(client)
+					.get_front_buffers(client)?
 					.into_iter()
 					.map(|x| (x.0 + position, x.1, x.2)),
 			);
 		}
 
-		ret
+		Ok(ret)
 	}
 
 	pub fn frame(&mut self, ms: u32, client: &mut Client) -> Result<()> {

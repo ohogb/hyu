@@ -50,8 +50,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State
 
 				state
 					.compositor
-					.on_cursor_move((state.input.x as _, state.input.y as _))
-					.unwrap();
+					.on_cursor_move((state.input.x as _, state.input.y as _))?;
 			}
 			402 => {
 				let Some(pointer) = event.get_pointer_event() else {
@@ -61,10 +60,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State
 				let button = pointer.get_button();
 				let button_state = pointer.get_button_state();
 
-				state
-					.compositor
-					.on_mouse_button(button, button_state)
-					.unwrap();
+				state.compositor.on_mouse_button(button, button_state)?;
 			}
 			404 => {
 				let Some(pointer) = event.get_pointer_event() else {
@@ -74,8 +70,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State
 				let v120 = pointer.get_scroll_value_v120(0);
 				state
 					.compositor
-					.on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0)
-					.unwrap();
+					.on_mouse_scroll(v120 / 12.0, (v120 / 120.0) as _, 0)?;
 			}
 			_ => {}
 		}
