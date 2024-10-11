@@ -7,6 +7,7 @@ pub mod backend;
 mod client;
 pub mod egl;
 mod global_wrapper;
+pub mod libinput;
 mod point;
 pub mod rt;
 mod state;

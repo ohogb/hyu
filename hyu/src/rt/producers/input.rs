@@ -1,17 +1,17 @@
-use crate::{rt::Producer, Result};
+use crate::{libinput, rt::Producer, Result};
 
 pub struct Input {
-	context: crate::backend::input::Context,
+	context: libinput::Context,
 }
 
 impl Input {
-	pub fn new(context: crate::backend::input::Context) -> Self {
+	pub fn new(context: libinput::Context) -> Self {
 		Self { context }
 	}
 }
 
 pub enum InputMessage {
-	Event { event: crate::backend::input::Event },
+	Event { event: libinput::Event },
 }
 
 impl Producer for Input {
