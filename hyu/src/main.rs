@@ -10,6 +10,7 @@ mod global_wrapper;
 mod point;
 pub mod rt;
 mod state;
+pub mod store;
 mod stream;
 pub mod tty;
 pub mod wl;
@@ -18,6 +19,7 @@ pub mod xkb;
 pub use client::*;
 pub use global_wrapper::*;
 pub use point::*;
+pub use store::*;
 pub use stream::*;
 
 use clap::Parser as _;
