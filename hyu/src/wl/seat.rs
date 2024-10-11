@@ -1,20 +1,13 @@
-use crate::{wl, Client, Point, Result};
+use crate::{wl, Client, Result};
 
 pub struct Seat {
 	pub object_id: wl::Id<Self>,
-	pub pointer_position: Point,
-	pub moving_toplevel: Option<(wl::Id<wl::XdgToplevel>, Point, Point)>,
 	keymap: (std::os::fd::RawFd, u64),
 }
 
 impl Seat {
 	pub fn new(object_id: wl::Id<Self>, keymap: (std::os::fd::RawFd, u64)) -> Self {
-		Self {
-			object_id,
-			pointer_position: Point(0, 0),
-			moving_toplevel: None,
-			keymap,
-		}
+		Self { object_id, keymap }
 	}
 
 	fn capabilities(&self, client: &mut Client, capabilities: u32) -> Result<()> {
@@ -24,10 +17,6 @@ impl Seat {
 			op: 0,
 			args: capabilities,
 		})
-	}
-
-	pub fn start_moving_toplevel(&mut self, toplevel: &wl::XdgToplevel) {
-		self.moving_toplevel = Some((toplevel.object_id, toplevel.position, self.pointer_position));
 	}
 }
 

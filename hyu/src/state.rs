@@ -312,15 +312,7 @@ impl CompositorState {
 
 		self.pointer_position = cursor_position;
 
-		for client in self.clients.values_mut() {
-			for seat in client.objects_mut::<wl::Seat>() {
-				seat.pointer_position = cursor_position;
-			}
-		}
-
 		let old = std::mem::take(&mut self.pointer_over);
-
-		let mut moving = None;
 
 		'outer: for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
 			if self.pointer_over.is_some() {
@@ -328,17 +320,6 @@ impl CompositorState {
 			}
 
 			let client = self.clients.get_mut(&fd).unwrap();
-
-			for seat in client.objects_mut::<wl::Seat>() {
-				if seat.moving_toplevel.is_some() {
-					moving = Some((client.fd, seat.object_id));
-					break;
-				}
-			}
-
-			if moving.is_some() {
-				break;
-			}
 
 			fn is_point_inside_area(cursor: Point, position: Point, size: Point) -> bool {
 				cursor.0 > position.0
@@ -436,18 +417,6 @@ impl CompositorState {
 			);
 		}
 
-		if let Some((fd, seat)) = moving {
-			let client = self.clients.get_mut(&fd).unwrap();
-			let seat = client.get_object_mut(seat).unwrap();
-
-			if let Some((toplevel, window_start_pos, pointer_start_pos)) = &seat.moving_toplevel {
-				let toplevel = client.get_object_mut(*toplevel).unwrap();
-
-				toplevel.position =
-					*window_start_pos + (seat.pointer_position - *pointer_start_pos);
-			}
-		}
-
 		let current = self.pointer_over;
 
 		if old.is_none() && current.is_none() {
@@ -508,17 +477,6 @@ impl CompositorState {
 	}
 
 	pub fn on_mouse_button(&mut self, button: u32, input_state: u32) -> Result<()> {
-		for client in self.clients.values_mut() {
-			for seat in client.objects_mut::<wl::Seat>() {
-				if seat.moving_toplevel.is_some() {
-					assert!(input_state == 0);
-					seat.moving_toplevel = None;
-
-					return Ok(());
-				}
-			}
-		}
-
 		if let Some(PointerOver { fd, toplevel, .. }) = self.pointer_over {
 			let client = self.clients.get_mut(&fd).unwrap();
 
