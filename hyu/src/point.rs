@@ -8,6 +8,13 @@ impl Point {
 			(self.1 as f32 * factor.1) as i32,
 		)
 	}
+
+	pub fn is_inside(&self, (position, size): (Self, Self)) -> bool {
+		self.0 >= position.0
+			&& self.1 >= position.1
+			&& self.0 < position.0 + size.0
+			&& self.1 < position.1 + size.1
+	}
 }
 
 impl std::ops::Add for Point {

@@ -296,37 +296,30 @@ impl CompositorState {
 			let client = self.clients.get_mut(&fd).unwrap();
 			let xdg_toplevel = client.get_object_mut(xdg_toplevel).unwrap();
 
+			let Some(xkb_state) = &self.xkb_state else {
+				panic!();
+			};
+
+			let depressed = xkb_state.state.serialize_mods(1);
+
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
 				keyboard.enter(client, surface)?;
+				keyboard.modifiers(client, depressed)?;
 			}
 
 			xdg_toplevel.add_state(4);
 			xdg_toplevel.configure(client)?;
 		}
 
-		Ok(())
+		self.calculate_pointer_focus()
 	}
 
-	pub fn on_cursor_move(&mut self, cursor_position: (i32, i32)) -> Result<()> {
-		let cursor_position = Point(cursor_position.0, cursor_position.1);
-
-		self.pointer_position = cursor_position;
-
-		let old = std::mem::take(&mut self.pointer_over);
+	fn calculate_pointer_focus(&mut self) -> Result<()> {
+		let old = self.pointer_over;
+		let mut new = None;
 
 		'outer: for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
-			if self.pointer_over.is_some() {
-				break;
-			}
-
 			let client = self.clients.get_mut(&fd).unwrap();
-
-			fn is_point_inside_area(cursor: Point, position: Point, size: Point) -> bool {
-				cursor.0 > position.0
-					&& cursor.1 > position.1
-					&& cursor.0 <= position.0 + size.0
-					&& cursor.1 <= position.1 + size.1
-			}
 
 			fn is_cursor_over_surface(
 				cursor_position: Point,
@@ -337,12 +330,12 @@ impl CompositorState {
 					for area in &input_region.areas {
 						let position = surface_position + area.0;
 
-						if is_point_inside_area(cursor_position, position, area.1) {
+						if cursor_position.is_inside((position, area.1)) {
 							return true;
 						}
 					}
 				} else if let Some(&(size, ..)) = surface.data.as_ref() {
-					return is_point_inside_area(cursor_position, surface_position, size);
+					return cursor_position.is_inside((surface_position, size));
 				}
 
 				false
@@ -380,62 +373,61 @@ impl CompositorState {
 				}
 			}
 
-			let toplevel = client.get_object(xdg_toplevel).unwrap();
-			let xdg_surface = client.get_object(toplevel.surface).unwrap();
-			let surface = client.get_object(xdg_surface.surface).unwrap();
+			let toplevel = client.get_object(xdg_toplevel)?;
+			let xdg_surface = client.get_object(toplevel.surface)?;
+			let surface = client.get_object(xdg_surface.surface)?;
 
 			let position = toplevel.position - xdg_surface.position;
 
 			for &popup in &xdg_surface.popups {
-				let popup = client.get_object(popup).unwrap();
-				let xdg_surface = client.get_object(popup.xdg_surface).unwrap();
-				let surface = client.get_object(xdg_surface.surface).unwrap();
+				let popup = client.get_object(popup)?;
+				let xdg_surface = client.get_object(popup.xdg_surface)?;
+				let surface = client.get_object(xdg_surface.surface)?;
 
 				let position = (position - xdg_surface.position) + popup.position;
 
 				do_stuff(
-					&mut self.pointer_over,
+					&mut new,
 					client,
 					toplevel,
 					surface,
-					cursor_position,
+					self.pointer_position,
 					position,
 				);
 
-				if self.pointer_over.is_some() {
+				if new.is_some() {
 					break 'outer;
 				}
 			}
 
 			do_stuff(
-				&mut self.pointer_over,
+				&mut new,
 				client,
 				toplevel,
 				surface,
-				cursor_position,
+				self.pointer_position,
 				position,
 			);
+
+			if new.is_some() {
+				break;
+			}
 		}
 
-		let current = self.pointer_over;
-
-		if old.is_none() && current.is_none() {
-			return Ok(());
-		}
-
-		if old.map(|x| (x.fd, x.surface)) != current.map(|x| (x.fd, x.surface)) {
+		if old.map(|x| (x.fd, x.surface)) != new.map(|x| (x.fd, x.surface)) {
 			if let Some(PointerOver { fd, surface, .. }) = old {
 				let client = self.clients.get_mut(&fd).unwrap();
+				let mut pointers = client.objects_mut::<wl::Pointer>();
 
 				let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 				let serial = display.new_serial();
 
-				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.leave(client, serial, surface).unwrap();
+				for pointer in &mut pointers {
+					pointer.leave(client, serial, surface)?;
 				}
 
-				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.frame(client).unwrap();
+				for pointer in &mut pointers {
+					pointer.frame(client)?;
 				}
 			}
 
@@ -444,36 +436,46 @@ impl CompositorState {
 				surface,
 				position,
 				..
-			}) = current
+			}) = new
 			{
 				let client = self.clients.get_mut(&fd).unwrap();
+				let mut pointers = client.objects_mut::<wl::Pointer>();
 
 				let display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 				let serial = display.new_serial();
 
-				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.enter(client, serial, surface, position).unwrap();
+				for pointer in &mut pointers {
+					pointer.enter(client, serial, surface, position)?;
 				}
 
-				for pointer in client.objects_mut::<wl::Pointer>() {
-					pointer.frame(client).unwrap();
+				for pointer in &mut pointers {
+					pointer.frame(client)?;
 				}
 			}
-		} else if old.map(|x| x.position) != current.map(|x| x.position) {
-			let PointerOver { fd, position, .. } = current.unwrap();
+		} else if old.map(|x| x.position) != new.map(|x| x.position) {
+			let PointerOver { fd, position, .. } = new.unwrap();
 
 			let client = self.clients.get_mut(&fd).unwrap();
+			let mut pointers = client.objects_mut::<wl::Pointer>();
 
-			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.motion(client, position).unwrap();
+			for pointer in &mut pointers {
+				pointer.motion(client, position)?;
 			}
 
-			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.frame(client).unwrap();
+			for pointer in &mut pointers {
+				pointer.frame(client)?;
 			}
 		}
 
+		self.pointer_over = new;
 		Ok(())
+	}
+
+	pub fn on_cursor_move(&mut self, cursor_position: (i32, i32)) -> Result<()> {
+		let cursor_position = Point(cursor_position.0, cursor_position.1);
+
+		self.pointer_position = cursor_position;
+		self.calculate_pointer_focus()
 	}
 
 	pub fn on_mouse_button(&mut self, button: u32, input_state: u32) -> Result<()> {
@@ -484,11 +486,11 @@ impl CompositorState {
 			let serial = display.new_serial();
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.button(client, serial, button, input_state).unwrap();
+				pointer.button(client, serial, button, input_state)?;
 			}
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.frame(client).unwrap();
+				pointer.frame(client)?;
 			}
 
 			let Some(focused_window) = self.get_focused_window() else {
@@ -516,7 +518,7 @@ impl CompositorState {
 			}
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.frame(client).unwrap();
+				pointer.frame(client)?;
 			}
 		}
 

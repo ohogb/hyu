@@ -45,9 +45,7 @@ impl Keyboard {
 			object_id: *self.object_id,
 			op: 1,
 			args: (display.new_serial(), surface, &[] as &[i32]),
-		})?;
-
-		self.modifiers(client, 0)
+		})
 	}
 
 	pub fn leave(&mut self, client: &mut Client, surface: wl::Id<wl::Surface>) -> Result<()> {
