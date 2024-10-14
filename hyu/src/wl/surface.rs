@@ -206,37 +206,41 @@ impl Surface {
 	pub fn commit(&mut self, client: &mut Client) -> Result<()> {
 		let mut synced_sub_surface = false;
 
-		if let Some(SurfaceRole::SubSurface { mode, .. }) = &mut self.role {
+		if let Some(SurfaceRole::SubSurface {
+			mode: SubSurfaceMode::Sync { state_to_apply },
+			..
+		}) = &mut self.role
+		{
+			self.pending.apply_to(state_to_apply);
+			synced_sub_surface = true;
+		}
+
+		if synced_sub_surface {
+			return Ok(());
+		}
+
+		self.pending.apply_to(&mut self.current);
+
+		if self.current.buffer.is_some() {
+			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+		}
+
+		self.depth_first_sub_tree(client, &mut |client, _, surface| {
+			let Some(SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
+				panic!();
+			};
+
+			// TODO: check if parent should override mode
 			if let SubSurfaceMode::Sync { state_to_apply } = mode {
-				self.pending.apply_to(state_to_apply);
-				synced_sub_surface = true;
-			}
-		}
+				state_to_apply.apply_to(&mut surface.current);
 
-		if !synced_sub_surface {
-			self.pending.apply_to(&mut self.current);
-
-			if self.current.buffer.is_some() {
-				self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
-			}
-
-			self.depth_first_sub_tree(client, &mut |client, _, surface| {
-				let Some(SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
-					panic!();
-				};
-
-				// TODO: check if parent should override mode
-				if let SubSurfaceMode::Sync { state_to_apply } = mode {
-					state_to_apply.apply_to(&mut surface.current);
-
-					if surface.current.buffer.is_some() {
-						surface.gl_do_textures(client, &crate::backend::gl::GLOW)?;
-					}
+				if surface.current.buffer.is_some() {
+					surface.gl_do_textures(client, &crate::backend::gl::GLOW)?;
 				}
+			}
 
-				Ok(())
-			})?;
-		}
+			Ok(())
+		})?;
 
 		Ok(())
 	}
