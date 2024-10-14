@@ -628,11 +628,7 @@ impl CompositorState {
 			let client = self.clients.get_mut(&fd).unwrap();
 
 			for keyboard in client.objects_mut::<wl::Keyboard>() {
-				if keyboard.key_states[code as usize] != (input_state != 0) {
-					keyboard.key_states[code as usize] = input_state != 0;
-					keyboard.key(client, code, input_state)?;
-				}
-
+				keyboard.key(client, code, input_state)?;
 				keyboard.modifiers(client, depressed)?;
 			}
 		}
