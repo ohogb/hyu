@@ -12,11 +12,11 @@ pub use surface::*;
 
 #[link(name = "EGL")]
 extern "C" {
-	fn eglGetProcAddress(name: *const i8) -> u64;
+	fn eglGetProcAddress(name: *const i8) -> usize;
 	fn eglBindAPI(api: u32) -> u32;
 }
 
-pub fn get_proc_address(str: &std::ffi::CStr) -> u64 {
+pub fn get_proc_address(str: &std::ffi::CStr) -> usize {
 	unsafe { eglGetProcAddress(str.as_ptr()) }
 }
 

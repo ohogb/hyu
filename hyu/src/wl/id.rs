@@ -50,7 +50,7 @@ impl<T> serde::Serialize for Id<T> {
 
 struct Visitor;
 
-impl<'de> serde::de::Visitor<'de> for Visitor {
+impl serde::de::Visitor<'_> for Visitor {
 	type Value = u32;
 
 	fn visit_u32<E: serde::de::Error>(self, value: u32) -> std::result::Result<Self::Value, E> {

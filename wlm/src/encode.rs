@@ -205,7 +205,7 @@ impl<'a> serde::ser::Serializer for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeTuple for &'a mut Serializer {
+impl serde::ser::SerializeTuple for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -219,7 +219,7 @@ impl<'a> serde::ser::SerializeTuple for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeTupleStruct for &'a mut Serializer {
+impl serde::ser::SerializeTupleStruct for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -233,7 +233,7 @@ impl<'a> serde::ser::SerializeTupleStruct for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeTupleVariant for &'a mut Serializer {
+impl serde::ser::SerializeTupleVariant for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -247,7 +247,7 @@ impl<'a> serde::ser::SerializeTupleVariant for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeMap for &'a mut Serializer {
+impl serde::ser::SerializeMap for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -265,7 +265,7 @@ impl<'a> serde::ser::SerializeMap for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeStruct for &'a mut Serializer {
+impl serde::ser::SerializeStruct for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -284,7 +284,7 @@ impl<'a> serde::ser::SerializeStruct for &'a mut Serializer {
 	}
 }
 
-impl<'a> serde::ser::SerializeStructVariant for &'a mut Serializer {
+impl serde::ser::SerializeStructVariant for &mut Serializer {
 	type Ok = ();
 
 	type Error = Error;
@@ -307,7 +307,7 @@ pub struct ArraySerializer<'a> {
 	output: &'a mut Vec<u8>,
 }
 
-impl<'a> serde::ser::SerializeSeq for ArraySerializer<'a> {
+impl serde::ser::SerializeSeq for ArraySerializer<'_> {
 	type Ok = ();
 
 	type Error = Error;

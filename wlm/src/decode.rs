@@ -16,9 +16,9 @@ pub struct Deserializer<'de> {
 	input: &'de [u8],
 }
 
-impl<'de> Deserializer<'de> {}
+impl Deserializer<'_> {}
 
-impl<'de, 'a> serde::de::Deserializer<'de> for &'a mut Deserializer<'de> {
+impl<'de> serde::de::Deserializer<'de> for &mut Deserializer<'de> {
 	type Error = Error;
 
 	fn deserialize_any<V>(self, _visitor: V) -> std::result::Result<V::Value, Self::Error>
@@ -266,7 +266,7 @@ impl<'de, 'a> serde::de::Deserializer<'de> for &'a mut Deserializer<'de> {
 	}
 }
 
-impl<'de, 'a> serde::de::SeqAccess<'de> for &'a mut Deserializer<'de> {
+impl<'de> serde::de::SeqAccess<'de> for &mut Deserializer<'de> {
 	type Error = Error;
 
 	fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>

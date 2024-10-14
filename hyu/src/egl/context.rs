@@ -30,7 +30,7 @@ pub struct ContextHolder<'context, 'display> {
 	display: &'display egl::Display,
 }
 
-impl<'context, 'display> Drop for ContextHolder<'context, 'display> {
+impl Drop for ContextHolder<'_, '_> {
 	fn drop(&mut self) {
 		self.display.make_current(None, None).unwrap()
 	}
