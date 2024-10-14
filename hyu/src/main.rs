@@ -97,7 +97,7 @@ fn main() -> Result<()> {
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
 
-	let mut event_loop = elp::EventLoop::new();
+	let mut event_loop = elp::EventLoop::create()?;
 
 	backend::drm::attach(&mut event_loop, &mut state)?;
 	backend::input::attach(&mut event_loop, &mut state)?;
@@ -165,11 +165,9 @@ fn main() -> Result<()> {
 
 					state.compositor.process_focus_changes()
 				}
-			});
-
-			Ok(())
+			})
 		},
-	);
+	)?;
 
 	event_loop.run(&mut state)?;
 

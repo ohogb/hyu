@@ -427,7 +427,7 @@ pub fn attach(
 
 			Ok(())
 		},
-	);
+	)?;
 
 	event_loop.on(
 		std::mem::take(&mut state.drm.screen.timer_rx).unwrap(),
@@ -447,7 +447,5 @@ pub fn attach(
 				.screen
 				.render(&state.drm.device, &mut state.drm.context, false)
 		},
-	);
-
-	Ok(())
+	)
 }
