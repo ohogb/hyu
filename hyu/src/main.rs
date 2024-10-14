@@ -103,7 +103,7 @@ fn main() -> Result<()> {
 	backend::input::attach(&mut event_loop, &mut state)?;
 
 	event_loop.on(
-		elp::unix_listener::Source::new(socket),
+		elp::unix_listener::create(socket),
 		move |(stream, _), state, runtime| {
 			stream.set_nonblocking(true)?;
 
@@ -132,43 +132,40 @@ fn main() -> Result<()> {
 
 			state.compositor.clients.insert(fd, client);
 
-			runtime.on(
-				elp::wl::Source::new(stream),
-				move |msg, state, _| match msg {
-					elp::wl::Message::Request {
-						object,
-						op,
-						params,
-						fds,
-					} => {
-						let client = state.compositor.clients.get_mut(&fd).unwrap();
-						client.received_fds.extend(fds);
+			runtime.on(elp::wl::create(stream), move |msg, state, _| match msg {
+				elp::wl::Message::Request {
+					object,
+					op,
+					params,
+					fds,
+				} => {
+					let client = state.compositor.clients.get_mut(&fd).unwrap();
+					client.received_fds.extend(fds);
 
-						client.ensure_objects_capacity();
+					client.ensure_objects_capacity();
 
-						let Some(object) = client.get_resource_mut(object) else {
-							color_eyre::eyre::bail!("unknown object '{object}'");
-						};
+					let Some(object) = client.get_resource_mut(object) else {
+						color_eyre::eyre::bail!("unknown object '{object}'");
+					};
 
-						object.handle(client, op, params)?;
+					object.handle(client, op, params)?;
 
-						state
-							.compositor
-							.changes
-							.extend(std::mem::take(&mut client.changes));
+					state
+						.compositor
+						.changes
+						.extend(std::mem::take(&mut client.changes));
 
-						state.compositor.process_focus_changes()
-					}
-					elp::wl::Message::Closed => {
-						state
-							.compositor
-							.changes
-							.push(state::Change::RemoveClient(fd));
+					state.compositor.process_focus_changes()
+				}
+				elp::wl::Message::Closed => {
+					state
+						.compositor
+						.changes
+						.push(state::Change::RemoveClient(fd));
 
-						state.compositor.process_focus_changes()
-					}
-				},
-			);
+					state.compositor.process_focus_changes()
+				}
+			});
 
 			Ok(())
 		},

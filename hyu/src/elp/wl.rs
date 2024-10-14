@@ -7,15 +7,6 @@ pub struct Source {
 	params: Vec<u8>,
 }
 
-impl Source {
-	pub fn new(stream: crate::Stream) -> Self {
-		Self {
-			stream,
-			params: Vec::new(),
-		}
-	}
-}
-
 pub enum Message<'a> {
 	Request {
 		object: u32,
@@ -99,5 +90,12 @@ impl elp::Source for Source {
 
 		self.params.clear();
 		Ok(std::ops::ControlFlow::Continue(()))
+	}
+}
+
+pub fn create(stream: crate::Stream) -> Source {
+	Source {
+		stream,
+		params: Vec::new(),
 	}
 }

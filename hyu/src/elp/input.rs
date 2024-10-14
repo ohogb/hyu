@@ -4,12 +4,6 @@ pub struct Source {
 	context: libinput::Context,
 }
 
-impl Source {
-	pub fn new(context: libinput::Context) -> Self {
-		Self { context }
-	}
-}
-
 pub enum Message {
 	Event { event: libinput::Event },
 }
@@ -34,4 +28,8 @@ impl elp::Source for Source {
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
+}
+
+pub fn create(context: libinput::Context) -> Source {
+	Source { context }
 }

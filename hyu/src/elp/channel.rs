@@ -24,7 +24,7 @@ pub struct Source<T> {
 impl<T> Source<T> {
 	pub fn new() -> Result<(Sender<T>, Self)> {
 		let (tx, rx) = std::sync::mpsc::channel();
-		let (a, b) = elp::event_fd::Source::new()?;
+		let (a, b) = elp::event_fd::create()?;
 
 		Ok((
 			Sender {

@@ -5,15 +5,6 @@ use crate::{elp, Result};
 pub struct Source(std::sync::Arc<nix::sys::timerfd::TimerFd>);
 
 impl Source {
-	pub fn new() -> Result<(std::sync::Arc<nix::sys::timerfd::TimerFd>, Self)> {
-		let a = std::sync::Arc::new(nix::sys::timerfd::TimerFd::new(
-			nix::sys::timerfd::ClockId::CLOCK_MONOTONIC,
-			nix::sys::timerfd::TimerFlags::TFD_NONBLOCK,
-		)?);
-
-		Ok((a.clone(), Self(a)))
-	}
-
 	pub fn unset(&mut self) -> Result<()> {
 		Ok(self.0.unset()?)
 	}
@@ -36,4 +27,13 @@ impl elp::Source for Source {
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
+}
+
+pub fn create() -> Result<(std::sync::Arc<nix::sys::timerfd::TimerFd>, Source)> {
+	let a = std::sync::Arc::new(nix::sys::timerfd::TimerFd::new(
+		nix::sys::timerfd::ClockId::CLOCK_MONOTONIC,
+		nix::sys::timerfd::TimerFlags::TFD_NONBLOCK,
+	)?);
+
+	Ok((a.clone(), Source(a)))
 }

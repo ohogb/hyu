@@ -15,11 +15,6 @@ impl Notifier {
 pub struct Source(std::sync::Arc<nix::sys::eventfd::EventFd>);
 
 impl Source {
-	pub fn new() -> Result<(Notifier, Self)> {
-		let a = std::sync::Arc::new(nix::sys::eventfd::EventFd::new()?);
-		Ok((Notifier(a.clone()), Self(a)))
-	}
-
 	pub fn read(&mut self) -> Result<u64> {
 		Ok(self.0.read()?)
 	}
@@ -42,4 +37,9 @@ impl elp::Source for Source {
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
+}
+
+pub fn create() -> Result<(Notifier, Source)> {
+	let a = std::sync::Arc::new(nix::sys::eventfd::EventFd::new()?);
+	Ok((Notifier(a.clone()), Source(a)))
 }

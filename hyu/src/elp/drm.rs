@@ -6,12 +6,6 @@ pub struct Source {
 	fd: std::os::fd::RawFd,
 }
 
-impl Source {
-	pub fn new(fd: std::os::fd::RawFd) -> Self {
-		Self { fd }
-	}
-}
-
 #[repr(C)]
 struct DrmEventVBlank {
 	typee: u32,
@@ -68,4 +62,8 @@ impl elp::Source for Source {
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
+}
+
+pub fn create(fd: std::os::fd::RawFd) -> Source {
+	Source { fd }
 }

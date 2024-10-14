@@ -166,7 +166,7 @@ impl Screen {
 			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
 			.ok_or_eyre("failed to create window surface")?;
 
-		let (timer_tx, timer_rx) = elp::timer_fd::Source::new()?;
+		let (timer_tx, timer_rx) = elp::timer_fd::create()?;
 
 		Ok(Self {
 			connector,
@@ -376,7 +376,7 @@ pub fn attach(
 	state: &mut state::State,
 ) -> Result<()> {
 	event_loop.on(
-		elp::drm::Source::new(state.drm.device.get_fd()),
+		elp::drm::create(state.drm.device.get_fd()),
 		|msg, state, _| {
 			match msg {
 				elp::drm::Message::PageFlip {

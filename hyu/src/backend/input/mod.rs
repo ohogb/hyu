@@ -22,7 +22,7 @@ pub fn attach(
 	let ret = context.assign();
 	assert!(ret != -1);
 
-	event_loop.on(elp::input::Source::new(context), |msg, state, _| {
+	event_loop.on(elp::input::create(context), |msg, state, _| {
 		let elp::input::Message::Event { event } = msg;
 
 		match event.get_type() {

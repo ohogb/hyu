@@ -6,12 +6,6 @@ pub struct Source {
 	listener: std::os::unix::net::UnixListener,
 }
 
-impl Source {
-	pub fn new(listener: std::os::unix::net::UnixListener) -> Self {
-		Self { listener }
-	}
-}
-
 impl elp::Source for Source {
 	type Message<'a> = (
 		std::os::unix::net::UnixStream,
@@ -33,4 +27,8 @@ impl elp::Source for Source {
 
 		Ok(std::ops::ControlFlow::Continue(()))
 	}
+}
+
+pub fn create(listener: std::os::unix::net::UnixListener) -> Source {
+	Source { listener }
 }
