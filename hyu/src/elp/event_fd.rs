@@ -1,6 +1,6 @@
 use std::os::fd::AsRawFd as _;
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
 #[derive(Clone)]
 pub struct Notifier(std::sync::Arc<nix::sys::eventfd::EventFd>);
@@ -12,9 +12,9 @@ impl Notifier {
 	}
 }
 
-pub struct EventFd(std::sync::Arc<nix::sys::eventfd::EventFd>);
+pub struct Source(std::sync::Arc<nix::sys::eventfd::EventFd>);
 
-impl EventFd {
+impl Source {
 	pub fn new() -> Result<(Notifier, Self)> {
 		let a = std::sync::Arc::new(nix::sys::eventfd::EventFd::new()?);
 		Ok((Notifier(a.clone()), Self(a)))
@@ -25,7 +25,7 @@ impl EventFd {
 	}
 }
 
-impl Producer for EventFd {
+impl elp::Source for Source {
 	type Message<'a> = ();
 	type Ret = Result<()>;
 

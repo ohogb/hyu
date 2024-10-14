@@ -1,10 +1,10 @@
 use std::os::fd::{AsFd as _, AsRawFd as _};
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
-pub struct TimerFd(std::sync::Arc<nix::sys::timerfd::TimerFd>);
+pub struct Source(std::sync::Arc<nix::sys::timerfd::TimerFd>);
 
-impl TimerFd {
+impl Source {
 	pub fn new() -> Result<(std::sync::Arc<nix::sys::timerfd::TimerFd>, Self)> {
 		let a = std::sync::Arc::new(nix::sys::timerfd::TimerFd::new(
 			nix::sys::timerfd::ClockId::CLOCK_MONOTONIC,
@@ -19,7 +19,7 @@ impl TimerFd {
 	}
 }
 
-impl Producer for TimerFd {
+impl elp::Source for Source {
 	type Message<'a> = ();
 	type Ret = Result<()>;
 

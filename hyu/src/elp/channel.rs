@@ -1,12 +1,9 @@
-use crate::{
-	rt::{producers, Producer},
-	Result,
-};
+use crate::{elp, Result};
 
 #[derive(Clone)]
 pub struct Sender<T> {
 	sender: std::sync::mpsc::Sender<T>,
-	event: producers::Notifier,
+	event: elp::event_fd::Notifier,
 }
 
 impl<T: 'static> Sender<T> {
@@ -19,15 +16,15 @@ impl<T: 'static> Sender<T> {
 	}
 }
 
-pub struct Channel<T> {
+pub struct Source<T> {
 	receiver: std::sync::mpsc::Receiver<T>,
-	event: producers::EventFd,
+	event: elp::event_fd::Source,
 }
 
-impl<T> Channel<T> {
+impl<T> Source<T> {
 	pub fn new() -> Result<(Sender<T>, Self)> {
 		let (tx, rx) = std::sync::mpsc::channel();
-		let (a, b) = producers::EventFd::new()?;
+		let (a, b) = elp::event_fd::Source::new()?;
 
 		Ok((
 			Sender {
@@ -42,7 +39,7 @@ impl<T> Channel<T> {
 	}
 }
 
-impl<T> Producer for Channel<T> {
+impl<T> elp::Source for Source<T> {
 	type Message<'a> = T;
 	type Ret = Result<()>;
 

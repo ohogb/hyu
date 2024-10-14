@@ -1,27 +1,27 @@
 use std::os::fd::{AsFd as _, AsRawFd as _};
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
-struct Caller<T: Producer, U, V: FnMut(T::Message<'_>, &mut U, &mut Runtime<U>) -> T::Ret> {
+struct Caller<T: elp::Source, U, V: FnMut(T::Message<'_>, &mut U, &mut EventLoop<U>) -> T::Ret> {
 	producer: T,
 	callback: V,
 	_phantom: std::marker::PhantomData<U>,
 }
 
 trait CallerWrapper<T> {
-	fn call(&mut self, state: &mut T, rt: &mut Runtime<T>) -> Result<std::ops::ControlFlow<()>>;
+	fn call(&mut self, state: &mut T, rt: &mut EventLoop<T>) -> Result<std::ops::ControlFlow<()>>;
 }
 
-impl<T: Producer, U, V: FnMut(T::Message<'_>, &mut U, &mut Runtime<U>) -> T::Ret> CallerWrapper<U>
-	for Caller<T, U, V>
+impl<T: elp::Source, U, V: FnMut(T::Message<'_>, &mut U, &mut EventLoop<U>) -> T::Ret>
+	CallerWrapper<U> for Caller<T, U, V>
 {
-	fn call(&mut self, state: &mut U, rt: &mut Runtime<U>) -> Result<std::ops::ControlFlow<()>> {
+	fn call(&mut self, state: &mut U, rt: &mut EventLoop<U>) -> Result<std::ops::ControlFlow<()>> {
 		self.producer
 			.call(&mut |event| (self.callback)(event, state, rt))
 	}
 }
 
-pub struct Runtime<State> {
+pub struct EventLoop<State> {
 	map: std::collections::HashMap<
 		std::os::fd::RawFd,
 		std::rc::Rc<std::cell::RefCell<dyn CallerWrapper<State>>>,
@@ -29,7 +29,7 @@ pub struct Runtime<State> {
 	_phantom: std::marker::PhantomData<State>,
 }
 
-impl<State: 'static> Runtime<State> {
+impl<State: 'static> EventLoop<State> {
 	pub fn new() -> Self {
 		Self {
 			map: Default::default(),
@@ -37,7 +37,7 @@ impl<State: 'static> Runtime<State> {
 		}
 	}
 
-	pub fn on<T: Producer + 'static>(
+	pub fn on<T: elp::Source + 'static>(
 		&mut self,
 		producer: T,
 		callback: impl FnMut(T::Message<'_>, &mut State, &mut Self) -> T::Ret + 'static,

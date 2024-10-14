@@ -1,6 +1,6 @@
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{libinput, rt, state, udev, Result};
+use crate::{elp, libinput, state, udev, Result};
 
 pub struct State {
 	x: f64,
@@ -11,7 +11,10 @@ pub fn initialize_state() -> Result<State> {
 	Ok(State { x: 0.0, y: 0.0 })
 }
 
-pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State) -> Result<()> {
+pub fn attach(
+	event_loop: &mut elp::EventLoop<state::State>,
+	_state: &mut state::State,
+) -> Result<()> {
 	let udev = udev::Instance::create().ok_or_eyre("failed to create udev instance")?;
 	let context = libinput::Context::create_from_udev(udev)
 		.ok_or_eyre("failed to create libinput context")?;
@@ -19,8 +22,8 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, _state: &mut state::State
 	let ret = context.assign();
 	assert!(ret != -1);
 
-	runtime.on(rt::producers::Input::new(context), |msg, state, _| {
-		let rt::producers::InputMessage::Event { event } = msg;
+	event_loop.on(elp::input::Source::new(context), |msg, state, _| {
+		let elp::input::Message::Event { event } = msg;
 
 		match event.get_type() {
 			300 => {

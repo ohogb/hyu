@@ -1,21 +1,21 @@
-use crate::{libinput, rt::Producer, Result};
+use crate::{elp, libinput, Result};
 
-pub struct Input {
+pub struct Source {
 	context: libinput::Context,
 }
 
-impl Input {
+impl Source {
 	pub fn new(context: libinput::Context) -> Self {
 		Self { context }
 	}
 }
 
-pub enum InputMessage {
+pub enum Message {
 	Event { event: libinput::Event },
 }
 
-impl Producer for Input {
-	type Message<'a> = InputMessage;
+impl elp::Source for Source {
+	type Message<'a> = Message;
 	type Ret = Result<()>;
 
 	fn fd(&self) -> std::os::fd::RawFd {
@@ -29,7 +29,7 @@ impl Producer for Input {
 		self.context.dispatch();
 
 		while let Some(event) = self.context.get_event() {
-			callback(InputMessage::Event { event })?;
+			callback(Message::Event { event })?;
 		}
 
 		Ok(std::ops::ControlFlow::Continue(()))

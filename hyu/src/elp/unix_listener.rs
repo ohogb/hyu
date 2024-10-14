@@ -1,18 +1,18 @@
 use std::os::fd::AsRawFd as _;
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
-pub struct UnixListener {
+pub struct Source {
 	listener: std::os::unix::net::UnixListener,
 }
 
-impl UnixListener {
+impl Source {
 	pub fn new(listener: std::os::unix::net::UnixListener) -> Self {
 		Self { listener }
 	}
 }
 
-impl Producer for UnixListener {
+impl elp::Source for Source {
 	type Message<'a> = (
 		std::os::unix::net::UnixStream,
 		std::os::unix::net::SocketAddr,

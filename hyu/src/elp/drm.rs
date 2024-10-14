@@ -1,12 +1,12 @@
 use std::io::Read as _;
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
-pub struct Drm {
+pub struct Source {
 	fd: std::os::fd::RawFd,
 }
 
-impl Drm {
+impl Source {
 	pub fn new(fd: std::os::fd::RawFd) -> Self {
 		Self { fd }
 	}
@@ -23,7 +23,7 @@ struct DrmEventVBlank {
 	crtc_id: u32,
 }
 
-pub enum DrmMessage {
+pub enum Message {
 	PageFlip {
 		tv_sec: u32,
 		tv_usec: u32,
@@ -32,8 +32,8 @@ pub enum DrmMessage {
 	},
 }
 
-impl Producer for Drm {
-	type Message<'a> = DrmMessage;
+impl elp::Source for Source {
+	type Message<'a> = Message;
 	type Ret = Result<()>;
 
 	fn fd(&self) -> std::os::fd::RawFd {
@@ -59,7 +59,7 @@ impl Producer for Drm {
 
 		assert!(drm_event_vblank.typee == 2);
 
-		callback(DrmMessage::PageFlip {
+		callback(Message::PageFlip {
 			tv_sec: drm_event_vblank.tv_sec,
 			tv_usec: drm_event_vblank.tv_usec,
 			sequence: drm_event_vblank.sequence,

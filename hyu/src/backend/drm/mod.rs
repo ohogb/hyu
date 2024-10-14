@@ -1,6 +1,6 @@
 use crate::{
 	drm::{self, HasProps as _, Object as _},
-	egl, gbm, rt, state, Result,
+	egl, elp, gbm, state, Result,
 };
 
 use color_eyre::eyre::OptionExt as _;
@@ -38,7 +38,7 @@ pub struct Screen {
 	state: ScreenState,
 
 	timer_tx: std::sync::Arc<nix::sys::timerfd::TimerFd>,
-	timer_rx: Option<rt::producers::TimerFd>,
+	timer_rx: Option<elp::timer_fd::Source>,
 }
 
 struct ConnectorProps {
@@ -166,7 +166,7 @@ impl Screen {
 			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
 			.ok_or_eyre("failed to create window surface")?;
 
-		let (timer_tx, timer_rx) = rt::producers::TimerFd::new()?;
+		let (timer_tx, timer_rx) = elp::timer_fd::Source::new()?;
 
 		Ok(Self {
 			connector,
@@ -371,12 +371,15 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	Ok(state)
 }
 
-pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State) -> Result<()> {
-	runtime.on(
-		rt::producers::Drm::new(state.drm.device.get_fd()),
+pub fn attach(
+	event_loop: &mut elp::EventLoop<state::State>,
+	state: &mut state::State,
+) -> Result<()> {
+	event_loop.on(
+		elp::drm::Source::new(state.drm.device.get_fd()),
 		|msg, state, _| {
 			match msg {
-				rt::producers::DrmMessage::PageFlip {
+				elp::drm::Message::PageFlip {
 					tv_sec,
 					tv_usec,
 					sequence,
@@ -426,7 +429,7 @@ pub fn attach(runtime: &mut rt::Runtime<state::State>, state: &mut state::State)
 		},
 	);
 
-	runtime.on(
+	event_loop.on(
 		std::mem::take(&mut state.drm.screen.timer_rx).unwrap(),
 		|_, state, _| {
 			if let ScreenState::WaitingForPageFlip { .. } = &state.drm.screen.state {

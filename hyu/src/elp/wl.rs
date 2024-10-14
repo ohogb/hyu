@@ -1,13 +1,13 @@
 use std::{io::Read as _, os::fd::AsRawFd as _};
 
-use crate::{rt::Producer, Result};
+use crate::{elp, Result};
 
-pub struct Wl {
+pub struct Source {
 	stream: crate::Stream,
 	params: Vec<u8>,
 }
 
-impl Wl {
+impl Source {
 	pub fn new(stream: crate::Stream) -> Self {
 		Self {
 			stream,
@@ -16,7 +16,7 @@ impl Wl {
 	}
 }
 
-pub enum WlMessage<'a> {
+pub enum Message<'a> {
 	Request {
 		object: u32,
 		op: u16,
@@ -26,8 +26,8 @@ pub enum WlMessage<'a> {
 	Closed,
 }
 
-impl Producer for Wl {
-	type Message<'a> = WlMessage<'a>;
+impl elp::Source for Source {
+	type Message<'a> = Message<'a>;
 	type Ret = Result<()>;
 
 	fn fd(&self) -> std::os::fd::RawFd {
@@ -52,7 +52,7 @@ impl Producer for Wl {
 			Ok(len) => len,
 			Err(x) => match x.kind() {
 				std::io::ErrorKind::ConnectionReset => {
-					callback(WlMessage::Closed)?;
+					callback(Message::Closed)?;
 					return Ok(std::ops::ControlFlow::Break(()));
 				}
 				_ => {
@@ -62,7 +62,7 @@ impl Producer for Wl {
 		};
 
 		if len == 0 {
-			callback(WlMessage::Closed)?;
+			callback(Message::Closed)?;
 			return Ok(std::ops::ControlFlow::Break(()));
 		}
 
@@ -90,7 +90,7 @@ impl Producer for Wl {
 		let object = u32::from_ne_bytes(obj);
 		let op = u16::from_ne_bytes(op);
 
-		callback(WlMessage::Request {
+		callback(Message::Request {
 			object,
 			op,
 			params: &self.params,

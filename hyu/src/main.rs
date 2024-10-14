@@ -7,11 +7,11 @@ pub mod backend;
 mod client;
 pub mod drm;
 pub mod egl;
+pub mod elp;
 pub mod gbm;
 mod global_wrapper;
 pub mod libinput;
 mod point;
-pub mod rt;
 mod state;
 pub mod store;
 mod stream;
@@ -97,13 +97,13 @@ fn main() -> Result<()> {
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
 	socket.set_nonblocking(true)?;
 
-	let mut runtime = rt::Runtime::new();
+	let mut event_loop = elp::EventLoop::new();
 
-	backend::drm::attach(&mut runtime, &mut state)?;
-	backend::input::attach(&mut runtime, &mut state)?;
+	backend::drm::attach(&mut event_loop, &mut state)?;
+	backend::input::attach(&mut event_loop, &mut state)?;
 
-	runtime.on(
-		rt::producers::UnixListener::new(socket),
+	event_loop.on(
+		elp::unix_listener::Source::new(socket),
 		move |(stream, _), state, runtime| {
 			stream.set_nonblocking(true)?;
 
@@ -133,9 +133,9 @@ fn main() -> Result<()> {
 			state.compositor.clients.insert(fd, client);
 
 			runtime.on(
-				rt::producers::Wl::new(stream),
+				elp::wl::Source::new(stream),
 				move |msg, state, _| match msg {
-					rt::producers::WlMessage::Request {
+					elp::wl::Message::Request {
 						object,
 						op,
 						params,
@@ -159,7 +159,7 @@ fn main() -> Result<()> {
 
 						state.compositor.process_focus_changes()
 					}
-					rt::producers::WlMessage::Closed => {
+					elp::wl::Message::Closed => {
 						state
 							.compositor
 							.changes
@@ -174,9 +174,9 @@ fn main() -> Result<()> {
 		},
 	);
 
-	runtime.run(&mut state)?;
+	event_loop.run(&mut state)?;
 
-	drop(runtime);
+	drop(event_loop);
 	std::fs::remove_file(path)?;
 
 	Ok(())
