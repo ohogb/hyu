@@ -26,8 +26,8 @@ pub struct PointerOver {
 }
 
 pub struct XkbState {
-	pub _context: xkb::Context,
-	pub _keymap: xkb::Keymap,
+	pub context: xkb::Context,
+	pub keymap: xkb::Keymap,
 	pub state: xkb::State,
 	pub keymap_file: (std::os::fd::RawFd, u64),
 }
@@ -76,8 +76,8 @@ impl CompositorState {
 			pointer_over: Default::default(),
 			pointer_position: Default::default(),
 			xkb_state: XkbState {
-				_context: xkb_context,
-				_keymap: xkb_keymap,
+				context: xkb_context,
+				keymap: xkb_keymap,
 				state: xkb_state,
 				keymap_file: (fd, size),
 			},
