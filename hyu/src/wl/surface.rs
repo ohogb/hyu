@@ -47,6 +47,10 @@ pub enum SurfaceRole {
 		parent: wl::Id<wl::Surface>,
 	},
 	Cursor,
+	LayerSurface {
+		wlr_layer_surface: wl::Id<wl::ZwlrLayerSurfaceV1>,
+		initial_commit: bool,
+	},
 }
 
 pub enum SurfaceTexture {
@@ -204,6 +208,23 @@ impl Surface {
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
 	pub fn commit(&mut self, client: &mut Client) -> Result<()> {
+		if let Some(SurfaceRole::LayerSurface {
+			wlr_layer_surface,
+			initial_commit,
+		}) = &mut self.role
+		{
+			if *initial_commit {
+				*initial_commit = false;
+
+				let wl_display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
+
+				let wlr_layer_surface = client.get_object_mut(*wlr_layer_surface)?;
+				wlr_layer_surface.configure(client, wl_display.new_serial(), 0, 0)?;
+
+				return Ok(());
+			}
+		}
+
 		let mut synced_sub_surface = false;
 
 		if let Some(SurfaceRole::SubSurface {

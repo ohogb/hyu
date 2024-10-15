@@ -79,6 +79,8 @@ implement![
 	XdgSurface,
 	XdgToplevel,
 	XdgWmBase,
+	ZwlrLayerShellV1,
+	ZwlrLayerSurfaceV1,
 	ZwpLinuxBufferParamsV1,
 	ZwpLinuxDmabufFeedbackV1,
 	ZwpLinuxDmabufV1,

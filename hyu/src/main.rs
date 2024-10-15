@@ -126,6 +126,7 @@ fn main() -> Result<()> {
 			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
 			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null(), card.clone())?);
 			display.push_global(wl::WpPresentation::new(wl::Id::null()));
+			display.push_global(wl::ZwlrLayerShellV1::new(wl::Id::null()));
 			display.push_global(wl::ZxdgOutputManagerV1::new(wl::Id::null(), u32::MAX));
 
 			client.ensure_objects_capacity();
