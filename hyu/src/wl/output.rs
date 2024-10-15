@@ -54,7 +54,7 @@ impl Output {
 		})
 	}
 
-	fn done(&self, client: &mut Client) -> Result<()> {
+	pub fn done(&self, client: &mut Client) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:done
 		client.send_message(wlm::Message {
 			object_id: *self.object_id,

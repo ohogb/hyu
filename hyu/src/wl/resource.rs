@@ -82,4 +82,6 @@ implement![
 	ZwpLinuxBufferParamsV1,
 	ZwpLinuxDmabufFeedbackV1,
 	ZwpLinuxDmabufV1,
+	ZxdgOutputManagerV1,
+	ZxdgOutputV1,
 ];
