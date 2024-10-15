@@ -65,7 +65,7 @@ use crate::{Client, Result};
 pub trait Global {
 	fn get_name(&self) -> &'static str;
 	fn get_version(&self) -> u32;
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()>;
+	fn bind(&self, client: &mut Client, object_id: u32, version: u32) -> Result<()>;
 }
 
 pub trait Object {

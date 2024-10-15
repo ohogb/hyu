@@ -45,7 +45,7 @@ impl wl::Global for Shm {
 		1
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		let shm = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
 		shm.format(client, 0)?;

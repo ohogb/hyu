@@ -139,7 +139,7 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 		5
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
 		client.new_object(id, Self::new(id, self.card.clone())?);
 

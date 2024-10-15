@@ -98,7 +98,7 @@ impl wl::Global for Output {
 		3
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		let output = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
 
 		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;

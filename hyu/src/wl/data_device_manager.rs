@@ -40,7 +40,7 @@ impl wl::Global for DataDeviceManager {
 		3
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		client.new_object(wl::Id::new(object_id), Self::new());
 		Ok(())
 	}

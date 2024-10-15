@@ -54,7 +54,7 @@ impl wl::Global for WpPresentation {
 		1
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		let object_id = wl::Id::new(object_id);
 		let object = client.new_object(object_id, Self::new(object_id));
 
