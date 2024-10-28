@@ -1,7 +1,7 @@
 use crate::xkb;
 
 #[link(name = "xkbcommon")]
-extern "C" {
+unsafe extern "C" {
 	fn xkb_keymap_new_from_names(context: u64, names: u64, flags: i32) -> Option<Keymap>;
 	fn xkb_keymap_unref(keymap: u64);
 	fn xkb_keymap_get_as_string(keymap: u64, format: i32) -> u64;

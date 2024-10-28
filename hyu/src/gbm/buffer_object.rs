@@ -1,7 +1,7 @@
-use crate::{drm, Result};
+use crate::{Result, drm};
 
 #[link(name = "gbm")]
-extern "C" {
+unsafe extern "C" {
 	fn gbm_bo_set_user_data(bo: u64, data: u64, destructor: u64);
 	fn gbm_bo_get_user_data(bo: u64) -> u64;
 	fn gbm_bo_get_width(bo: u64) -> u32;

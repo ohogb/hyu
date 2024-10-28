@@ -1,7 +1,7 @@
 use crate::xkb;
 
 #[link(name = "xkbcommon")]
-extern "C" {
+unsafe extern "C" {
 	fn xkb_state_new(keymap: u64) -> Option<State>;
 	fn xkb_state_unref(state: u64);
 	fn xkb_state_update_key(state: u64, key: u32, direction: i32) -> i32;

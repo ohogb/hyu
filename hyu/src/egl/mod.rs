@@ -11,7 +11,7 @@ pub use image::*;
 pub use surface::*;
 
 #[link(name = "EGL")]
-extern "C" {
+unsafe extern "C" {
 	fn eglGetProcAddress(name: *const i8) -> usize;
 	fn eglBindAPI(api: u32) -> u32;
 }

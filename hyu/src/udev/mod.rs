@@ -1,5 +1,5 @@
 #[link(name = "udev")]
-extern "C" {
+unsafe extern "C" {
 	fn udev_new() -> Option<Instance>;
 }
 

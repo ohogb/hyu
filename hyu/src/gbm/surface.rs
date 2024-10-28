@@ -1,7 +1,7 @@
 use crate::gbm;
 
 #[link(name = "gbm")]
-extern "C" {
+unsafe extern "C" {
 	fn gbm_surface_lock_front_buffer(surface: u64) -> u64;
 	fn gbm_surface_release_buffer(surface: u64, bo: u64);
 }

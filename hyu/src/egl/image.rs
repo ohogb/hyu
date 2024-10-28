@@ -1,5 +1,5 @@
 #[link(name = "EGL")]
-extern "C" {
+unsafe extern "C" {
 	fn eglGetProcAddress(name: *const i8) -> usize;
 }
 

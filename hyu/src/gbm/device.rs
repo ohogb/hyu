@@ -1,7 +1,7 @@
 use crate::gbm;
 
 #[link(name = "gbm")]
-extern "C" {
+unsafe extern "C" {
 	fn gbm_create_device(fd: std::os::fd::RawFd) -> u64;
 	fn gbm_surface_create(device: u64, width: u32, height: u32, format: u32, flags: u32) -> u64;
 }

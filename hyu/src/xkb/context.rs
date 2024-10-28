@@ -1,5 +1,5 @@
 #[link(name = "xkbcommon")]
-extern "C" {
+unsafe extern "C" {
 	fn xkb_context_new(flags: i32) -> Option<Context>;
 	fn xkb_context_unref(context: u64);
 }

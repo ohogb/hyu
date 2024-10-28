@@ -1,7 +1,7 @@
 use crate::udev;
 
 #[link(name = "input")]
-extern "C" {
+unsafe extern "C" {
 	fn libinput_udev_create_context(
 		interface: u64,
 		user_data: u64,

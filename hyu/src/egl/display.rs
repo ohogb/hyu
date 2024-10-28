@@ -1,7 +1,7 @@
 use crate::{egl, gbm};
 
 #[link(name = "EGL")]
-extern "C" {
+unsafe extern "C" {
 	fn eglInitialize(display: u64, major: &mut i32, minor: &mut i32) -> u32;
 	fn eglChooseConfig(
 		display: u64,
