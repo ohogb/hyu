@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{egl, wl, Client, Point, Result};
+use crate::{Client, Point, Result, egl, wl};
 
 pub enum BufferStorage {
 	Shm {

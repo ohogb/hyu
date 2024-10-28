@@ -1,4 +1,4 @@
-use crate::{wl, Client, Result};
+use crate::{Client, Result, wl};
 
 pub struct ZxdgOutputManagerV1 {
 	object_id: wl::Id<Self>,

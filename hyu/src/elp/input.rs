@@ -1,4 +1,4 @@
-use crate::{elp, libinput, Result};
+use crate::{Result, elp, libinput};
 
 pub struct Source {
 	context: libinput::Context,

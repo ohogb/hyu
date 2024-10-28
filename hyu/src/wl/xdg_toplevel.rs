@@ -1,4 +1,4 @@
-use crate::{state, wl, Client, Point, Result};
+use crate::{Client, Point, Result, state, wl};
 
 pub struct XdgToplevel {
 	pub object_id: wl::Id<Self>,

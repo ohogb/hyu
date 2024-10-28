@@ -1,6 +1,6 @@
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{wl, Client, Point, Result};
+use crate::{Client, Point, Result, wl};
 
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,
@@ -91,11 +91,9 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 
 				client.new_object(
 					buffer_id,
-					wl::Buffer::new(
-						buffer_id,
-						Point(width, height),
-						wl::BufferStorage::Dmabuf { image },
-					),
+					wl::Buffer::new(buffer_id, Point(width, height), wl::BufferStorage::Dmabuf {
+						image,
+					}),
 				);
 
 				for &(fd, ..) in &self.buffers {

@@ -1,4 +1,4 @@
-use crate::{elp, Result};
+use crate::{Result, elp};
 
 #[derive(Clone)]
 pub struct Sender<T> {

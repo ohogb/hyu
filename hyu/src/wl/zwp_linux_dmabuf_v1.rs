@@ -3,7 +3,7 @@ use std::{
 	os::fd::{FromRawFd as _, IntoRawFd as _},
 };
 
-use crate::{wl, Client, Result};
+use crate::{Client, Result, wl};
 
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,

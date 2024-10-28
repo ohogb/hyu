@@ -1,6 +1,6 @@
 use std::os::fd::{AsFd as _, AsRawFd as _};
 
-use crate::{elp, Result};
+use crate::{Result, elp};
 
 pub struct Source(std::sync::Arc<nix::sys::timerfd::TimerFd>);
 

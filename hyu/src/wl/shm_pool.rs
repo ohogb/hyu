@@ -1,4 +1,4 @@
-use crate::{wl, Client, Point, Result};
+use crate::{Client, Point, Result, wl};
 
 struct Ptr(std::ptr::NonNull<std::ffi::c_void>);
 
@@ -108,16 +108,12 @@ impl wl::Object for ShmPool {
 
 				client.new_object(
 					id,
-					wl::Buffer::new(
-						id,
-						Point(width, height),
-						wl::BufferStorage::Shm {
-							map: self.map.clone(),
-							offset,
-							stride,
-							format,
-						},
-					),
+					wl::Buffer::new(id, Point(width, height), wl::BufferStorage::Shm {
+						map: self.map.clone(),
+						offset,
+						stride,
+						format,
+					}),
 				);
 			}
 			1 => {

@@ -1,4 +1,4 @@
-use crate::{wl, Result};
+use crate::{Result, wl};
 
 #[derive(Default)]
 pub struct Store<const START: u32> {

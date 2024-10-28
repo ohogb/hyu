@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{wl, xkb, Client, Point, Result};
+use crate::{Client, Point, Result, wl, xkb};
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),

@@ -1,6 +1,6 @@
 use std::os::fd::AsRawFd as _;
 
-use crate::{elp, Result};
+use crate::{Result, elp};
 
 #[derive(Clone)]
 pub struct Notifier(std::sync::Arc<nix::sys::eventfd::EventFd>);

@@ -52,11 +52,7 @@ impl Display {
 
 		let ret = unsafe { eglInitialize(self.as_ptr(), &mut major, &mut minor) };
 
-		if ret == 1 {
-			Some((major, minor))
-		} else {
-			None
-		}
+		if ret == 1 { Some((major, minor)) } else { None }
 	}
 
 	pub fn choose_config(&self, attributes: &[i32], amount: i32) -> Vec<egl::Config> {
@@ -109,11 +105,7 @@ impl Display {
 			)
 		};
 
-		if success == 1 {
-			Some(ret)
-		} else {
-			None
-		}
+		if success == 1 { Some(ret) } else { None }
 	}
 
 	pub fn create_window_surface(
@@ -169,11 +161,7 @@ impl Display {
 			)
 		};
 
-		if success == 1 {
-			Some(ret)
-		} else {
-			None
-		}
+		if success == 1 { Some(ret) } else { None }
 	}
 
 	pub fn create_image(&self, target: u64, attributes: &[i32]) -> Option<egl::Image> {

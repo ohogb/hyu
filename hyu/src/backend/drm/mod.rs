@@ -1,6 +1,7 @@
 use crate::{
+	Result,
 	drm::{self, HasProps as _, Object as _},
-	egl, elp, gbm, state, Result,
+	egl, elp, gbm, state,
 };
 
 use color_eyre::eyre::OptionExt as _;

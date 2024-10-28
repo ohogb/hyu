@@ -1,4 +1,4 @@
-use crate::{wl, Client, Result};
+use crate::{Client, Result, wl};
 
 pub struct WpPresentationFeedback {
 	object_id: wl::Id<Self>,

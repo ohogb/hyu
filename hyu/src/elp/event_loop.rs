@@ -1,4 +1,4 @@
-use crate::{elp, Result};
+use crate::{Result, elp};
 
 struct Caller<T: elp::Source, U, V: FnMut(T::Message<'_>, &mut U, &mut EventLoop<U>) -> T::Ret> {
 	producer: T,

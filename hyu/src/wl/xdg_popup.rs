@@ -1,4 +1,4 @@
-use crate::{wl, Client, Point, Result};
+use crate::{Client, Point, Result, wl};
 
 pub struct XdgPopup {
 	object_id: wl::Id<Self>,

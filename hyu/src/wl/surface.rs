@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{state, wl, Client, Point, Result};
+use crate::{Client, Point, Result, state, wl};
 
 #[derive(Default)]
 pub struct SurfaceState {

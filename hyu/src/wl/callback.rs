@@ -1,4 +1,4 @@
-use crate::{wl, Client, Result};
+use crate::{Client, Result, wl};
 
 #[derive(Clone)]
 pub struct Callback {

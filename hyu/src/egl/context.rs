@@ -1,4 +1,4 @@
-use crate::{egl, Result};
+use crate::{Result, egl};
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]

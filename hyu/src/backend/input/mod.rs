@@ -1,6 +1,6 @@
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{elp, libinput, state, udev, Result};
+use crate::{Result, elp, libinput, state, udev};
 
 pub struct State {
 	x: f64,

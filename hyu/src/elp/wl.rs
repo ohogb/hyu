@@ -1,6 +1,6 @@
 use std::{io::Read as _, os::fd::AsRawFd as _};
 
-use crate::{elp, Result};
+use crate::{Result, elp};
 
 pub struct Source {
 	stream: crate::Stream,

@@ -1,4 +1,4 @@
-use crate::{wl, Client, Result};
+use crate::{Client, Result, wl};
 
 #[derive(Debug)]
 pub struct DataDeviceManager {}
