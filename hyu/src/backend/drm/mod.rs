@@ -1,7 +1,9 @@
 use crate::{
 	Result,
 	drm::{self, HasProps as _, Object as _},
-	egl, elp, gbm, state,
+	egl, elp, gbm,
+	renderer::gl,
+	state,
 };
 
 use color_eyre::eyre::OptionExt as _;
@@ -13,7 +15,7 @@ pub struct State {
 	gbm_device: gbm::Device,
 	egl_display: egl::Display,
 	pub screen: Screen,
-	renderer: crate::backend::gl::Renderer,
+	renderer: gl::Renderer,
 	context: drm::AtomicHelper,
 }
 
@@ -352,11 +354,8 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
 
-	let renderer = crate::backend::gl::Renderer::create(
-		glow,
-		screen.mode.hdisplay as _,
-		screen.mode.vdisplay as _,
-	)?;
+	let renderer =
+		gl::Renderer::create(glow, screen.mode.hdisplay as _, screen.mode.vdisplay as _)?;
 
 	let context = device.begin_atomic();
 

@@ -12,6 +12,7 @@ pub mod gbm;
 mod global_wrapper;
 pub mod libinput;
 mod point;
+pub mod renderer;
 mod state;
 pub mod store;
 mod stream;

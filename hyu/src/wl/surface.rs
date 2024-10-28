@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{Client, Point, Result, state, wl};
+use crate::{Client, Point, Result, renderer::gl, state, wl};
 
 #[derive(Default)]
 pub struct SurfaceState {
@@ -243,7 +243,7 @@ impl Surface {
 		self.pending.apply_to(&mut self.current);
 
 		if self.current.buffer.is_some() {
-			self.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+			self.gl_do_textures(client, &gl::GLOW)?;
 		}
 
 		self.depth_first_sub_tree(client, &mut |client, _, surface| {
@@ -256,7 +256,7 @@ impl Surface {
 				state_to_apply.apply_to(&mut surface.current);
 
 				if surface.current.buffer.is_some() {
-					surface.gl_do_textures(client, &crate::backend::gl::GLOW)?;
+					surface.gl_do_textures(client, &gl::GLOW)?;
 				}
 			}
 

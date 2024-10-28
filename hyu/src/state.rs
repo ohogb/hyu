@@ -5,7 +5,7 @@ use std::{
 
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{Client, Point, Result, wl, xkb};
+use crate::{Client, Point, Result, renderer::gl, wl, xkb};
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
@@ -643,7 +643,7 @@ impl CompositorState {
 			.map(|x| *x)
 	}
 
-	pub fn render(&mut self, gl: &mut crate::backend::gl::Renderer) -> Result<()> {
+	pub fn render(&mut self, gl: &mut gl::Renderer) -> Result<()> {
 		for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
 			let client = self.clients.get_mut(&fd).unwrap();
 
