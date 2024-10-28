@@ -42,7 +42,7 @@ impl Buffer {
 				stride,
 				..
 			} => {
-				let map = map.get().as_slice();
+				let map = unsafe { (*map.as_mut_ptr()).as_slice() };
 
 				let start = *offset as usize;
 				let end = start + (stride * self.size.1) as usize;

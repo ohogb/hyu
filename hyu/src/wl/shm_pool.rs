@@ -12,19 +12,40 @@ pub struct Map {
 
 impl Map {
 	pub fn new(size: usize, fd: std::os::fd::RawFd) -> Result<Self> {
+		let ptr = unsafe {
+			nix::sys::mman::mmap(
+				None,
+				std::num::NonZeroUsize::new(size).unwrap(),
+				nix::sys::mman::ProtFlags::PROT_READ,
+				nix::sys::mman::MapFlags::MAP_SHARED,
+				std::os::fd::BorrowedFd::borrow_raw(fd),
+				0,
+			)?
+		};
+
+		nix::unistd::close(fd)?;
+
 		Ok(Self {
-			ptr: Ptr(unsafe {
-				nix::sys::mman::mmap(
-					None,
-					std::num::NonZeroUsize::new(size).unwrap(),
-					nix::sys::mman::ProtFlags::PROT_READ | nix::sys::mman::ProtFlags::PROT_WRITE,
-					nix::sys::mman::MapFlags::MAP_SHARED,
-					std::os::fd::BorrowedFd::borrow_raw(fd),
-					0,
-				)?
-			}),
+			ptr: Ptr(ptr),
 			size,
 		})
+	}
+
+	pub fn remap(&mut self, size: usize) -> Result<()> {
+		let ptr = unsafe {
+			nix::sys::mman::mremap(
+				self.ptr.0,
+				self.size,
+				size,
+				nix::sys::mman::MRemapFlags::MREMAP_MAYMOVE,
+				None,
+			)?
+		};
+
+		self.ptr = Ptr(ptr);
+		self.size = size;
+
+		Ok(())
 	}
 
 	pub fn as_slice(&self) -> &[u8] {
@@ -34,7 +55,9 @@ impl Map {
 
 impl Drop for Map {
 	fn drop(&mut self) {
-		unsafe { nix::sys::mman::munmap(self.ptr.0, self.size).unwrap() };
+		unsafe {
+			nix::sys::mman::munmap(self.ptr.0, self.size).unwrap();
+		}
 	}
 }
 
@@ -46,15 +69,13 @@ impl SharedMap {
 		Self(std::sync::Arc::new(std::cell::SyncUnsafeCell::new(map)))
 	}
 
-	pub fn get(&self) -> &mut Map {
-		unsafe { &mut *self.0.get() }
+	pub fn as_mut_ptr(&self) -> *mut Map {
+		self.0.get()
 	}
 }
 
 pub struct ShmPool {
 	object_id: wl::Id<Self>,
-	fd: std::os::fd::RawFd,
-	size: u32,
 	map: SharedMap,
 }
 
@@ -62,14 +83,12 @@ impl ShmPool {
 	pub fn new(object_id: wl::Id<Self>, fd: std::os::fd::RawFd, size: u32) -> Result<Self> {
 		Ok(Self {
 			object_id,
-			fd,
-			size,
 			map: SharedMap::new(Map::new(size as _, fd)?),
 		})
 	}
 
 	pub fn get_map(&self) -> &[u8] {
-		self.map.get().as_slice()
+		unsafe { (*self.map.as_mut_ptr()).as_slice() }
 	}
 }
 
@@ -111,8 +130,9 @@ impl wl::Object for ShmPool {
 				// https://wayland.app/protocols/wayland#wl_shm_pool:request:resize
 				let size: u32 = wlm::decode::from_slice(params)?;
 
-				self.size = size;
-				*self.map.get() = Map::new(size as _, self.fd)?;
+				unsafe {
+					(*self.map.as_mut_ptr()).remap(size as _)?;
+				}
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in ShmPool"),
 		}
