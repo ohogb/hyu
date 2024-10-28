@@ -1,4 +1,4 @@
-use crate::{state, wl, Point, Result};
+use crate::{Point, Result, state, wl};
 
 pub struct Client {
 	pub fd: std::os::fd::RawFd,
@@ -35,7 +35,9 @@ impl<'object> Client {
 	}
 
 	pub unsafe fn remove_object<T>(&mut self, id: wl::Id<T>) -> Result<()> {
-		self.client_store.remove_object(id)?;
+		unsafe {
+			self.client_store.remove_object(id)?;
+		}
 
 		const DISPLAY_ID: wl::Id<wl::Display> = wl::Id::new(1);
 

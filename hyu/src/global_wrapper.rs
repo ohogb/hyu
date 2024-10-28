@@ -11,7 +11,9 @@ impl<T> GlobalWrapper<T> {
 	}
 
 	pub unsafe fn initialize(&self, value: T) {
-		*self.value.get() = Some(value);
+		unsafe {
+			*self.value.get() = Some(value);
+		}
 	}
 
 	pub fn as_mut_ptr(&self) -> *mut T {
