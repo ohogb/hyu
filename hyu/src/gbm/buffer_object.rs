@@ -9,6 +9,8 @@ unsafe extern "C" {
 	fn gbm_bo_get_stride(bo: u64) -> u32;
 	fn gbm_bo_get_bpp(bo: u64) -> u32;
 	fn gbm_bo_get_handle(bo: u64) -> u64;
+	fn gbm_bo_get_fd(bo: u64) -> std::os::fd::RawFd;
+	fn gbm_bo_get_modifier(bo: u64) -> u64;
 }
 
 pub struct UserData {
@@ -75,5 +77,13 @@ impl BufferObject {
 		};
 
 		Ok(user_data.fb)
+	}
+
+	pub fn get_fd(&self) -> std::os::fd::RawFd {
+		unsafe { gbm_bo_get_fd(self.as_ptr()) }
+	}
+
+	pub fn get_modifier(&self) -> u64 {
+		unsafe { gbm_bo_get_modifier(self.as_ptr()) }
 	}
 }

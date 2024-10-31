@@ -13,14 +13,16 @@ pub struct State {
 	device: drm::Device,
 	#[expect(dead_code)]
 	gbm_device: gbm::Device,
-	egl_display: egl::Display,
+	// egl_display: egl::Display,
 	pub screen: Screen,
-	renderer: gl::Renderer,
+	// renderer: gl::Renderer,
 	context: drm::AtomicHelper,
+	vulkan: crate::renderer::vulkan::Renderer,
+	counter: f32,
 }
 
 pub enum ScreenState {
-	WaitingForPageFlip { bo: gbm::BufferObject },
+	WaitingForPageFlip {/*bo: gbm::BufferObject*/},
 	Idle,
 }
 
@@ -31,12 +33,17 @@ pub struct Screen {
 	encoder: drm::Encoder,
 	crtc: drm::PropWrapper<drm::Crtc>,
 	plane: drm::PropWrapper<drm::Plane>,
-	gbm_surface: gbm::Surface,
-
+	// gbm_surface: gbm::Surface,
 	props: Props,
 
-	window_surface: egl::Surface,
-	old_bo: Option<gbm::BufferObject>,
+	// window_surface: egl::Surface,
+	// old_bo: Option<gbm::BufferObject>,
+	buffers: [(
+		gbm::BufferObject,
+		ash::vk::Image,
+		ash::vk::ImageView,
+		ash::vk::Framebuffer,
+	); 2],
 
 	state: ScreenState,
 
@@ -78,8 +85,9 @@ impl Screen {
 		device: &drm::Device,
 		resources: &drm::Card,
 		gbm_device: &gbm::Device,
-		display: &egl::Display,
-		config: &egl::Config,
+		// display: &egl::Display,
+		// config: &egl::Config,
+		vulkan: &crate::renderer::vulkan::Renderer,
 	) -> Result<Self> {
 		let connector = drm::PropWrapper::new(connector, device);
 
@@ -134,14 +142,51 @@ impl Screen {
 
 		let plane = drm::PropWrapper::new(plane.clone(), device);
 
-		let gbm_surface = gbm_device
-			.create_surface(
-				mode.hdisplay as _,
-				mode.vdisplay as _,
-				0x34325258,
-				(1 << 0) | (1 << 2),
-			)
-			.ok_or_eyre("failed to create gbm surface")?;
+		let asdf = <[_; 2]>::try_from(
+			(0..2)
+				.map(|_| {
+					let bo = gbm_device
+						.create_buffer_object(
+							mode.hdisplay as _,
+							mode.vdisplay as _,
+							0x34325258,
+							&[0],
+							(1 << 0) | (1 << 2),
+						)
+						.ok_or_eyre("failed to create buffer object")?;
+
+					let (image, image_view) = vulkan.create_image_from_gbm(&bo)?;
+
+					let attachments = [image_view];
+
+					let framebuffer_create_info = ash::vk::FramebufferCreateInfo::default()
+						.render_pass(vulkan.render_pass)
+						.attachments(&attachments)
+						.width(2560)
+						.height(1440)
+						.layers(1);
+
+					let framebuffer = unsafe {
+						vulkan
+							.device
+							.create_framebuffer(&framebuffer_create_info, None)?
+					};
+
+					Ok((bo, image, image_view, framebuffer))
+				})
+				.into_iter()
+				.collect::<Result<Vec<_>>>()?,
+		)
+		.unwrap();
+
+		// let gbm_surface = gbm_device
+		// 	.create_surface(
+		// 		mode.hdisplay as _,
+		// 		mode.vdisplay as _,
+		// 		0x34325258,
+		// 		(1 << 0) | (1 << 2),
+		// 	)
+		// 	.ok_or_eyre("failed to create gbm surface")?;
 
 		let props = Props {
 			connector: ConnectorProps {
@@ -165,9 +210,9 @@ impl Screen {
 			},
 		};
 
-		let window_surface = display
-			.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
-			.ok_or_eyre("failed to create window surface")?;
+		// let window_surface = display
+		// 	.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
+		// 	.ok_or_eyre("failed to create window surface")?;
 
 		let (timer_tx, timer_rx) = elp::timer_fd::create()?;
 
@@ -177,13 +222,12 @@ impl Screen {
 			encoder,
 			crtc,
 			plane,
-			gbm_surface,
 			props,
-			window_surface,
-			old_bo: None,
+			// old_bo: None,
 			state: ScreenState::Idle,
 			timer_tx,
 			timer_rx: Some(timer_rx),
+			buffers: asdf,
 		})
 	}
 
@@ -193,12 +237,14 @@ impl Screen {
 		ctx: &mut drm::AtomicHelper,
 		modeset: bool,
 	) -> Result<()> {
-		let bo = self
-			.gbm_surface
-			.lock_front_buffer()
-			.ok_or_eyre("failed to lock front buffer")?;
-
+		let (bo, ..) = self.buffers.first().unwrap();
 		let fb = bo.get_fb(device)?;
+		// let bo = self
+		// 	.gbm_surface
+		// 	.lock_front_buffer()
+		// 	.ok_or_eyre("failed to lock front buffer")?;
+		//
+		// let fb = bo.get_fb(device)?;
 
 		if modeset {
 			ctx.add_property(
@@ -265,14 +311,14 @@ impl Screen {
 
 		ctx.clear();
 
-		self.state = ScreenState::WaitingForPageFlip { bo };
+		self.state = ScreenState::WaitingForPageFlip {};
 
 		Ok(())
 	}
 }
 
 pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
-	let device = drm::Device::open(card)?;
+	let device = drm::Device::open(&card)?;
 	device.set_client_capability(2, 1)?;
 	device.set_client_capability(3, 1)?;
 
@@ -290,82 +336,94 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 		.collect::<Vec<_>>();
 
 	let gbm_device = gbm::Device::create(device.get_fd());
-	let display =
-		egl::Display::from_gbm(&gbm_device).ok_or_eyre("failed to get platform display")?;
 
-	egl::enable_debugging();
+	let vk = crate::renderer::vulkan::create(card)?;
+	eprintln!("VK: {:#?} {:#?}", vk.physical_device, vk.queue);
 
-	display
-		.initialize()
-		.ok_or_eyre("failed to initialize egl display")?;
-
-	if egl::bind_api(0x30A0) != 1 {
-		color_eyre::eyre::bail!("failed to bind gl api");
-	}
-
-	let configs = display.choose_config(
-		&[
-			0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 0, 0x3040, 0x0040, 0x3038,
-		],
-		100,
-	);
-
-	let config = configs
-		.iter()
-		.find(|config| {
-			let ret = display.get_config_attrib(config, 0x302E).unwrap();
-			ret == 0x34325258
-		})
-		.ok_or_eyre("failed to find config with gbm format")?;
-
-	let mut context = display
-		.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3100, 0x3101, 0x3038])
-		.ok_or_eyre("failed to create context")?;
-
-	unsafe {
-		crate::egl::DISPLAY.initialize(display.clone());
-	}
+	// let display =
+	// 	egl::Display::from_gbm(&gbm_device).ok_or_eyre("failed to get platform display")?;
+	//
+	// egl::enable_debugging();
+	//
+	// display
+	// 	.initialize()
+	// 	.ok_or_eyre("failed to initialize egl display")?;
+	//
+	// if egl::bind_api(0x30A0) != 1 {
+	// 	color_eyre::eyre::bail!("failed to bind gl api");
+	// }
+	//
+	// let configs = display.choose_config(
+	// 	&[
+	// 		0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 0, 0x3040, 0x0040, 0x3038,
+	// 	],
+	// 	100,
+	// );
+	//
+	// let config = configs
+	// 	.iter()
+	// 	.find(|config| {
+	// 		let ret = display.get_config_attrib(config, 0x302E).unwrap();
+	// 		ret == 0x34325258
+	// 	})
+	// 	.ok_or_eyre("failed to find config with gbm format")?;
+	//
+	// let mut context = display
+	// 	.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3100, 0x3101, 0x3038])
+	// 	.ok_or_eyre("failed to create context")?;
+	//
+	// unsafe {
+	// 	crate::egl::DISPLAY.initialize(display.clone());
+	// }
 
 	let mut screen = Screen::create(
 		connectors.first().unwrap().clone(),
 		&device,
 		&resources,
 		&gbm_device,
-		&display,
-		config,
+		&vk,
+		// &display,
+		// config,
 	)?;
 
-	let _ = std::mem::ManuallyDrop::new(context.access(&display, Some(&screen.window_surface))?);
+	// let _ = std::mem::ManuallyDrop::new(context.access(&display, Some(&screen.window_surface))?);
+	//
+	// let glow = unsafe {
+	// 	glow::Context::from_loader_function(|x| {
+	// 		let cstring = std::ffi::CString::new(x).unwrap();
+	// 		egl::get_proc_address(&cstring) as _
+	// 	})
+	// };
+	//
+	// unsafe {
+	// 	glow.clear_color(0.0, 0.0, 0.0, 1.0);
+	// 	glow.clear(glow::COLOR_BUFFER_BIT);
+	// }
+	//
+	// display.swap_buffers(&screen.window_surface);
+	//
 
-	let glow = unsafe {
-		glow::Context::from_loader_function(|x| {
-			let cstring = std::ffi::CString::new(x).unwrap();
-			egl::get_proc_address(&cstring) as _
-		})
-	};
-
-	unsafe {
-		glow.clear_color(0.0, 0.0, 0.0, 1.0);
-		glow.clear(glow::COLOR_BUFFER_BIT);
-	}
-
-	display.swap_buffers(&screen.window_surface);
+	let (.., framebuffer) = screen.buffers.first().unwrap();
+	// vk.clear_image(*image, (1.0, 0.0, 0.0, 1.0))?;
+	vk.render(*framebuffer)?;
 
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
-
-	let renderer =
-		gl::Renderer::create(glow, screen.mode.hdisplay as _, screen.mode.vdisplay as _)?;
+	//
+	// let renderer =
+	// 	gl::Renderer::create(glow, screen.mode.hdisplay as _, screen.mode.vdisplay as _)?;
 
 	let context = device.begin_atomic();
 
 	let state = State {
 		device,
 		gbm_device,
-		egl_display: display,
+		// egl_display: display,
 		screen,
-		renderer,
+		// renderer,
 		context,
+		vulkan: vk,
+		counter: 0.0,
 	};
 
 	Ok(state)
@@ -385,17 +443,18 @@ pub fn attach(
 					sequence,
 					..
 				} => {
-					let ScreenState::WaitingForPageFlip { bo } =
+					let ScreenState::WaitingForPageFlip {} =
 						std::mem::replace(&mut state.drm.screen.state, ScreenState::Idle)
 					else {
 						panic!();
 					};
 
-					if let Some(old_bo) = std::mem::take(&mut state.drm.screen.old_bo) {
-						state.drm.screen.gbm_surface.release_buffer(old_bo);
-					}
-
-					state.drm.screen.old_bo = Some(bo);
+					// if let Some(old_bo) = std::mem::take(&mut state.drm.screen.old_bo) {
+					// 	state.drm.screen.gbm_surface.release_buffer(old_bo);
+					// }
+					//
+					// state.drm.screen.old_bo = Some(bo);
+					state.drm.screen.buffers.swap(0, 1);
 
 					let duration = std::time::Duration::from_micros(
 						tv_sec as u64 * 1_000_000 + tv_usec as u64,
@@ -405,13 +464,13 @@ pub fn attach(
 						1_000_000 / state.drm.screen.mode.vrefresh as u64,
 					);
 
-					state.drm.renderer.after(
-						&mut state.compositor,
-						duration,
-						till_next_refresh,
-						sequence,
-						0x1 | 0x2 | 0x4,
-					)?;
+					// state.drm.renderer.after(
+					// 	&mut state.compositor,
+					// 	duration,
+					// 	till_next_refresh,
+					// 	sequence,
+					// 	0x1 | 0x2 | 0x4,
+					// )?;
 
 					let next_render =
 						duration + till_next_refresh - std::time::Duration::from_micros(1_000);
@@ -436,11 +495,16 @@ pub fn attach(
 				panic!();
 			}
 
-			state.drm.renderer.before(&mut state.compositor)?;
-			state
-				.drm
-				.egl_display
-				.swap_buffers(&state.drm.screen.window_surface);
+			let (.., framebuffer) = state.drm.screen.buffers.first().unwrap();
+			let a = state.drm.counter.fract();
+			// state.drm.vulkan.clear_image(*image, (a, a, a, 1.0))?;
+			state.drm.vulkan.render(*framebuffer)?;
+
+			// state.drm.renderer.before(&mut state.compositor)?;
+			// state
+			// 	.drm
+			// 	.egl_display
+			// 	.swap_buffers(&state.drm.screen.window_surface);
 
 			state
 				.drm
