@@ -270,55 +270,79 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		},
 	];
 
-	let vertex_buffer_create_info = ash::vk::BufferCreateInfo::default()
-		.size((size_of::<Vertex>() * vertices.len()) as _)
-		.usage(ash::vk::BufferUsageFlags::VERTEX_BUFFER)
-		.sharing_mode(ash::vk::SharingMode::EXCLUSIVE);
+	let staging_vertex_buffer_size = size_of::<Vertex>() * vertices.len();
 
-	let vertex_buffer = unsafe { device.create_buffer(&vertex_buffer_create_info, None)? };
-
-	let vertex_buffer_memory_requirements =
-		unsafe { device.get_buffer_memory_requirements(vertex_buffer) };
-
-	let physical_device_memory_properties =
-		unsafe { instance.get_physical_device_memory_properties(physical_device) };
-
-	let vertex_buffer_memory_allocation_info = ash::vk::MemoryAllocateInfo::default()
-		.allocation_size(vertex_buffer_memory_requirements.size)
-		.memory_type_index(
-			physical_device_memory_properties
-				.memory_types
-				.iter()
-				.enumerate()
-				.find(|&(idx, x)| {
-					(vertex_buffer_memory_requirements.memory_type_bits & (1 << idx)) != 0
-						&& x.property_flags.contains(
-							ash::vk::MemoryPropertyFlags::HOST_VISIBLE
-								| ash::vk::MemoryPropertyFlags::HOST_COHERENT,
-						)
-				})
-				.map(|(x, _)| x as u32)
-				.ok_or_eyre("physical device doesn't have needed memory property")?,
-		);
-
-	let vertex_buffer_device_memory =
-		unsafe { device.allocate_memory(&vertex_buffer_memory_allocation_info, None)? };
-
-	unsafe {
-		device.bind_buffer_memory(vertex_buffer, vertex_buffer_device_memory, 0)?;
-	}
+	let (staging_vertex_buffer, staging_vertex_buffer_device_memory) = Renderer::create_buffer(
+		&instance,
+		&device,
+		physical_device,
+		staging_vertex_buffer_size,
+		ash::vk::BufferUsageFlags::TRANSFER_SRC,
+		ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
+	)?;
 
 	unsafe {
 		let ptr = device.map_memory(
-			vertex_buffer_device_memory,
+			staging_vertex_buffer_device_memory,
 			0,
-			vertex_buffer_create_info.size,
+			staging_vertex_buffer_size as _,
 			ash::vk::MemoryMapFlags::default(),
 		)?;
 
 		std::ptr::copy(vertices.as_ptr(), ptr as *mut Vertex, vertices.len());
 
-		device.unmap_memory(vertex_buffer_device_memory);
+		device.unmap_memory(staging_vertex_buffer_device_memory);
+	}
+
+	let (vertex_buffer, vertex_buffer_device_memory) = Renderer::create_buffer(
+		&instance,
+		&device,
+		physical_device,
+		staging_vertex_buffer_size,
+		ash::vk::BufferUsageFlags::TRANSFER_DST | ash::vk::BufferUsageFlags::VERTEX_BUFFER,
+		ash::vk::MemoryPropertyFlags::DEVICE_LOCAL,
+	)?;
+
+	let command_buffers = [{
+		let command_buffer_allocation_info = ash::vk::CommandBufferAllocateInfo::default()
+			.command_pool(command_pool)
+			.level(ash::vk::CommandBufferLevel::PRIMARY)
+			.command_buffer_count(1);
+
+		let command_buffers =
+			unsafe { device.allocate_command_buffers(&command_buffer_allocation_info)? };
+
+		let command_buffer = command_buffers.into_iter().next().unwrap();
+
+		let begin_info = ash::vk::CommandBufferBeginInfo::default()
+			.flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+
+		unsafe {
+			device.begin_command_buffer(command_buffer, &begin_info)?;
+		}
+
+		let regions = [ash::vk::BufferCopy::default().size(staging_vertex_buffer_size as _)];
+
+		unsafe {
+			device.cmd_copy_buffer(
+				command_buffer,
+				staging_vertex_buffer,
+				vertex_buffer,
+				&regions,
+			);
+		}
+
+		unsafe {
+			device.end_command_buffer(command_buffer)?;
+		}
+
+		command_buffer
+	}];
+
+	let submits = [ash::vk::SubmitInfo::default().command_buffers(&command_buffers)];
+
+	unsafe {
+		device.queue_submit(queue, &submits, ash::vk::Fence::null())?;
 	}
 
 	Ok(Renderer {
@@ -575,5 +599,50 @@ impl Renderer {
 		}
 
 		Ok(())
+	}
+
+	pub fn create_buffer(
+		instance: &ash::Instance,
+		device: &ash::Device,
+		physical_device: ash::vk::PhysicalDevice,
+		size: usize,
+		usage: ash::vk::BufferUsageFlags,
+		properties: ash::vk::MemoryPropertyFlags,
+	) -> Result<(ash::vk::Buffer, ash::vk::DeviceMemory)> {
+		let buffer_create_info = ash::vk::BufferCreateInfo::default()
+			.size(size as _)
+			.usage(usage)
+			.sharing_mode(ash::vk::SharingMode::EXCLUSIVE);
+
+		let buffer = unsafe { device.create_buffer(&buffer_create_info, None)? };
+
+		let buffer_memory_requirements = unsafe { device.get_buffer_memory_requirements(buffer) };
+
+		let physical_device_memory_properties =
+			unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
+		let buffer_memory_allocation_info = ash::vk::MemoryAllocateInfo::default()
+			.allocation_size(buffer_memory_requirements.size)
+			.memory_type_index(
+				physical_device_memory_properties
+					.memory_types
+					.iter()
+					.enumerate()
+					.find(|&(idx, x)| {
+						(buffer_memory_requirements.memory_type_bits & (1 << idx)) != 0
+							&& x.property_flags.contains(properties)
+					})
+					.map(|(x, _)| x as u32)
+					.ok_or_eyre("physical device doesn't have needed memory property")?,
+			);
+
+		let buffer_device_memory =
+			unsafe { device.allocate_memory(&buffer_memory_allocation_info, None)? };
+
+		unsafe {
+			device.bind_buffer_memory(buffer, buffer_device_memory, 0)?;
+		}
+
+		Ok((buffer, buffer_device_memory))
 	}
 }
