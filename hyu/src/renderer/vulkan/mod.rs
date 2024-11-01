@@ -2,6 +2,37 @@ use color_eyre::eyre::OptionExt as _;
 
 use crate::{Result, gbm};
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Vertex {
+	pub position: [f32; 2],
+	pub uv: [f32; 2],
+}
+
+impl Vertex {
+	pub fn get_binding_description() -> ash::vk::VertexInputBindingDescription {
+		ash::vk::VertexInputBindingDescription::default()
+			.binding(0)
+			.stride(size_of::<Self>() as _)
+			.input_rate(ash::vk::VertexInputRate::VERTEX)
+	}
+
+	pub fn get_attribute_descriptions() -> [ash::vk::VertexInputAttributeDescription; 2] {
+		[
+			ash::vk::VertexInputAttributeDescription::default()
+				.binding(0)
+				.location(0)
+				.format(ash::vk::Format::R32G32_SFLOAT)
+				.offset(std::mem::offset_of!(Self, position) as _),
+			ash::vk::VertexInputAttributeDescription::default()
+				.binding(0)
+				.location(1)
+				.format(ash::vk::Format::R32G32_SFLOAT)
+				.offset(std::mem::offset_of!(Self, uv) as _),
+		]
+	}
+}
+
 pub struct Renderer {
 	pub entry: ash::Entry,
 	pub instance: ash::Instance,
@@ -11,6 +42,10 @@ pub struct Renderer {
 	pub command_pool: ash::vk::CommandPool,
 	pub pipeline: ash::vk::Pipeline,
 	pub render_pass: ash::vk::RenderPass,
+	pub vertex_buffer: ash::vk::Buffer,
+	pub vertex_buffer_device_memory: ash::vk::DeviceMemory,
+
+	pub vertices: Vec<Vertex>,
 }
 
 pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
@@ -117,8 +152,13 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 			.module(frag_shader_module),
 	];
 
+	let vertex_input_binding_descriptions = [Vertex::get_binding_description()];
+	let vertex_input_attribute_descriptions = Vertex::get_attribute_descriptions();
+
 	let pipeline_vertex_input_state_create_info =
-		ash::vk::PipelineVertexInputStateCreateInfo::default();
+		ash::vk::PipelineVertexInputStateCreateInfo::default()
+			.vertex_binding_descriptions(&vertex_input_binding_descriptions)
+			.vertex_attribute_descriptions(&vertex_input_attribute_descriptions);
 
 	let pipeline_input_assembly_state_create_info =
 		ash::vk::PipelineInputAssemblyStateCreateInfo::default()
@@ -215,6 +255,72 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	.next()
 	.unwrap();
 
+	let vertices = vec![
+		Vertex {
+			position: [0.0, -0.5],
+			uv: [0.0, 0.0],
+		},
+		Vertex {
+			position: [0.5, 0.5],
+			uv: [0.0, 0.0],
+		},
+		Vertex {
+			position: [-0.5, 0.5],
+			uv: [0.0, 0.0],
+		},
+	];
+
+	let vertex_buffer_create_info = ash::vk::BufferCreateInfo::default()
+		.size((size_of::<Vertex>() * vertices.len()) as _)
+		.usage(ash::vk::BufferUsageFlags::VERTEX_BUFFER)
+		.sharing_mode(ash::vk::SharingMode::EXCLUSIVE);
+
+	let vertex_buffer = unsafe { device.create_buffer(&vertex_buffer_create_info, None)? };
+
+	let vertex_buffer_memory_requirements =
+		unsafe { device.get_buffer_memory_requirements(vertex_buffer) };
+
+	let physical_device_memory_properties =
+		unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
+	let vertex_buffer_memory_allocation_info = ash::vk::MemoryAllocateInfo::default()
+		.allocation_size(vertex_buffer_memory_requirements.size)
+		.memory_type_index(
+			physical_device_memory_properties
+				.memory_types
+				.iter()
+				.enumerate()
+				.find(|&(idx, x)| {
+					(vertex_buffer_memory_requirements.memory_type_bits & (1 << idx)) != 0
+						&& x.property_flags.contains(
+							ash::vk::MemoryPropertyFlags::HOST_VISIBLE
+								| ash::vk::MemoryPropertyFlags::HOST_COHERENT,
+						)
+				})
+				.map(|(x, _)| x as u32)
+				.ok_or_eyre("physical device doesn't have needed memory property")?,
+		);
+
+	let vertex_buffer_device_memory =
+		unsafe { device.allocate_memory(&vertex_buffer_memory_allocation_info, None)? };
+
+	unsafe {
+		device.bind_buffer_memory(vertex_buffer, vertex_buffer_device_memory, 0)?;
+	}
+
+	unsafe {
+		let ptr = device.map_memory(
+			vertex_buffer_device_memory,
+			0,
+			vertex_buffer_create_info.size,
+			ash::vk::MemoryMapFlags::default(),
+		)?;
+
+		std::ptr::copy(vertices.as_ptr(), ptr as *mut Vertex, vertices.len());
+
+		device.unmap_memory(vertex_buffer_device_memory);
+	}
+
 	Ok(Renderer {
 		entry,
 		instance,
@@ -224,6 +330,9 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		command_pool,
 		pipeline,
 		render_pass,
+		vertex_buffer,
+		vertex_buffer_device_memory,
+		vertices,
 	})
 }
 
@@ -435,7 +544,16 @@ impl Renderer {
 			}
 
 			unsafe {
-				self.device.cmd_draw(command_buffer, 3, 1, 0, 0);
+				let buffers = [self.vertex_buffer];
+				let offsets = [0];
+
+				self.device
+					.cmd_bind_vertex_buffers(command_buffer, 0, &buffers, &offsets);
+			}
+
+			unsafe {
+				self.device
+					.cmd_draw(command_buffer, self.vertices.len() as _, 1, 0, 0);
 			}
 
 			unsafe {
