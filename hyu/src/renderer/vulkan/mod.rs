@@ -40,10 +40,14 @@ pub struct Renderer {
 	pub device: ash::Device,
 	pub queue: ash::vk::Queue,
 	pub command_pool: ash::vk::CommandPool,
+	pub pipeline_layout: ash::vk::PipelineLayout,
 	pub pipeline: ash::vk::Pipeline,
 	pub render_pass: ash::vk::RenderPass,
 	pub vertex_buffer: ash::vk::Buffer,
 	pub vertex_buffer_device_memory: ash::vk::DeviceMemory,
+	pub test_image: (ash::vk::Image, ash::vk::DeviceMemory, ash::vk::ImageView),
+	pub sampler: ash::vk::Sampler,
+	pub descriptor_set: ash::vk::DescriptorSet,
 
 	pub vertices: Vec<Vertex>,
 }
@@ -204,7 +208,24 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		ash::vk::PipelineColorBlendStateCreateInfo::default()
 			.attachments(&pipeline_color_blend_attachment_states);
 
-	let pipeline_layout_create_info = ash::vk::PipelineLayoutCreateInfo::default();
+	let descriptor_set_layout_bindings = [ash::vk::DescriptorSetLayoutBinding::default()
+		.binding(0)
+		.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+		.descriptor_count(1)
+		.stage_flags(ash::vk::ShaderStageFlags::FRAGMENT)];
+
+	let descriptor_set_layout_create_info =
+		ash::vk::DescriptorSetLayoutCreateInfo::default().bindings(&descriptor_set_layout_bindings);
+
+	let descriptor_set_layouts =
+		[
+			unsafe {
+				device.create_descriptor_set_layout(&descriptor_set_layout_create_info, None)?
+			},
+		];
+
+	let pipeline_layout_create_info =
+		ash::vk::PipelineLayoutCreateInfo::default().set_layouts(&descriptor_set_layouts);
 
 	let pipeline_layout =
 		unsafe { device.create_pipeline_layout(&pipeline_layout_create_info, None)? };
@@ -254,6 +275,59 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	.into_iter()
 	.next()
 	.unwrap();
+
+	let (test_image, test_image_device_memory, test_image_view) =
+		Renderer::create_image(&device, &instance, physical_device, 2560, 1440, 2560 * 4)?;
+
+	Renderer::clear_image(
+		&device,
+		queue,
+		command_pool,
+		test_image,
+		(0.5, 0.0, 0.5, 1.0),
+	)?;
+
+	let sampler_create_info = ash::vk::SamplerCreateInfo::default()
+		.mag_filter(ash::vk::Filter::LINEAR)
+		.min_filter(ash::vk::Filter::LINEAR);
+
+	let sampler = unsafe { device.create_sampler(&sampler_create_info, None)? };
+
+	let descriptor_pool_sizes = [ash::vk::DescriptorPoolSize::default()
+		.ty(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+		.descriptor_count(1)];
+
+	let descriptor_pool_create_info = ash::vk::DescriptorPoolCreateInfo::default()
+		.pool_sizes(&descriptor_pool_sizes)
+		.max_sets(1);
+
+	let descriptor_pool =
+		unsafe { device.create_descriptor_pool(&descriptor_pool_create_info, None)? };
+
+	let descriptor_set_allocate_info = ash::vk::DescriptorSetAllocateInfo::default()
+		.descriptor_pool(descriptor_pool)
+		.set_layouts(&descriptor_set_layouts);
+
+	let descriptor_set = unsafe { device.allocate_descriptor_sets(&descriptor_set_allocate_info)? }
+		.into_iter()
+		.next()
+		.unwrap();
+
+	let descriptor_image_infos = [ash::vk::DescriptorImageInfo::default()
+		.image_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+		.image_view(test_image_view)
+		.sampler(sampler)];
+
+	let descriptor_writes = [ash::vk::WriteDescriptorSet::default()
+		.dst_set(descriptor_set)
+		.dst_binding(0)
+		.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+		.descriptor_count(1)
+		.image_info(&descriptor_image_infos)];
+
+	unsafe {
+		device.update_descriptor_sets(&descriptor_writes, &[]);
+	}
 
 	let vertices = vec![
 		Vertex {
@@ -352,10 +426,14 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		device,
 		queue,
 		command_pool,
+		pipeline_layout,
 		pipeline,
 		render_pass,
 		vertex_buffer,
 		vertex_buffer_device_memory,
+		test_image: (test_image, test_image_device_memory, test_image_view),
+		sampler,
+		descriptor_set,
 		vertices,
 	})
 }
@@ -434,17 +512,21 @@ impl Renderer {
 		Ok((image, image_view))
 	}
 
-	pub fn clear_image(&self, image: ash::vk::Image, color: (f32, f32, f32, f32)) -> Result<()> {
+	pub fn clear_image(
+		device: &ash::Device,
+		queue: ash::vk::Queue,
+		command_pool: ash::vk::CommandPool,
+		image: ash::vk::Image,
+		color: (f32, f32, f32, f32),
+	) -> Result<()> {
 		let command_buffers = [{
 			let command_buffer_allocation_info = ash::vk::CommandBufferAllocateInfo::default()
-				.command_pool(self.command_pool)
+				.command_pool(command_pool)
 				.level(ash::vk::CommandBufferLevel::PRIMARY)
 				.command_buffer_count(1);
 
-			let command_buffers = unsafe {
-				self.device
-					.allocate_command_buffers(&command_buffer_allocation_info)?
-			};
+			let command_buffers =
+				unsafe { device.allocate_command_buffers(&command_buffer_allocation_info)? };
 
 			let command_buffer = command_buffers.into_iter().next().unwrap();
 
@@ -452,8 +534,7 @@ impl Renderer {
 				.flags(ash::vk::CommandBufferUsageFlags::SIMULTANEOUS_USE);
 
 			unsafe {
-				self.device
-					.begin_command_buffer(command_buffer, &begin_info)?;
+				device.begin_command_buffer(command_buffer, &begin_info)?;
 			}
 
 			let range = ash::vk::ImageSubresourceRange::default()
@@ -474,7 +555,7 @@ impl Renderer {
 				.subresource_range(range);
 
 			unsafe {
-				self.device.cmd_pipeline_barrier(
+				device.cmd_pipeline_barrier(
 					command_buffer,
 					ash::vk::PipelineStageFlags::TOP_OF_PIPE,
 					ash::vk::PipelineStageFlags::TRANSFER,
@@ -486,7 +567,7 @@ impl Renderer {
 			}
 
 			unsafe {
-				self.device.cmd_clear_color_image(
+				device.cmd_clear_color_image(
 					command_buffer,
 					image,
 					ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -497,8 +578,24 @@ impl Renderer {
 				);
 			}
 
+			let image_memory_barrier = image_memory_barrier
+				.old_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+				.new_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
 			unsafe {
-				self.device.end_command_buffer(command_buffer)?;
+				device.cmd_pipeline_barrier(
+					command_buffer,
+					ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+					ash::vk::PipelineStageFlags::TRANSFER,
+					ash::vk::DependencyFlags::empty(),
+					&[],
+					&[],
+					&[image_memory_barrier],
+				);
+			}
+
+			unsafe {
+				device.end_command_buffer(command_buffer)?;
 			}
 
 			command_buffer
@@ -507,8 +604,7 @@ impl Renderer {
 		let submits = [ash::vk::SubmitInfo::default().command_buffers(&command_buffers)];
 
 		unsafe {
-			self.device
-				.queue_submit(self.queue, &submits, ash::vk::Fence::null())?;
+			device.queue_submit(queue, &submits, ash::vk::Fence::null())?;
 		}
 
 		Ok(())
@@ -573,6 +669,19 @@ impl Renderer {
 
 				self.device
 					.cmd_bind_vertex_buffers(command_buffer, 0, &buffers, &offsets);
+			}
+
+			unsafe {
+				let descriptor_sets = [self.descriptor_set];
+
+				self.device.cmd_bind_descriptor_sets(
+					command_buffer,
+					ash::vk::PipelineBindPoint::GRAPHICS,
+					self.pipeline_layout,
+					0,
+					&descriptor_sets,
+					&[],
+				);
 			}
 
 			unsafe {
@@ -644,5 +753,78 @@ impl Renderer {
 		}
 
 		Ok((buffer, buffer_device_memory))
+	}
+
+	fn create_image(
+		device: &ash::Device,
+		instance: &ash::Instance,
+		physical_device: ash::vk::PhysicalDevice,
+		width: usize,
+		height: usize,
+		stride: usize,
+	) -> Result<(ash::vk::Image, ash::vk::DeviceMemory, ash::vk::ImageView)> {
+		let image_create_info = ash::vk::ImageCreateInfo::default()
+			.image_type(ash::vk::ImageType::TYPE_2D)
+			.format(ash::vk::Format::B8G8R8A8_UNORM)
+			.extent(
+				ash::vk::Extent3D::default()
+					.width(width as _)
+					.height(height as _)
+					.depth(1),
+			)
+			.mip_levels(1)
+			.array_layers(1)
+			.samples(ash::vk::SampleCountFlags::TYPE_1)
+			.usage(ash::vk::ImageUsageFlags::TRANSFER_DST | ash::vk::ImageUsageFlags::SAMPLED)
+			.initial_layout(ash::vk::ImageLayout::UNDEFINED)
+			.tiling(ash::vk::ImageTiling::LINEAR)
+			.tiling(ash::vk::ImageTiling::OPTIMAL);
+
+		let image = unsafe { device.create_image(&image_create_info, None) }?;
+
+		let image_memory_requirements = unsafe { device.get_image_memory_requirements(image) };
+
+		let physical_device_memory_properties =
+			unsafe { instance.get_physical_device_memory_properties(physical_device) };
+
+		let allocation_info = ash::vk::MemoryAllocateInfo::default()
+			.allocation_size(image_memory_requirements.size)
+			.memory_type_index(
+				physical_device_memory_properties
+					.memory_types
+					.iter()
+					.enumerate()
+					.find(|&(idx, x)| {
+						(image_memory_requirements.memory_type_bits & (1 << idx)) != 0
+							&& x.property_flags.contains(
+								ash::vk::MemoryPropertyFlags::HOST_VISIBLE
+									| ash::vk::MemoryPropertyFlags::HOST_COHERENT,
+							)
+					})
+					.map(|(x, _)| x as u32)
+					.ok_or_eyre("physical device doesn't have needed memory property")?,
+			);
+
+		let device_memory = unsafe { device.allocate_memory(&allocation_info, None)? };
+
+		unsafe {
+			device.bind_image_memory(image, device_memory, 0)?;
+		}
+
+		let image_view_create_info = ash::vk::ImageViewCreateInfo::default()
+			.image(image)
+			.view_type(ash::vk::ImageViewType::TYPE_2D)
+			.format(ash::vk::Format::B8G8R8A8_UNORM)
+			.components(ash::vk::ComponentMapping::default())
+			.subresource_range(
+				ash::vk::ImageSubresourceRange::default()
+					.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
+					.level_count(1)
+					.layer_count(1),
+			);
+
+		let image_view = unsafe { device.create_image_view(&image_view_create_info, None)? };
+
+		Ok((image, device_memory, image_view))
 	}
 }
