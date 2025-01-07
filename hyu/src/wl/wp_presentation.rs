@@ -1,4 +1,4 @@
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 pub struct WpPresentation {
 	object_id: wl::Id<Self>,
@@ -20,7 +20,13 @@ impl WpPresentation {
 }
 
 impl wl::Object for WpPresentation {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/presentation-time#wp_presentation:request:destroy

@@ -1,4 +1,4 @@
-use crate::{Client, Point, Result, wl};
+use crate::{Client, Point, Result, state::HwState, wl};
 
 pub struct XdgSurface {
 	object_id: wl::Id<Self>,
@@ -39,7 +39,13 @@ impl XdgSurface {
 }
 
 impl wl::Object for XdgSurface {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_surface:request:destroy

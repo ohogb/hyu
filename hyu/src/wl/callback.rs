@@ -1,4 +1,4 @@
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 #[derive(Clone)]
 pub struct Callback {
@@ -27,7 +27,13 @@ impl Callback {
 }
 
 impl wl::Object for Callback {
-	fn handle(&mut self, _client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		_client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		_params: &[u8],
+	) -> Result<()> {
 		color_eyre::eyre::bail!("unknown op '{op}' in Callback");
 	}
 }

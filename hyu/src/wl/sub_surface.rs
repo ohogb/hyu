@@ -1,4 +1,4 @@
-use crate::{Client, Point, Result, wl};
+use crate::{Client, Point, Result, state::HwState, wl};
 
 pub struct SubSurface {
 	object_id: wl::Id<Self>,
@@ -23,7 +23,13 @@ impl SubSurface {
 }
 
 impl wl::Object for SubSurface {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_subsurface:request:destroy

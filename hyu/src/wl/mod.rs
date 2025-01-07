@@ -68,7 +68,7 @@ pub use zwp_linux_dmabuf_v1::*;
 pub use zxdg_output_manager_v1::*;
 pub use zxdg_output_v1::*;
 
-use crate::{Client, Result};
+use crate::{Client, Result, state::HwState};
 
 pub trait Global {
 	fn get_name(&self) -> &'static str;
@@ -77,5 +77,11 @@ pub trait Global {
 }
 
 pub trait Object {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()>;
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()>;
 }

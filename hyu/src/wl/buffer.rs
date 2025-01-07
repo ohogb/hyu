@@ -1,6 +1,6 @@
 use glow::HasContext;
 
-use crate::{Client, Point, Result, egl, wl};
+use crate::{Client, Point, Result, egl, state::HwState, wl};
 
 pub enum BufferStorage {
 	Shm {
@@ -114,7 +114,13 @@ impl Buffer {
 }
 
 impl wl::Object for Buffer {
-	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		_params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_buffer:request:destroy

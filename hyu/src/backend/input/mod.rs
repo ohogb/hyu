@@ -40,22 +40,24 @@ pub fn attach(
 					panic!();
 				};
 
-				state.input.x += pointer.get_dx();
-				state.input.y += pointer.get_dy();
+				state.hw.input.x += pointer.get_dx();
+				state.hw.input.y += pointer.get_dy();
 
-				state.input.x = state
+				state.hw.input.x = state
+					.hw
 					.input
 					.x
 					.clamp(0.0, (state.compositor.width - 1) as f64);
 
-				state.input.y = state
+				state.hw.input.y = state
+					.hw
 					.input
 					.y
 					.clamp(0.0, (state.compositor.height - 1) as f64);
 
 				state
 					.compositor
-					.on_cursor_move((state.input.x as _, state.input.y as _))?;
+					.on_cursor_move((state.hw.input.x as _, state.hw.input.y as _))?;
 			}
 			402 => {
 				let Some(pointer) = event.get_pointer_event() else {

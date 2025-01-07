@@ -1,4 +1,4 @@
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 pub struct ZxdgOutputV1 {
 	object_id: wl::Id<Self>,
@@ -43,7 +43,13 @@ impl ZxdgOutputV1 {
 }
 
 impl wl::Object for ZxdgOutputV1 {
-	fn handle(&mut self, client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		_params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-output-unstable-v1#zxdg_output_v1:request:destroy

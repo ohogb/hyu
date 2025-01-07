@@ -1,6 +1,11 @@
 use glow::HasContext;
 
-use crate::{Client, Point, Result, renderer::gl, state, wl};
+use crate::{
+	Client, Point, Result,
+	renderer::gl,
+	state::{self, HwState},
+	wl,
+};
 
 #[derive(Default)]
 pub struct SurfaceState {
@@ -284,7 +289,13 @@ impl Surface {
 }
 
 impl wl::Object for Surface {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy

@@ -434,7 +434,7 @@ pub fn attach(
 	state: &mut state::State,
 ) -> Result<()> {
 	event_loop.on(
-		elp::drm::create(state.drm.device.get_fd()),
+		elp::drm::create(state.hw.drm.device.get_fd()),
 		|msg, state, _| {
 			match msg {
 				elp::drm::Message::PageFlip {
@@ -444,7 +444,7 @@ pub fn attach(
 					..
 				} => {
 					let ScreenState::WaitingForPageFlip {} =
-						std::mem::replace(&mut state.drm.screen.state, ScreenState::Idle)
+						std::mem::replace(&mut state.hw.drm.screen.state, ScreenState::Idle)
 					else {
 						panic!();
 					};
@@ -454,14 +454,14 @@ pub fn attach(
 					// }
 					//
 					// state.drm.screen.old_bo = Some(bo);
-					state.drm.screen.buffers.swap(0, 1);
+					state.hw.drm.screen.buffers.swap(0, 1);
 
 					let duration = std::time::Duration::from_micros(
 						tv_sec as u64 * 1_000_000 + tv_usec as u64,
 					);
 
 					let till_next_refresh = std::time::Duration::from_micros(
-						1_000_000 / state.drm.screen.mode.vrefresh as u64,
+						1_000_000 / state.hw.drm.screen.mode.vrefresh as u64,
 					);
 
 					// state.drm.renderer.after(
@@ -475,7 +475,7 @@ pub fn attach(
 					let next_render =
 						duration + till_next_refresh - std::time::Duration::from_micros(1_000);
 
-					state.drm.screen.timer_tx.set(
+					state.hw.drm.screen.timer_tx.set(
 						nix::sys::timerfd::Expiration::OneShot(
 							nix::sys::time::TimeSpec::from_duration(next_render),
 						),
@@ -489,16 +489,16 @@ pub fn attach(
 	)?;
 
 	event_loop.on(
-		std::mem::take(&mut state.drm.screen.timer_rx).unwrap(),
+		std::mem::take(&mut state.hw.drm.screen.timer_rx).unwrap(),
 		|_, state, _| {
-			if let ScreenState::WaitingForPageFlip { .. } = &state.drm.screen.state {
+			if let ScreenState::WaitingForPageFlip { .. } = &state.hw.drm.screen.state {
 				panic!();
 			}
 
-			let (.., framebuffer) = state.drm.screen.buffers.first().unwrap();
-			let a = state.drm.counter.fract();
+			let (.., framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
+			let a = state.hw.drm.counter.fract();
 			// state.drm.vulkan.clear_image(*image, (a, a, a, 1.0))?;
-			state.drm.vulkan.render(*framebuffer)?;
+			state.hw.drm.vulkan.render(*framebuffer)?;
 
 			// state.drm.renderer.before(&mut state.compositor)?;
 			// state
@@ -507,9 +507,10 @@ pub fn attach(
 			// 	.swap_buffers(&state.drm.screen.window_surface);
 
 			state
+				.hw
 				.drm
 				.screen
-				.render(&state.drm.device, &mut state.drm.context, false)
+				.render(&state.hw.drm.device, &mut state.hw.drm.context, false)
 		},
 	)
 }

@@ -3,7 +3,7 @@ use std::{
 	os::fd::{FromRawFd as _, IntoRawFd as _},
 };
 
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
@@ -72,7 +72,13 @@ impl ZwpLinuxDmabufV1 {
 }
 
 impl wl::Object for ZwpLinuxDmabufV1 {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:destroy

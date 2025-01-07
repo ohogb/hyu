@@ -1,4 +1,4 @@
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 pub struct XdgWmBase {
 	object_id: wl::Id<Self>,
@@ -20,7 +20,13 @@ impl XdgWmBase {
 }
 
 impl wl::Object for XdgWmBase {
-	fn handle(&mut self, client: &mut Client, op: u16, params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		params: &[u8],
+	) -> Result<()> {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:destroy

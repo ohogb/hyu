@@ -32,9 +32,13 @@ pub struct XkbState {
 	pub keymap_file: (std::os::fd::RawFd, u64),
 }
 
-pub struct State {
+pub struct HwState {
 	pub drm: crate::backend::drm::State,
 	pub input: crate::backend::input::State,
+}
+
+pub struct State {
+	pub hw: HwState,
 	pub compositor: CompositorState,
 }
 

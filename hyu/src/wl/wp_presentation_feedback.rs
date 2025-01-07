@@ -1,4 +1,4 @@
-use crate::{Client, Result, wl};
+use crate::{Client, Result, state::HwState, wl};
 
 pub struct WpPresentationFeedback {
 	object_id: wl::Id<Self>,
@@ -50,7 +50,13 @@ impl WpPresentationFeedback {
 }
 
 impl wl::Object for WpPresentationFeedback {
-	fn handle(&mut self, _client: &mut Client, op: u16, _params: &[u8]) -> Result<()> {
+	fn handle(
+		&mut self,
+		_client: &mut Client,
+		_hw_state: &mut HwState,
+		op: u16,
+		_params: &[u8],
+	) -> Result<()> {
 		color_eyre::eyre::bail!("unknown op '{op}' in WpPresentationFeedback");
 	}
 }

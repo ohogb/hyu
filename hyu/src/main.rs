@@ -90,8 +90,10 @@ fn main() -> Result<()> {
 	let height = drm_state.screen.mode.vdisplay;
 
 	let mut state = state::State {
-		drm: drm_state,
-		input: backend::input::initialize_state()?,
+		hw: state::HwState {
+			drm: drm_state,
+			input: backend::input::initialize_state()?,
+		},
 		compositor: state::CompositorState::create(width, height, keymap)?,
 	};
 
@@ -151,7 +153,7 @@ fn main() -> Result<()> {
 						color_eyre::eyre::bail!("unknown object '{object}'");
 					};
 
-					object.handle(client, op, params)?;
+					object.handle(client, &mut state.hw, op, params)?;
 
 					state
 						.compositor

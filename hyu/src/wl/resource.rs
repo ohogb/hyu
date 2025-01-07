@@ -7,10 +7,16 @@ macro_rules! implement {
         }
 
         impl crate::wl::Object for Resource {
-            fn handle(&mut self, client: &mut crate::Client, op: u16, params: &[u8]) -> crate::Result<()> {
+            fn handle(
+                &mut self,
+                client: &mut crate::Client,
+                hw_state: &mut crate::state::HwState,
+                op: u16,
+                params: &[u8],
+            ) -> crate::Result<()> {
                 match self {
                     $(
-                        Self::$children(x) => x.handle(client, op, params),
+                        Self::$children(x) => x.handle(client, hw_state, op, params),
                     )*
                 }
             }
