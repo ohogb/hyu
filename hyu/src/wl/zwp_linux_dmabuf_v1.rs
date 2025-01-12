@@ -18,23 +18,35 @@ impl ZwpLinuxDmabufV1 {
 
 		let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
 
+		// AR24
 		file.write_all(&u64::to_ne_bytes(0x34325241))?;
 		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
 
 		file.write_all(&u64::to_ne_bytes(0x34325241))?;
 		file.write_all(&u64::to_ne_bytes(0x0))?;
 
-		file.write_all(&u64::to_ne_bytes(0x34325241))?;
-		file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
+		// file.write_all(&u64::to_ne_bytes(0x34325241))?;
+		// file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
 
+		// XR24
 		file.write_all(&u64::to_ne_bytes(0x34325258))?;
 		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
 
 		file.write_all(&u64::to_ne_bytes(0x34325258))?;
 		file.write_all(&u64::to_ne_bytes(0x0))?;
 
-		file.write_all(&u64::to_ne_bytes(0x34325258))?;
-		file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
+		// AB24
+		file.write_all(&u64::to_ne_bytes(0x34324241))?;
+		file.write_all(&u64::to_ne_bytes(0x200000020937b03))?;
+
+		file.write_all(&u64::to_ne_bytes(0x34324241))?;
+		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
+
+		file.write_all(&u64::to_ne_bytes(0x34324241))?;
+		file.write_all(&u64::to_ne_bytes(0x0))?;
+
+		// file.write_all(&u64::to_ne_bytes(0x34325258))?;
+		// file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
 
 		let size = file.stream_len()?;
 		let fd = file.into_raw_fd();

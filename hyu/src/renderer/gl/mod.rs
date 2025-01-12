@@ -157,7 +157,9 @@ impl Renderer {
 			GLOW.clear(glow::COLOR_BUFFER_BIT);
 		}
 
-		compositor.render(self)
+		Ok(())
+
+		// compositor.render(self)
 	}
 
 	pub fn after(

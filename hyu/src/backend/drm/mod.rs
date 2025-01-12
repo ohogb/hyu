@@ -10,14 +10,14 @@ use color_eyre::eyre::OptionExt as _;
 use glow::HasContext as _;
 
 pub struct State {
-	device: drm::Device,
+	pub device: drm::Device,
 	#[expect(dead_code)]
 	gbm_device: gbm::Device,
 	// egl_display: egl::Display,
 	pub screen: Screen,
 	// renderer: gl::Renderer,
 	context: drm::AtomicHelper,
-	vulkan: crate::renderer::vulkan::Renderer,
+	pub vulkan: crate::renderer::vulkan::Renderer,
 	counter: f32,
 }
 
@@ -337,7 +337,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 
 	let gbm_device = gbm::Device::create(device.get_fd());
 
-	let vk = crate::renderer::vulkan::create(card)?;
+	let mut vk = crate::renderer::vulkan::create(card)?;
 	eprintln!("VK: {:#?} {:#?}", vk.physical_device, vk.queue);
 
 	// let display =
@@ -405,7 +405,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 
 	let (.., framebuffer) = screen.buffers.first().unwrap();
 	// vk.clear_image(*image, (1.0, 0.0, 0.0, 1.0))?;
-	vk.render(*framebuffer)?;
+	vk.render(*framebuffer, |_| Ok(()))?;
 
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
@@ -464,13 +464,12 @@ pub fn attach(
 						1_000_000 / state.hw.drm.screen.mode.vrefresh as u64,
 					);
 
-					// state.drm.renderer.after(
-					// 	&mut state.compositor,
-					// 	duration,
-					// 	till_next_refresh,
-					// 	sequence,
-					// 	0x1 | 0x2 | 0x4,
-					// )?;
+					state.compositor.after_render(
+						duration,
+						till_next_refresh,
+						sequence,
+						0x1 | 0x2 | 0x4,
+					)?;
 
 					let next_render =
 						duration + till_next_refresh - std::time::Duration::from_micros(1_000);
@@ -498,7 +497,11 @@ pub fn attach(
 			let (.., framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
 			let a = state.hw.drm.counter.fract();
 			// state.drm.vulkan.clear_image(*image, (a, a, a, 1.0))?;
-			state.hw.drm.vulkan.render(*framebuffer)?;
+			state
+				.hw
+				.drm
+				.vulkan
+				.render(*framebuffer, |vk| state.compositor.render(vk))?;
 
 			// state.drm.renderer.before(&mut state.compositor)?;
 			// state

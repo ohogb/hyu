@@ -5,7 +5,11 @@ use std::{
 
 use color_eyre::eyre::OptionExt as _;
 
-use crate::{Client, Point, Result, renderer::gl, wl, xkb};
+use crate::{
+	Client, Point, Result,
+	renderer::{self, gl},
+	wl, xkb,
+};
 
 pub enum Change {
 	Push(std::os::fd::RawFd, wl::Id<wl::XdgToplevel>),
@@ -647,7 +651,7 @@ impl CompositorState {
 			.map(|x| *x)
 	}
 
-	pub fn render(&mut self, gl: &mut gl::Renderer) -> Result<()> {
+	pub fn render(&mut self, vk: &mut renderer::vulkan::Renderer) -> Result<()> {
 		for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
 			let client = self.clients.get_mut(&fd).unwrap();
 
@@ -659,15 +663,15 @@ impl CompositorState {
 				for (position, size, surface_id) in surface.get_front_buffers(client)? {
 					let surface = client.get_object(surface_id)?;
 
-					let Some((.., wl::SurfaceTexture::Gl(texture))) = &surface.data else {
+					let Some((.., wl::SurfaceTexture::Vk(texture))) = &surface.data else {
 						panic!();
 					};
 
-					gl.quad(
+					vk.record_quad(
 						toplevel_position - xdg_surface.position + position,
 						size,
 						texture,
-					);
+					)?;
 				}
 
 				Ok(())
@@ -704,7 +708,48 @@ impl CompositorState {
 
 		if !should_hide_cursor {
 			let cursor_pos = self.pointer_position;
-			gl.quad(cursor_pos, Point(2, 2), &gl.cursor_texture.clone());
+			// gl.quad(cursor_pos, Point(2, 2), &gl.cursor_texture.clone());
+		}
+
+		Ok(())
+	}
+
+	pub fn after_render(
+		&mut self,
+		duration: std::time::Duration,
+		till_next_refresh: std::time::Duration,
+		sequence: u32,
+		flags: u32,
+	) -> Result<()> {
+		for (fd, xdg_toplevel) in self.windows.iter().map(|x| **x) {
+			let client = self.clients.get_mut(&fd).unwrap();
+			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
+
+			let frame = |client: &mut Client, surface: &mut wl::Surface| -> Result<()> {
+				surface.frame(display.get_time().as_millis() as u32, client)?;
+				surface.presentation_feedback(
+					duration,
+					till_next_refresh,
+					sequence as _,
+					flags,
+					client,
+				)
+			};
+
+			let toplevel = client.get_object(xdg_toplevel)?;
+			let xdg_surface = client.get_object(toplevel.surface)?;
+			let surface = client.get_object_mut(xdg_surface.surface)?;
+
+			frame(client, surface)?;
+
+			for &popup in &xdg_surface.popups {
+				let popup = client.get_object(popup)?;
+
+				let xdg_surface = client.get_object(popup.xdg_surface)?;
+				let surface = client.get_object_mut(xdg_surface.surface)?;
+
+				frame(client, surface)?;
+			}
 		}
 
 		Ok(())

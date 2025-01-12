@@ -1,4 +1,4 @@
-#[derive(Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub struct Point(pub i32, pub i32);
 
 impl Point {

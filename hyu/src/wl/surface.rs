@@ -2,7 +2,7 @@ use glow::HasContext;
 
 use crate::{
 	Client, Point, Result,
-	renderer::gl,
+	renderer::{self, gl},
 	state::{self, HwState},
 	wl,
 };
@@ -60,6 +60,7 @@ pub enum SurfaceRole {
 
 pub enum SurfaceTexture {
 	Gl(glow::NativeTexture),
+	Vk(renderer::vulkan::Texture),
 }
 
 pub struct Surface {
@@ -166,30 +167,70 @@ impl Surface {
 		Ok(())
 	}
 
-	pub fn gl_do_textures(&mut self, client: &mut Client, glow: &glow::Context) -> Result<()> {
+	// pub fn gl_do_textures(&mut self, client: &mut Client, glow: &glow::Context) -> Result<()> {
+	// 	if let Some(buffer) = &self.current.buffer {
+	// 		let buffer = client.get_object(*buffer)?;
+	//
+	// 		if let Some((size, tex)) = &self.data {
+	// 			if buffer.size != *size {
+	// 				let SurfaceTexture::Gl(tex) = tex;
+	//
+	// 				unsafe {
+	// 					glow.delete_texture(*tex);
+	// 				}
+	//
+	// 				self.data = None;
+	// 			}
+	// 		}
+	//
+	// 		let (_, texture) = self.data.get_or_insert_with(|| {
+	// 			let texture = unsafe { glow.create_texture().unwrap() };
+	// 			(buffer.size, SurfaceTexture::Gl(texture))
+	// 		});
+	//
+	// 		let SurfaceTexture::Gl(texture) = texture;
+	//
+	// 		buffer.gl_get_pixels(client, glow, *texture)?;
+	//
+	// 		buffer.release(client)?;
+	// 		self.current.buffer = None;
+	// 	}
+	//
+	// 	Ok(())
+	// }
+
+	pub fn vk_do_textures(
+		&mut self,
+		client: &mut Client,
+		vk: &mut renderer::vulkan::Renderer,
+	) -> Result<()> {
 		if let Some(buffer) = &self.current.buffer {
 			let buffer = client.get_object(*buffer)?;
 
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
-					let SurfaceTexture::Gl(tex) = tex;
+					// panic!("{:?} {:?}", buffer.size, *size);
+					let SurfaceTexture::Vk(texture) = tex else {
+						panic!();
+					};
 
-					unsafe {
-						glow.delete_texture(*tex);
-					}
-
+					vk.textures_to_delete.push(texture.clone());
 					self.data = None;
 				}
 			}
 
-			let (_, texture) = self.data.get_or_insert_with(|| {
-				let texture = unsafe { glow.create_texture().unwrap() };
-				(buffer.size, SurfaceTexture::Gl(texture))
-			});
+			// let (_, texture) = self.data.get_or_insert_with(|| {
+			//              let texture =
+			// 	// let texture = unsafe { glow.create_texture().unwrap() };
+			// 	(buffer.size, SurfaceTexture::Gl(texture))
+			// });
 
-			let SurfaceTexture::Gl(texture) = texture;
+			// let SurfaceTexture::Vk(texture) = texture else {
+			// 	panic!();
+			// };
 
-			buffer.gl_get_pixels(client, glow, *texture)?;
+			// buffer.gl_get_pixels(client, glow, *texture)?;
+			buffer.vk_copy_to_texture(client, vk, &mut self.data)?;
 
 			buffer.release(client)?;
 			self.current.buffer = None;
@@ -212,7 +253,7 @@ impl Surface {
 	}
 
 	// https://wayland.app/protocols/wayland#wl_surface:request:commit
-	pub fn commit(&mut self, client: &mut Client) -> Result<()> {
+	pub fn commit(&mut self, client: &mut Client, hw_state: &mut HwState) -> Result<()> {
 		if let Some(SurfaceRole::LayerSurface {
 			wlr_layer_surface,
 			initial_commit,
@@ -248,7 +289,8 @@ impl Surface {
 		self.pending.apply_to(&mut self.current);
 
 		if self.current.buffer.is_some() {
-			self.gl_do_textures(client, &gl::GLOW)?;
+			// self.gl_do_textures(client, &gl::GLOW)?;
+			self.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
 		}
 
 		self.depth_first_sub_tree(client, &mut |client, _, surface| {
@@ -261,7 +303,8 @@ impl Surface {
 				state_to_apply.apply_to(&mut surface.current);
 
 				if surface.current.buffer.is_some() {
-					surface.gl_do_textures(client, &gl::GLOW)?;
+					surface.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
+					// surface.gl_do_textures(client, &gl::GLOW)?;
 				}
 			}
 
@@ -292,7 +335,7 @@ impl wl::Object for Surface {
 	fn handle(
 		&mut self,
 		client: &mut Client,
-		_hw_state: &mut HwState,
+		hw_state: &mut HwState,
 		op: u16,
 		params: &[u8],
 	) -> Result<()> {
@@ -348,7 +391,7 @@ impl wl::Object for Surface {
 				self.pending.input_region = Some(region);
 			}
 			6 => {
-				self.commit(client)?;
+				self.commit(client, hw_state)?;
 			}
 			7 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:set_buffer_transform
