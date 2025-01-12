@@ -403,9 +403,9 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	// display.swap_buffers(&screen.window_surface);
 	//
 
-	let (.., framebuffer) = screen.buffers.first().unwrap();
+	let &(_, image, _, framebuffer) = screen.buffers.first().unwrap();
 	// vk.clear_image(*image, (1.0, 0.0, 0.0, 1.0))?;
-	vk.render(*framebuffer, |_| Ok(()))?;
+	vk.render(image, framebuffer, |_| Ok(()))?;
 
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
@@ -494,14 +494,14 @@ pub fn attach(
 				panic!();
 			}
 
-			let (.., framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
+			let &(_, image, _, framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
 			let a = state.hw.drm.counter.fract();
 			// state.drm.vulkan.clear_image(*image, (a, a, a, 1.0))?;
 			state
 				.hw
 				.drm
 				.vulkan
-				.render(*framebuffer, |vk| state.compositor.render(vk))?;
+				.render(image, framebuffer, |vk| state.compositor.render(vk))?;
 
 			// state.drm.renderer.before(&mut state.compositor)?;
 			// state

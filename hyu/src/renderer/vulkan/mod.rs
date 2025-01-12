@@ -142,7 +142,9 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	let device = unsafe { instance.create_device(physical_device, &device_create_info, None)? };
 	let queue = unsafe { device.get_device_queue(queue_family, 0) };
 
-	let command_pool_create_info = ash::vk::CommandPoolCreateInfo::default();
+	let command_pool_create_info = ash::vk::CommandPoolCreateInfo::default()
+		.flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
+
 	let command_pool = unsafe { device.create_command_pool(&command_pool_create_info, None)? };
 
 	let command_buffer_allocation_info = ash::vk::CommandBufferAllocateInfo::default()
@@ -909,6 +911,7 @@ impl Renderer {
 
 	pub fn render(
 		&mut self,
+		framebuffer_image: ash::vk::Image,
 		framebuffer: ash::vk::Framebuffer,
 		mut callback: impl FnMut(&mut Renderer) -> Result<()>,
 	) -> Result<()> {
@@ -945,7 +948,7 @@ impl Renderer {
 			ret = callback(self);
 
 			self.transfer_vertices_to_gpu(command_buffer)?;
-			self.setup_texture_barries(command_buffer)?;
+			self.setup_texture_barries(command_buffer, framebuffer_image)?;
 
 			let clear_values = [ash::vk::ClearValue {
 				color: ash::vk::ClearColorValue {
@@ -1019,9 +1022,17 @@ impl Renderer {
 
 		let submits = [ash::vk::SubmitInfo::default().command_buffers(&command_buffers)];
 
+		let fence_create_info = ash::vk::FenceCreateInfo::default();
+
+		let fence = unsafe { self.device.create_fence(&fence_create_info, None)? };
+
 		unsafe {
-			self.device
-				.queue_submit(self.queue, &submits, ash::vk::Fence::null())?;
+			self.device.queue_submit(self.queue, &submits, fence)?;
+		}
+
+		// TODO: set this as IN_FENCE_FD
+		unsafe {
+			self.device.wait_for_fences(&[fence], true, u64::MAX)?;
 		}
 
 		ret
@@ -1540,8 +1551,12 @@ impl Renderer {
 		Ok(())
 	}
 
-	pub fn setup_texture_barries(&mut self, command_buffer: ash::vk::CommandBuffer) -> Result<()> {
-		let acquire_barries = self
+	pub fn setup_texture_barries(
+		&mut self,
+		command_buffer: ash::vk::CommandBuffer,
+		framebuffer_image: ash::vk::Image,
+	) -> Result<()> {
+		let mut acquire_barries = self
 			.textures
 			.iter()
 			.map(|texture| {
@@ -1562,6 +1577,27 @@ impl Renderer {
 					.image(texture.image)
 					.subresource_range(range)
 			})
+			.chain(std::iter::once_with(|| {
+				let range = ash::vk::ImageSubresourceRange::default()
+					.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
+					.base_mip_level(0)
+					.level_count(1)
+					.base_array_layer(0)
+					.layer_count(1);
+
+				ash::vk::ImageMemoryBarrier::default()
+					.src_access_mask(ash::vk::AccessFlags::empty())
+					.dst_access_mask(
+						ash::vk::AccessFlags::COLOR_ATTACHMENT_READ
+							| ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+					)
+					.old_layout(ash::vk::ImageLayout::GENERAL)
+					.new_layout(ash::vk::ImageLayout::GENERAL)
+					.src_queue_family_index(ash::vk::QUEUE_FAMILY_FOREIGN_EXT)
+					.dst_queue_family_index(self.queue_family)
+					.image(framebuffer_image)
+					.subresource_range(range)
+			}))
 			.collect::<Vec<_>>();
 
 		let release_barries = self
@@ -1585,6 +1621,27 @@ impl Renderer {
 					.image(texture.image)
 					.subresource_range(range)
 			})
+			.chain(std::iter::once_with(|| {
+				let range = ash::vk::ImageSubresourceRange::default()
+					.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
+					.base_mip_level(0)
+					.level_count(1)
+					.base_array_layer(0)
+					.layer_count(1);
+
+				ash::vk::ImageMemoryBarrier::default()
+					.src_access_mask(
+						ash::vk::AccessFlags::COLOR_ATTACHMENT_READ
+							| ash::vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+					)
+					.dst_access_mask(ash::vk::AccessFlags::empty())
+					.old_layout(ash::vk::ImageLayout::GENERAL)
+					.new_layout(ash::vk::ImageLayout::GENERAL)
+					.src_queue_family_index(self.queue_family)
+					.dst_queue_family_index(ash::vk::QUEUE_FAMILY_FOREIGN_EXT)
+					.image(framebuffer_image)
+					.subresource_range(range)
+			}))
 			.collect::<Vec<_>>();
 
 		unsafe {
