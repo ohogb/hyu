@@ -600,28 +600,12 @@ impl Renderer {
 				.map(|(x, _)| x as u32)
 				.ok_or_eyre("physical device doesn't have needed memory property")?;
 
-			// let buffer_memory_allocation_info = ash::vk::MemoryAllocateInfo::default()
-			// 	.allocation_size(buffer_memory_requirements.size)
-			// 	.memory_type_index(
-			// 		physical_device_memory_properties
-			// 			.memory_types
-			// 			.iter()
-			// 			.enumerate()
-			// 			.find(|&(idx, x)| {
-			// 				(buffer_memory_requirements.memory_type_bits & (1 << idx)) != 0
-			// 					&& x.property_flags.contains(properties)
-			// 			})
-			// 			.map(|(x, _)| x as u32)
-			// 			.ok_or_eyre("physical device doesn't have needed memory property")?,
-			// 	);
-
 			let mut import_memory_fd_into_khr = ash::vk::ImportMemoryFdInfoKHR::default()
 				.fd(fd)
 				.handle_type(ash::vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
 			let allocation_info = ash::vk::MemoryAllocateInfo::default()
 				.push_next(&mut import_memory_fd_into_khr)
-				// .allocation_size((plane.stride * height) as _)
 				.allocation_size(image_memory_requirements.memory_requirements.size)
 				.memory_type_index(memory_type_index);
 
@@ -645,19 +629,7 @@ impl Renderer {
 			}
 		}
 
-		// let plane = planes.first().unwrap();
-		// let mut import_memory_fd_into_khr = ash::vk::ImportMemoryFdInfoKHR::default()
-		// 	.fd(plane.fd)
-		// 	.handle_type(ash::vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
-		//
-		// let allocation_info = ash::vk::MemoryAllocateInfo::default()
-		// 	.push_next(&mut import_memory_fd_into_khr)
-		// 	.allocation_size((plane.stride * height) as _);
-		//
-		// let device_memory = unsafe { self.device.allocate_memory(&allocation_info, None)? };
-
 		unsafe {
-			// self.device.bind_image_memory(image, device_memory, 0)?;
 			self.device
 				.bind_image_memory2(&bind_image_memory_infos[..planes_to_iter.len()])?;
 		}
@@ -680,15 +652,6 @@ impl Renderer {
 				.create_image_view(&image_view_create_info, None)?
 		};
 
-		// Renderer::transition_image_layout(
-		// 	&self.device,
-		// 	self.queue,
-		// 	self.command_pool,
-		// 	image,
-		// 	ash::vk::ImageLayout::UNDEFINED,
-		// 	ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-		// )?;
-
 		Ok((image, image_view))
 	}
 
@@ -699,94 +662,6 @@ impl Renderer {
 		image: ash::vk::Image,
 		color: (f32, f32, f32, f32),
 	) -> Result<()> {
-		// let command_buffers = [{
-		// 	let command_buffer_allocation_info = ash::vk::CommandBufferAllocateInfo::default()
-		// 		.command_pool(command_pool)
-		// 		.level(ash::vk::CommandBufferLevel::PRIMARY)
-		// 		.command_buffer_count(1);
-		//
-		// 	let command_buffers =
-		// 		unsafe { device.allocate_command_buffers(&command_buffer_allocation_info)? };
-		//
-		// 	let command_buffer = command_buffers.into_iter().next().unwrap();
-		//
-		// 	let begin_info = ash::vk::CommandBufferBeginInfo::default()
-		// 		.flags(ash::vk::CommandBufferUsageFlags::SIMULTANEOUS_USE);
-		//
-		// 	unsafe {
-		// 		device.begin_command_buffer(command_buffer, &begin_info)?;
-		// 	}
-		//
-		// 	let range = ash::vk::ImageSubresourceRange::default()
-		// 		.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
-		// 		.base_mip_level(0)
-		// 		.level_count(1)
-		// 		.base_array_layer(0)
-		// 		.layer_count(1);
-		//
-		// 	let image_memory_barrier = ash::vk::ImageMemoryBarrier::default()
-		// 		.src_access_mask(ash::vk::AccessFlags::empty())
-		// 		.dst_access_mask(ash::vk::AccessFlags::TRANSFER_WRITE)
-		// 		.old_layout(ash::vk::ImageLayout::UNDEFINED)
-		// 		.new_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-		// 		.src_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
-		// 		.dst_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
-		// 		.image(image)
-		// 		.subresource_range(range);
-		//
-		// 	unsafe {
-		// 		device.cmd_pipeline_barrier(
-		// 			command_buffer,
-		// 			ash::vk::PipelineStageFlags::TOP_OF_PIPE,
-		// 			ash::vk::PipelineStageFlags::TRANSFER,
-		// 			ash::vk::DependencyFlags::empty(),
-		// 			&[],
-		// 			&[],
-		// 			&[image_memory_barrier],
-		// 		);
-		// 	}
-		//
-		// 	unsafe {
-		// 		device.cmd_clear_color_image(
-		// 			command_buffer,
-		// 			image,
-		// 			ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-		// 			&ash::vk::ClearColorValue {
-		// 				float32: color.into(),
-		// 			},
-		// 			&[range],
-		// 		);
-		// 	}
-		//
-		// 	let image_memory_barrier = image_memory_barrier
-		// 		.old_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-		// 		.new_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-		//
-		// 	unsafe {
-		// 		device.cmd_pipeline_barrier(
-		// 			command_buffer,
-		// 			ash::vk::PipelineStageFlags::TOP_OF_PIPE,
-		// 			ash::vk::PipelineStageFlags::TRANSFER,
-		// 			ash::vk::DependencyFlags::empty(),
-		// 			&[],
-		// 			&[],
-		// 			&[image_memory_barrier],
-		// 		);
-		// 	}
-		//
-		// 	unsafe {
-		// 		device.end_command_buffer(command_buffer)?;
-		// 	}
-		//
-		// 	command_buffer
-		// }];
-		//
-		// let submits = [ash::vk::SubmitInfo::default().command_buffers(&command_buffers)];
-		//
-		// unsafe {
-		// 	device.queue_submit(queue, &submits, ash::vk::Fence::null())?;
-		// }
-
 		Self::single_time_command(device, queue, command_pool, |command_buffer| {
 			let range = ash::vk::ImageSubresourceRange::default()
 				.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
@@ -919,32 +794,6 @@ impl Renderer {
 			}
 
 			self.render_queue(command_buffer)?;
-
-			// unsafe {
-			// 	let buffers = [self.vertex_buffer];
-			// 	let offsets = [0];
-			//
-			// 	self.device
-			// 		.cmd_bind_vertex_buffers(command_buffer, 0, &buffers, &offsets);
-			// }
-			//
-			// unsafe {
-			// 	let descriptor_sets = [self.descriptor_set];
-			//
-			// 	self.device.cmd_bind_descriptor_sets(
-			// 		command_buffer,
-			// 		ash::vk::PipelineBindPoint::GRAPHICS,
-			// 		self.pipeline_layout,
-			// 		0,
-			// 		&descriptor_sets,
-			// 		&[],
-			// 	);
-			// }
-			//
-			// unsafe {
-			// 	self.device
-			// 		.cmd_draw(command_buffer, self.vertices.len() as _, 1, 0, 0);
-			// }
 
 			unsafe {
 				self.device.cmd_end_render_pass(command_buffer);
@@ -1207,10 +1056,8 @@ impl Renderer {
 
 			let command_buffer = command_buffers.into_iter().next().unwrap();
 
-			let begin_info = ash::vk::CommandBufferBeginInfo::default().flags(
-				// ash::vk::CommandBufferUsageFlags::SIMULTANEOUS_USE |
-				ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT,
-			);
+			let begin_info = ash::vk::CommandBufferBeginInfo::default()
+				.flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
 			unsafe {
 				device.begin_command_buffer(command_buffer, &begin_info)?;
@@ -1284,127 +1131,6 @@ impl Renderer {
 		})
 	}
 
-	// pub fn quad(
-	// 	&mut self,
-	// 	command_buffer: ash::vk::CommandBuffer,
-	// 	position: Point,
-	// 	size: Point,
-	// 	texture: &Texture,
-	// ) -> Result<()> {
-	// 	// if std::hint::black_box(true) == true {
-	// 	// 	return Ok(());
-	// 	// }
-	//
-	// 	let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
-	// 		[
-	// 			input[0] as f32 / 2560 as f32 * 2.0 - 1.0,
-	// 			(input[1] as f32 / 1440 as f32 * 2.0 - 1.0) * -1.0,
-	// 		]
-	// 	};
-	//
-	// 	let Point(x, y) = position;
-	// 	let Point(width, height) = size;
-	//
-	// 	self.vertices.extend([
-	// 		Vertex {
-	// 			position: pixels_to_float([x, y]),
-	// 			uv: [0.0, 0.0],
-	// 		},
-	// 		Vertex {
-	// 			position: pixels_to_float([x + width, y]),
-	// 			uv: [1.0, 0.0],
-	// 		},
-	// 		Vertex {
-	// 			position: pixels_to_float([x, y + height]),
-	// 			uv: [0.0, 1.0],
-	// 		},
-	// 		Vertex {
-	// 			position: pixels_to_float([x, y + height]),
-	// 			uv: [0.0, 1.0],
-	// 		},
-	// 		Vertex {
-	// 			position: pixels_to_float([x + width, y + height]),
-	// 			uv: [1.0, 1.0],
-	// 		},
-	// 		Vertex {
-	// 			position: pixels_to_float([x + width, y]),
-	// 			uv: [1.0, 0.0],
-	// 		},
-	// 	]);
-	//
-	// 	Renderer::copy_to_buffer(
-	// 		&self.device,
-	// 		self.staging_vertex_buffer_device_memory,
-	// 		self.vertex_buffer_size,
-	// 		bytemuck::cast_slice(&self.vertices),
-	// 	)?;
-	//
-	// 	self.vertices.clear();
-	//
-	// 	let regions = [ash::vk::BufferCopy::default().size(self.vertex_buffer_size as _)];
-	//
-	// 	unsafe {
-	// 		self.device.cmd_copy_buffer(
-	// 			command_buffer,
-	// 			self.staging_vertex_buffer,
-	// 			self.vertex_buffer,
-	// 			&regions,
-	// 		);
-	// 	}
-	//
-	// 	// Renderer::copy_buffer_to_buffer(
-	// 	// 	&self.device,
-	// 	// 	self.queue,
-	// 	// 	self.command_pool,
-	// 	// 	self.staging_vertex_buffer,
-	// 	// 	self.vertex_buffer,
-	// 	// 	self.vertex_buffer_size,
-	// 	// )?;
-	//
-	// 	unsafe {
-	// 		let buffers = [self.vertex_buffer];
-	// 		let offsets = [0];
-	//
-	// 		self.device
-	// 			.cmd_bind_vertex_buffers(command_buffer, 0, &buffers, &offsets);
-	// 	}
-	//
-	// 	let descriptor_image_infos = [ash::vk::DescriptorImageInfo::default()
-	// 		.image_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-	// 		.image_view(texture.image_view)
-	// 		.sampler(self.sampler)];
-	//
-	// 	let descriptor_writes = [ash::vk::WriteDescriptorSet::default()
-	// 		.dst_set(self.descriptor_set)
-	// 		.dst_binding(0)
-	// 		.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-	// 		.descriptor_count(1)
-	// 		.image_info(&descriptor_image_infos)];
-	//
-	// 	unsafe {
-	// 		self.device.update_descriptor_sets(&descriptor_writes, &[]);
-	// 	}
-	//
-	// 	unsafe {
-	// 		let descriptor_sets = [self.descriptor_set];
-	//
-	// 		self.device.cmd_bind_descriptor_sets(
-	// 			command_buffer,
-	// 			ash::vk::PipelineBindPoint::GRAPHICS,
-	// 			self.pipeline_layout,
-	// 			0,
-	// 			&descriptor_sets,
-	// 			&[],
-	// 		);
-	// 	}
-	//
-	// 	unsafe {
-	// 		self.device.cmd_draw(command_buffer, 6, 1, 0, 0);
-	// 	}
-	//
-	// 	Ok(())
-	// }
-
 	pub fn record_quad(&mut self, position: Point, size: Point, texture: &Texture) -> Result<()> {
 		let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
 			[
@@ -1454,8 +1180,6 @@ impl Renderer {
 		assert!(self.vertices.len() % 6 == 0);
 		assert!(self.vertices.len() / 6 == self.textures.len());
 
-		// println!("{:#?}", self.vertices);
-
 		Renderer::copy_to_buffer(
 			&self.device,
 			self.staging_vertex_buffer_device_memory,
@@ -1475,15 +1199,6 @@ impl Renderer {
 				&regions,
 			);
 		}
-
-		// Renderer::copy_buffer_to_buffer(
-		// 	&self.device,
-		// 	self.queue,
-		// 	self.command_pool,
-		// 	self.staging_vertex_buffer,
-		// 	self.vertex_buffer,
-		// 	self.vertex_buffer_size,
-		// )?;
 
 		Ok(())
 	}
