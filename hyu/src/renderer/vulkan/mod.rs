@@ -59,7 +59,6 @@ pub struct Renderer {
 	pub vertex_buffer: ash::vk::Buffer,
 	pub vertex_buffer_device_memory: ash::vk::DeviceMemory,
 	pub vertex_buffer_size: usize,
-	pub test_image: (ash::vk::Image, ash::vk::DeviceMemory, ash::vk::ImageView),
 	pub sampler: ash::vk::Sampler,
 	pub descriptor_set_layouts: [ash::vk::DescriptorSetLayout; 1],
 	pub command_buffer: ash::vk::CommandBuffer,
@@ -69,6 +68,8 @@ pub struct Renderer {
 	pub vertices: Vec<Vertex>,
 	pub textures: Vec<Texture>,
 	pub textures_to_delete: Vec<Texture>,
+
+	pub cursor_texture: Texture,
 }
 
 pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
@@ -310,17 +311,6 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	.next()
 	.unwrap();
 
-	let (test_image, test_image_device_memory, test_image_view) =
-		Renderer::create_image(&device, &instance, physical_device, 2560, 1440, 2560 * 4)?;
-
-	Renderer::clear_image(
-		&device,
-		queue,
-		command_pool,
-		test_image,
-		(0.5, 0.0, 0.5, 1.0),
-	)?;
-
 	let sampler_create_info = ash::vk::SamplerCreateInfo::default()
 		.mag_filter(ash::vk::Filter::LINEAR)
 		.min_filter(ash::vk::Filter::LINEAR);
@@ -359,6 +349,17 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	let external_memory_fd_device = ash::khr::external_memory_fd::Device::new(&instance, &device);
 	let push_descriptor = ash::khr::push_descriptor::Device::new(&instance, &device);
 
+	let (cursor_image, cursor_image_device_memory, cursor_image_view) =
+		Renderer::create_image(&device, &instance, physical_device, 2560, 1440, 2560 * 4)?;
+
+	Renderer::clear_image(
+		&device,
+		queue,
+		command_pool,
+		cursor_image,
+		(0.8, 0.8, 1.0, 1.0),
+	)?;
+
 	Ok(Renderer {
 		entry,
 		instance,
@@ -376,7 +377,6 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		vertex_buffer,
 		vertex_buffer_device_memory,
 		vertex_buffer_size: staging_vertex_buffer_size,
-		test_image: (test_image, test_image_device_memory, test_image_view),
 		external_memory_fd_device,
 		push_descriptor,
 		sampler,
@@ -384,6 +384,14 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		vertices: vec![],
 		textures: vec![],
 		textures_to_delete: vec![],
+		cursor_texture: Texture {
+			image: cursor_image,
+			image_device_memory: cursor_image_device_memory,
+			image_view: cursor_image_view,
+			buffer: ash::vk::Buffer::null(),
+			buffer_device_memory: ash::vk::DeviceMemory::null(),
+			buffer_size: 0,
+		},
 	})
 }
 
@@ -704,15 +712,21 @@ impl Renderer {
 				);
 			}
 
-			let image_memory_barrier = image_memory_barrier
+			let image_memory_barrier = ash::vk::ImageMemoryBarrier::default()
+				.src_access_mask(ash::vk::AccessFlags::TRANSFER_WRITE)
+				.dst_access_mask(ash::vk::AccessFlags::SHADER_READ)
 				.old_layout(ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-				.new_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+				.new_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+				.src_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
+				.dst_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
+				.image(image)
+				.subresource_range(range);
 
 			unsafe {
 				device.cmd_pipeline_barrier(
 					command_buffer,
-					ash::vk::PipelineStageFlags::TOP_OF_PIPE,
 					ash::vk::PipelineStageFlags::TRANSFER,
+					ash::vk::PipelineStageFlags::FRAGMENT_SHADER,
 					ash::vk::DependencyFlags::empty(),
 					&[],
 					&[],

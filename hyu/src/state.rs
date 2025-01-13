@@ -708,7 +708,8 @@ impl CompositorState {
 
 		if !should_hide_cursor {
 			let cursor_pos = self.pointer_position;
-			// gl.quad(cursor_pos, Point(2, 2), &gl.cursor_texture.clone());
+			let cursor_texture = vk.cursor_texture.clone();
+			vk.record_quad(cursor_pos, Point(2, 2), &cursor_texture)?;
 		}
 
 		Ok(())
