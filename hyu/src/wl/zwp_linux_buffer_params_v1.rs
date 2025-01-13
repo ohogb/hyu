@@ -1,5 +1,3 @@
-use color_eyre::eyre::OptionExt as _;
-
 use crate::{Client, Point, Result, state::HwState, wl};
 
 pub struct Plane {
@@ -73,44 +71,6 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 					u32,
 				) = wlm::decode::from_slice(params)?;
 
-				// let mut attributes = Vec::new();
-				//
-				// attributes.push(0x3057);
-				// attributes.push(width);
-				//
-				// attributes.push(0x3056);
-				// attributes.push(height);
-				//
-				// attributes.push(0x3271);
-				// attributes.push(format as _);
-				//
-				// attributes.push(0x30D2);
-				// attributes.push(1);
-				//
-				// for (index, buffer) in self.buffers.iter().enumerate() {
-				// 	let index = index as i32;
-				//
-				// 	attributes.push(0x3272 + index * 3);
-				// 	attributes.push(buffer.0);
-				//
-				// 	attributes.push(0x3273 + index * 3);
-				// 	attributes.push(buffer.2 as _);
-				//
-				// 	attributes.push(0x3274 + index * 3);
-				// 	attributes.push(buffer.3 as _);
-				//
-				// 	attributes.push(0x3443 + index * 2);
-				// 	attributes.push(buffer.5 as _);
-				//
-				// 	attributes.push(0x3444 + index * 2);
-				// 	attributes.push(buffer.4 as _);
-				// }
-				//
-				// attributes.push(0x3038);
-				//
-				// let image = crate::egl::DISPLAY
-				// 	.create_image(0x3270, &attributes)
-				// 	.ok_or_eyre("failed to create egl image")?;
 				assert!(!self.planes.is_empty());
 				assert!(self.modifier.is_some());
 
@@ -133,10 +93,6 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 						image_view,
 					}),
 				);
-
-				// for &(fd, ..) in &self.buffers {
-				// 	nix::unistd::close(fd)?;
-				// }
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxBufferParamsV1"),
 		}

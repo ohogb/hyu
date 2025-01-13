@@ -1,6 +1,4 @@
-use glow::HasContext;
-
-use crate::{Client, Point, Result, egl, renderer, state::HwState, wl};
+use crate::{Client, Point, Result, renderer, state::HwState, wl};
 
 pub enum BufferStorage {
 	Shm {
@@ -29,80 +27,6 @@ impl Buffer {
 			storage,
 		}
 	}
-
-	// pub fn gl_get_pixels(
-	// 	&self,
-	// 	_client: &Client,
-	// 	glow: &glow::Context,
-	// 	texture: glow::NativeTexture,
-	// ) -> Result<()> {
-	// 	match &self.storage {
-	// 		BufferStorage::Shm {
-	// 			map,
-	// 			offset,
-	// 			stride,
-	// 			..
-	// 		} => {
-	// 			let map = unsafe { (*map.as_mut_ptr()).as_slice() };
-	//
-	// 			let start = *offset as usize;
-	// 			let end = start + (stride * self.size.1) as usize;
-	//
-	// 			let buffer = &map[start..end];
-	//
-	// 			unsafe {
-	// 				glow.bind_texture(glow::TEXTURE_2D, Some(texture));
-	//
-	// 				glow.tex_parameter_i32(
-	// 					glow::TEXTURE_2D,
-	// 					glow::TEXTURE_MIN_FILTER,
-	// 					glow::LINEAR as _,
-	// 				);
-	//
-	// 				glow.tex_parameter_i32(
-	// 					glow::TEXTURE_2D,
-	// 					glow::TEXTURE_MAG_FILTER,
-	// 					glow::LINEAR as _,
-	// 				);
-	//
-	// 				glow.tex_image_2d(
-	// 					glow::TEXTURE_2D,
-	// 					0,
-	// 					glow::RGBA as _,
-	// 					self.size.0,
-	// 					self.size.1,
-	// 					0,
-	// 					glow::BGRA,
-	// 					glow::UNSIGNED_BYTE,
-	// 					Some(buffer),
-	// 				);
-	//
-	// 				glow.bind_texture(glow::TEXTURE_2D, None);
-	// 			};
-	// 		}
-	// 		BufferStorage::Dmabuf { image } => unsafe {
-	// 			glow.active_texture(glow::TEXTURE0);
-	// 			glow.bind_texture(glow::TEXTURE_2D, Some(texture));
-	//
-	// 			glow.tex_parameter_i32(
-	// 				glow::TEXTURE_2D,
-	// 				glow::TEXTURE_MIN_FILTER,
-	// 				glow::LINEAR as _,
-	// 			);
-	//
-	// 			glow.tex_parameter_i32(
-	// 				glow::TEXTURE_2D,
-	// 				glow::TEXTURE_MAG_FILTER,
-	// 				glow::LINEAR as _,
-	// 			);
-	//
-	// 			image.target_texture_2d_oes(glow::TEXTURE_2D as _);
-	// 			glow.bind_texture(glow::TEXTURE_2D, None);
-	// 		},
-	// 	}
-	//
-	// 	Ok(())
-	// }
 
 	pub fn vk_copy_to_texture(
 		&self,

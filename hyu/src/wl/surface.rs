@@ -1,8 +1,6 @@
-use glow::HasContext;
-
 use crate::{
 	Client, Point, Result,
-	renderer::{self, gl},
+	renderer::{self},
 	state::{self, HwState},
 	wl,
 };
@@ -59,7 +57,6 @@ pub enum SurfaceRole {
 }
 
 pub enum SurfaceTexture {
-	Gl(glow::NativeTexture),
 	Vk(renderer::vulkan::Texture),
 }
 
@@ -167,38 +164,6 @@ impl Surface {
 		Ok(())
 	}
 
-	// pub fn gl_do_textures(&mut self, client: &mut Client, glow: &glow::Context) -> Result<()> {
-	// 	if let Some(buffer) = &self.current.buffer {
-	// 		let buffer = client.get_object(*buffer)?;
-	//
-	// 		if let Some((size, tex)) = &self.data {
-	// 			if buffer.size != *size {
-	// 				let SurfaceTexture::Gl(tex) = tex;
-	//
-	// 				unsafe {
-	// 					glow.delete_texture(*tex);
-	// 				}
-	//
-	// 				self.data = None;
-	// 			}
-	// 		}
-	//
-	// 		let (_, texture) = self.data.get_or_insert_with(|| {
-	// 			let texture = unsafe { glow.create_texture().unwrap() };
-	// 			(buffer.size, SurfaceTexture::Gl(texture))
-	// 		});
-	//
-	// 		let SurfaceTexture::Gl(texture) = texture;
-	//
-	// 		buffer.gl_get_pixels(client, glow, *texture)?;
-	//
-	// 		buffer.release(client)?;
-	// 		self.current.buffer = None;
-	// 	}
-	//
-	// 	Ok(())
-	// }
-
 	pub fn vk_do_textures(
 		&mut self,
 		client: &mut Client,
@@ -209,27 +174,13 @@ impl Surface {
 
 			if let Some((size, tex)) = &self.data {
 				if buffer.size != *size {
-					// panic!("{:?} {:?}", buffer.size, *size);
-					let SurfaceTexture::Vk(texture) = tex else {
-						panic!();
-					};
-
+					let SurfaceTexture::Vk(texture) = tex;
 					vk.textures_to_delete.push(texture.clone());
+
 					self.data = None;
 				}
 			}
 
-			// let (_, texture) = self.data.get_or_insert_with(|| {
-			//              let texture =
-			// 	// let texture = unsafe { glow.create_texture().unwrap() };
-			// 	(buffer.size, SurfaceTexture::Gl(texture))
-			// });
-
-			// let SurfaceTexture::Vk(texture) = texture else {
-			// 	panic!();
-			// };
-
-			// buffer.gl_get_pixels(client, glow, *texture)?;
 			buffer.vk_copy_to_texture(client, vk, &mut self.data)?;
 
 			buffer.release(client)?;
@@ -289,7 +240,6 @@ impl Surface {
 		self.pending.apply_to(&mut self.current);
 
 		if self.current.buffer.is_some() {
-			// self.gl_do_textures(client, &gl::GLOW)?;
 			self.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
 		}
 
@@ -304,7 +254,6 @@ impl Surface {
 
 				if surface.current.buffer.is_some() {
 					surface.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
-					// surface.gl_do_textures(client, &gl::GLOW)?;
 				}
 			}
 

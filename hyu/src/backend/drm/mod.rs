@@ -1,28 +1,22 @@
 use crate::{
 	Result,
 	drm::{self, HasProps as _, Object as _},
-	egl, elp, gbm,
-	renderer::gl,
-	state,
+	elp, gbm, state,
 };
 
 use color_eyre::eyre::OptionExt as _;
-use glow::HasContext as _;
 
 pub struct State {
 	pub device: drm::Device,
 	#[expect(dead_code)]
 	gbm_device: gbm::Device,
-	// egl_display: egl::Display,
 	pub screen: Screen,
-	// renderer: gl::Renderer,
 	context: drm::AtomicHelper,
 	pub vulkan: crate::renderer::vulkan::Renderer,
-	counter: f32,
 }
 
 pub enum ScreenState {
-	WaitingForPageFlip {/*bo: gbm::BufferObject*/},
+	WaitingForPageFlip {},
 	Idle,
 }
 
@@ -33,11 +27,8 @@ pub struct Screen {
 	encoder: drm::Encoder,
 	crtc: drm::PropWrapper<drm::Crtc>,
 	plane: drm::PropWrapper<drm::Plane>,
-	// gbm_surface: gbm::Surface,
 	props: Props,
 
-	// window_surface: egl::Surface,
-	// old_bo: Option<gbm::BufferObject>,
 	buffers: [(
 		gbm::BufferObject,
 		ash::vk::Image,
@@ -85,8 +76,6 @@ impl Screen {
 		device: &drm::Device,
 		resources: &drm::Card,
 		gbm_device: &gbm::Device,
-		// display: &egl::Display,
-		// config: &egl::Config,
 		vulkan: &crate::renderer::vulkan::Renderer,
 	) -> Result<Self> {
 		let connector = drm::PropWrapper::new(connector, device);
@@ -179,15 +168,6 @@ impl Screen {
 		)
 		.unwrap();
 
-		// let gbm_surface = gbm_device
-		// 	.create_surface(
-		// 		mode.hdisplay as _,
-		// 		mode.vdisplay as _,
-		// 		0x34325258,
-		// 		(1 << 0) | (1 << 2),
-		// 	)
-		// 	.ok_or_eyre("failed to create gbm surface")?;
-
 		let props = Props {
 			connector: ConnectorProps {
 				crtc_id: connector.find_property("CRTC_ID").unwrap(),
@@ -210,10 +190,6 @@ impl Screen {
 			},
 		};
 
-		// let window_surface = display
-		// 	.create_window_surface(config, gbm_surface.as_ptr(), &[0x3038])
-		// 	.ok_or_eyre("failed to create window surface")?;
-
 		let (timer_tx, timer_rx) = elp::timer_fd::create()?;
 
 		Ok(Self {
@@ -223,7 +199,6 @@ impl Screen {
 			crtc,
 			plane,
 			props,
-			// old_bo: None,
 			state: ScreenState::Idle,
 			timer_tx,
 			timer_rx: Some(timer_rx),
@@ -239,12 +214,6 @@ impl Screen {
 	) -> Result<()> {
 		let (bo, ..) = self.buffers.first().unwrap();
 		let fb = bo.get_fb(device)?;
-		// let bo = self
-		// 	.gbm_surface
-		// 	.lock_front_buffer()
-		// 	.ok_or_eyre("failed to lock front buffer")?;
-		//
-		// let fb = bo.get_fb(device)?;
 
 		if modeset {
 			ctx.add_property(
@@ -340,90 +309,28 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	let mut vk = crate::renderer::vulkan::create(card)?;
 	eprintln!("VK: {:#?} {:#?}", vk.physical_device, vk.queue);
 
-	// let display =
-	// 	egl::Display::from_gbm(&gbm_device).ok_or_eyre("failed to get platform display")?;
-	//
-	// egl::enable_debugging();
-	//
-	// display
-	// 	.initialize()
-	// 	.ok_or_eyre("failed to initialize egl display")?;
-	//
-	// if egl::bind_api(0x30A0) != 1 {
-	// 	color_eyre::eyre::bail!("failed to bind gl api");
-	// }
-	//
-	// let configs = display.choose_config(
-	// 	&[
-	// 		0x3024, 8, 0x3023, 8, 0x3022, 8, 0x3021, 0, 0x3040, 0x0040, 0x3038,
-	// 	],
-	// 	100,
-	// );
-	//
-	// let config = configs
-	// 	.iter()
-	// 	.find(|config| {
-	// 		let ret = display.get_config_attrib(config, 0x302E).unwrap();
-	// 		ret == 0x34325258
-	// 	})
-	// 	.ok_or_eyre("failed to find config with gbm format")?;
-	//
-	// let mut context = display
-	// 	.create_context(config, &[0x3098, 3, 0x30FB, 2, 0x3100, 0x3101, 0x3038])
-	// 	.ok_or_eyre("failed to create context")?;
-	//
-	// unsafe {
-	// 	crate::egl::DISPLAY.initialize(display.clone());
-	// }
-
 	let mut screen = Screen::create(
 		connectors.first().unwrap().clone(),
 		&device,
 		&resources,
 		&gbm_device,
 		&vk,
-		// &display,
-		// config,
 	)?;
 
-	// let _ = std::mem::ManuallyDrop::new(context.access(&display, Some(&screen.window_surface))?);
-	//
-	// let glow = unsafe {
-	// 	glow::Context::from_loader_function(|x| {
-	// 		let cstring = std::ffi::CString::new(x).unwrap();
-	// 		egl::get_proc_address(&cstring) as _
-	// 	})
-	// };
-	//
-	// unsafe {
-	// 	glow.clear_color(0.0, 0.0, 0.0, 1.0);
-	// 	glow.clear(glow::COLOR_BUFFER_BIT);
-	// }
-	//
-	// display.swap_buffers(&screen.window_surface);
-	//
-
 	let &(_, image, _, framebuffer) = screen.buffers.first().unwrap();
-	// vk.clear_image(*image, (1.0, 0.0, 0.0, 1.0))?;
 	vk.render(image, framebuffer, |_| Ok(()))?;
 
 	let mut ctx = device.begin_atomic();
 	screen.render(&device, &mut ctx, true)?;
-	//
-	// let renderer =
-	// 	gl::Renderer::create(glow, screen.mode.hdisplay as _, screen.mode.vdisplay as _)?;
 
 	let context = device.begin_atomic();
 
 	let state = State {
 		device,
 		gbm_device,
-		// egl_display: display,
 		screen,
-		// renderer,
 		context,
 		vulkan: vk,
-		counter: 0.0,
 	};
 
 	Ok(state)
@@ -449,11 +356,6 @@ pub fn attach(
 						panic!();
 					};
 
-					// if let Some(old_bo) = std::mem::take(&mut state.drm.screen.old_bo) {
-					// 	state.drm.screen.gbm_surface.release_buffer(old_bo);
-					// }
-					//
-					// state.drm.screen.old_bo = Some(bo);
 					state.hw.drm.screen.buffers.swap(0, 1);
 
 					let duration = std::time::Duration::from_micros(
@@ -495,19 +397,11 @@ pub fn attach(
 			}
 
 			let &(_, image, _, framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
-			let a = state.hw.drm.counter.fract();
-			// state.drm.vulkan.clear_image(*image, (a, a, a, 1.0))?;
 			state
 				.hw
 				.drm
 				.vulkan
 				.render(image, framebuffer, |vk| state.compositor.render(vk))?;
-
-			// state.drm.renderer.before(&mut state.compositor)?;
-			// state
-			// 	.drm
-			// 	.egl_display
-			// 	.swap_buffers(&state.drm.screen.window_surface);
 
 			state
 				.hw
