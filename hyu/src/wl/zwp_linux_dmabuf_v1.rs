@@ -5,6 +5,41 @@ use std::{
 
 use crate::{Client, Result, state::HwState, wl};
 
+struct Format {
+	format: u32,
+	modifier: u64,
+}
+
+const FORMATS: [Format; 6] = [
+	// AR24
+	Format {
+		format: 0x34325241,
+		modifier: 0x0,
+	},
+	Format {
+		format: 0x34325241,
+		modifier: 0x20000002096BB03,
+	},
+	// XR24
+	Format {
+		format: 0x34325258,
+		modifier: 0x0,
+	},
+	Format {
+		format: 0x34325258,
+		modifier: 0x20000002096BB03,
+	},
+	// AB24
+	Format {
+		format: 0x34324241,
+		modifier: 0x0,
+	},
+	Format {
+		format: 0x34324241,
+		modifier: 0x20000002096BB03,
+	},
+];
+
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
 	formats: (std::os::fd::RawFd, u64),
@@ -18,35 +53,10 @@ impl ZwpLinuxDmabufV1 {
 
 		let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
 
-		// AR24
-		file.write_all(&u64::to_ne_bytes(0x34325241))?;
-		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
-
-		file.write_all(&u64::to_ne_bytes(0x34325241))?;
-		file.write_all(&u64::to_ne_bytes(0x0))?;
-
-		// file.write_all(&u64::to_ne_bytes(0x34325241))?;
-		// file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
-
-		// XR24
-		file.write_all(&u64::to_ne_bytes(0x34325258))?;
-		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
-
-		file.write_all(&u64::to_ne_bytes(0x34325258))?;
-		file.write_all(&u64::to_ne_bytes(0x0))?;
-
-		// AB24
-		file.write_all(&u64::to_ne_bytes(0x34324241))?;
-		file.write_all(&u64::to_ne_bytes(0x200000020937b03))?;
-
-		file.write_all(&u64::to_ne_bytes(0x34324241))?;
-		file.write_all(&u64::to_ne_bytes(0x20000002096BB03))?;
-
-		file.write_all(&u64::to_ne_bytes(0x34324241))?;
-		file.write_all(&u64::to_ne_bytes(0x0))?;
-
-		// file.write_all(&u64::to_ne_bytes(0x34325258))?;
-		// file.write_all(&u64::to_ne_bytes(0xFFFFFFFFFFFFFF))?;
+		for format in FORMATS {
+			file.write_all(&u64::to_ne_bytes(format.format as _))?;
+			file.write_all(&u64::to_ne_bytes(format.modifier))?;
+		}
 
 		let size = file.stream_len()?;
 		let fd = file.into_raw_fd();
@@ -157,14 +167,22 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 		5
 	}
 
-	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
+	fn bind(&self, client: &mut Client, object_id: u32, version: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		client.new_object(id, Self::new(id, self.card.clone())?);
+		let object = client.new_object(id, Self::new(id, self.card.clone())?);
 
-		/*object.format(client, 0x34325241)?;
-		object.modifier(client, 0x34325241, 0, 0)?;
-		object.modifier(client, 0x34325241, 0x2000000, 0x2096bb03)?;
-		object.modifier(client, 0x34325241, 0xFFFFFF, 0xFFFFFFFF)?;*/
+		assert!(version >= 3);
+
+		if version == 3 {
+			for format in FORMATS {
+				object.modifier(
+					client,
+					format.format,
+					((format.modifier >> 32) & 0xFFFF_FFFF) as u32,
+					(format.modifier & 0xFFFF_FFFF) as u32,
+				)?;
+			}
+		}
 
 		Ok(())
 	}
