@@ -17,7 +17,6 @@ pub struct Texture {
 	pub buffer: ash::vk::Buffer,
 	pub buffer_device_memory: ash::vk::DeviceMemory,
 	pub buffer_size: usize,
-	pub descriptor_set: ash::vk::DescriptorSet,
 }
 
 impl Vertex {
@@ -62,11 +61,10 @@ pub struct Renderer {
 	pub vertex_buffer_size: usize,
 	pub test_image: (ash::vk::Image, ash::vk::DeviceMemory, ash::vk::ImageView),
 	pub sampler: ash::vk::Sampler,
-	pub descriptor_set: ash::vk::DescriptorSet,
-	pub descriptor_pool: ash::vk::DescriptorPool,
 	pub descriptor_set_layouts: [ash::vk::DescriptorSetLayout; 1],
-	pub external_memory_fd_device: ash::khr::external_memory_fd::Device,
 	pub command_buffer: ash::vk::CommandBuffer,
+	pub external_memory_fd_device: ash::khr::external_memory_fd::Device,
+	pub push_descriptor: ash::khr::push_descriptor::Device,
 
 	pub vertices: Vec<Vertex>,
 	pub textures: Vec<Texture>,
@@ -128,11 +126,12 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		.queue_family_index(queue_family)];
 
 	let extension_names = [
-		c"VK_EXT_physical_device_drm".as_ptr(),
-		c"VK_EXT_image_drm_format_modifier".as_ptr(),
-		c"VK_KHR_external_memory_fd".as_ptr(),
 		c"VK_EXT_external_memory_dma_buf".as_ptr(),
+		c"VK_EXT_image_drm_format_modifier".as_ptr(),
+		c"VK_EXT_physical_device_drm".as_ptr(),
 		c"VK_EXT_queue_family_foreign".as_ptr(),
+		c"VK_KHR_external_memory_fd".as_ptr(),
+		c"VK_KHR_push_descriptor".as_ptr(),
 	];
 
 	let device_create_info = ash::vk::DeviceCreateInfo::default()
@@ -248,8 +247,9 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		.descriptor_count(1)
 		.stage_flags(ash::vk::ShaderStageFlags::FRAGMENT)];
 
-	let descriptor_set_layout_create_info =
-		ash::vk::DescriptorSetLayoutCreateInfo::default().bindings(&descriptor_set_layout_bindings);
+	let descriptor_set_layout_create_info = ash::vk::DescriptorSetLayoutCreateInfo::default()
+		.bindings(&descriptor_set_layout_bindings)
+		.flags(ash::vk::DescriptorSetLayoutCreateFlags::PUSH_DESCRIPTOR_KHR);
 
 	let descriptor_set_layouts =
 		[
@@ -327,58 +327,6 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 
 	let sampler = unsafe { device.create_sampler(&sampler_create_info, None)? };
 
-	let descriptor_pool_sizes = [ash::vk::DescriptorPoolSize::default()
-		.ty(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-		.descriptor_count(1024)];
-
-	let descriptor_pool_create_info = ash::vk::DescriptorPoolCreateInfo::default()
-		.flags(ash::vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET)
-		.pool_sizes(&descriptor_pool_sizes)
-		.max_sets(1024);
-
-	let descriptor_pool =
-		unsafe { device.create_descriptor_pool(&descriptor_pool_create_info, None)? };
-
-	let descriptor_set_allocate_info = ash::vk::DescriptorSetAllocateInfo::default()
-		.descriptor_pool(descriptor_pool)
-		.set_layouts(&descriptor_set_layouts);
-
-	let descriptor_set = unsafe { device.allocate_descriptor_sets(&descriptor_set_allocate_info)? }
-		.into_iter()
-		.next()
-		.unwrap();
-
-	let descriptor_image_infos = [ash::vk::DescriptorImageInfo::default()
-		.image_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-		.image_view(test_image_view)
-		.sampler(sampler)];
-
-	let descriptor_writes = [ash::vk::WriteDescriptorSet::default()
-		.dst_set(descriptor_set)
-		.dst_binding(0)
-		.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-		.descriptor_count(1)
-		.image_info(&descriptor_image_infos)];
-
-	unsafe {
-		device.update_descriptor_sets(&descriptor_writes, &[]);
-	}
-
-	// let vertices = vec![
-	// 	Vertex {
-	// 		position: [0.0, -0.5],
-	// 		uv: [1.0, 0.0],
-	// 	},
-	// 	Vertex {
-	// 		position: [0.5, 0.5],
-	// 		uv: [0.5, 0.5],
-	// 	},
-	// 	Vertex {
-	// 		position: [-0.5, 0.5],
-	// 		uv: [0.0, 1.0],
-	// 	},
-	// ];
-
 	let staging_vertex_buffer_size = size_of::<Vertex>() * 500;
 
 	let (staging_vertex_buffer, staging_vertex_buffer_device_memory) = Renderer::create_buffer(
@@ -389,19 +337,6 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		ash::vk::BufferUsageFlags::TRANSFER_SRC,
 		ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
 	)?;
-
-	// unsafe {
-	// 	let ptr = device.map_memory(
-	// 		staging_vertex_buffer_device_memory,
-	// 		0,
-	// 		staging_vertex_buffer_size as _,
-	// 		ash::vk::MemoryMapFlags::default(),
-	// 	)?;
-	//
-	// 	std::ptr::copy(vertices.as_ptr(), ptr as *mut Vertex, vertices.len());
-	//
-	// 	device.unmap_memory(staging_vertex_buffer_device_memory);
-	// }
 
 	let (vertex_buffer, vertex_buffer_device_memory) = Renderer::create_buffer(
 		&instance,
@@ -422,6 +357,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	)?;
 
 	let external_memory_fd_device = ash::khr::external_memory_fd::Device::new(&instance, &device);
+	let push_descriptor = ash::khr::push_descriptor::Device::new(&instance, &device);
 
 	Ok(Renderer {
 		entry,
@@ -442,9 +378,8 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		vertex_buffer_size: staging_vertex_buffer_size,
 		test_image: (test_image, test_image_device_memory, test_image_view),
 		external_memory_fd_device,
+		push_descriptor,
 		sampler,
-		descriptor_set,
-		descriptor_pool,
 		descriptor_set_layouts,
 		vertices: vec![],
 		textures: vec![],
@@ -929,9 +864,6 @@ impl Renderer {
 
 				self.device.free_memory(texture.image_device_memory, None);
 				self.device.destroy_image(texture.image, None);
-
-				self.device
-					.free_descriptor_sets(self.descriptor_pool, &[texture.descriptor_set])?;
 			}
 		}
 
@@ -1687,16 +1619,25 @@ impl Renderer {
 		}
 
 		for (idx, texture) in self.textures.iter().enumerate() {
-			unsafe {
-				let descriptor_sets = [texture.descriptor_set];
+			let descriptor_image_infos = [ash::vk::DescriptorImageInfo::default()
+				.image_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+				.image_view(texture.image_view)
+				.sampler(self.sampler)];
 
-				self.device.cmd_bind_descriptor_sets(
+			let descriptor_writes = [ash::vk::WriteDescriptorSet::default()
+				.dst_set(ash::vk::DescriptorSet::null())
+				.dst_binding(0)
+				.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+				.descriptor_count(1)
+				.image_info(&descriptor_image_infos)];
+
+			unsafe {
+				self.push_descriptor.cmd_push_descriptor_set(
 					command_buffer,
 					ash::vk::PipelineBindPoint::GRAPHICS,
 					self.pipeline_layout,
 					0,
-					&descriptor_sets,
-					&[],
+					&descriptor_writes,
 				);
 			}
 
@@ -1706,9 +1647,7 @@ impl Renderer {
 			}
 		}
 
-		// println!("{}", self.textures.len());
 		self.textures.clear();
-
 		Ok(())
 	}
 }
