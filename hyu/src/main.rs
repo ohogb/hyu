@@ -6,7 +6,6 @@
 pub mod backend;
 mod client;
 pub mod drm;
-pub mod egl;
 pub mod elp;
 pub mod gbm;
 mod global_wrapper;
