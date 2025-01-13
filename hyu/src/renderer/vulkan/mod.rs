@@ -555,26 +555,28 @@ impl Renderer {
 		let mut external_memory_create_info = ash::vk::ExternalMemoryImageCreateInfo::default()
 			.handle_types(ash::vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
-		let is_disjoint = (|| {
+		let is_disjoint = (|| -> Result<bool> {
 			if planes.len() > 1 {
-				let mut fd = None;
+				let mut other_ino = None;
 				for x in planes {
-					if let Some(other_fd) = &fd {
-						if x.fd != *other_fd {
-							return true;
+					let ino = nix::sys::stat::fstat(x.fd)?.st_ino;
+
+					if let Some(other_ino) = &other_ino {
+						if ino != *other_ino {
+							return Ok(true);
 						}
 					} else {
-						fd = Some(x.fd);
+						other_ino = Some(ino);
 					}
 				}
 
-				false
+				Ok(false)
 			} else {
-				false
+				Ok(false)
 			}
-		})();
+		})()?;
 
-		let is_disjoint = false;
+		println!("create_image_from_dmabuf() is_disjoint: {is_disjoint}");
 
 		let image_create_info = ash::vk::ImageCreateInfo::default()
 			.image_type(ash::vk::ImageType::TYPE_2D)
@@ -602,6 +604,7 @@ impl Renderer {
 
 		let image = unsafe { self.device.create_image(&image_create_info, None)? };
 		assert!(!ash::vk::Handle::is_null(image));
+		println!(" - {image:?}");
 
 		// assert!(!is_disjoint);
 		let mut bind_image_memory_infos = [ash::vk::BindImageMemoryInfo::default(); 4];
@@ -623,10 +626,12 @@ impl Renderer {
 		{
 			let mut memory_fd_properties = ash::vk::MemoryFdPropertiesKHR::default();
 
+			let fd = nix::unistd::dup(plane.fd)?;
+
 			unsafe {
 				self.external_memory_fd_device.get_memory_fd_properties(
 					ash::vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-					plane.fd,
+					fd,
 					&mut memory_fd_properties,
 				)?;
 			}
@@ -676,7 +681,7 @@ impl Renderer {
 			// 	);
 
 			let mut import_memory_fd_into_khr = ash::vk::ImportMemoryFdInfoKHR::default()
-				.fd(plane.fd)
+				.fd(fd)
 				.handle_type(ash::vk::ExternalMemoryHandleTypeFlags::DMA_BUF_EXT);
 
 			let allocation_info = ash::vk::MemoryAllocateInfo::default()
@@ -1556,7 +1561,7 @@ impl Renderer {
 		command_buffer: ash::vk::CommandBuffer,
 		framebuffer_image: ash::vk::Image,
 	) -> Result<()> {
-		let mut acquire_barries = self
+		let acquire_barries = self
 			.textures
 			.iter()
 			.map(|texture| {

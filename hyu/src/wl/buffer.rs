@@ -191,14 +191,6 @@ impl Buffer {
 					panic!();
 				};
 
-				// renderer::vulkan::Renderer::clear_image(
-				// 	&vk.device,
-				// 	vk.queue,
-				// 	vk.command_pool,
-				// 	texture.image,
-				// 	(0.0, 0.0, 0.5, 1.0),
-				// )?;
-
 				renderer::vulkan::Renderer::transition_image_layout(
 					&vk.device,
 					vk.queue,
@@ -239,22 +231,9 @@ impl Buffer {
 					ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
 					ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
 				)?;
-
-				// println!("HEREEEEEEE");
 			}
 			BufferStorage::Dmabuf { image, image_view } => {
 				if texture.is_none() {
-					// let (image, image_device_memory, image_view) =
-					// 	renderer::vulkan::Renderer::create_image(
-					// 		&vk.device,
-					// 		&vk.instance,
-					// 		vk.physical_device,
-					// 		self.size.0 as _,
-					// 		self.size.1 as _,
-					// 		self.size.0 as usize * 4,
-					// 	)?;
-					println!("HERE");
-
 					let descriptor_set = {
 						let descriptor_set_allocate_info =
 							ash::vk::DescriptorSetAllocateInfo::default()
@@ -306,19 +285,51 @@ impl Buffer {
 					panic!();
 				};
 
-				// texture.image = image.clone();
-				// texture.image_view = image_view.clone();
+				// so hacky
+				if texture.image != *image {
+					let descriptor_set = {
+						let descriptor_set_allocate_info =
+							ash::vk::DescriptorSetAllocateInfo::default()
+								.descriptor_pool(vk.descriptor_pool)
+								.set_layouts(&vk.descriptor_set_layouts);
 
-				// renderer::vulkan::Renderer::single_time_command(
-				// 	&vk.device,
-				// 	vk.queue,
-				// 	vk.command_pool,
-				// 	|command_buffer| {
-				// 		// asdf
-				//                     vk.device.cmd_copy_image(command_buffer, image, )
-				// 		Ok(())
-				// 	},
-				// )?;
+						let descriptor_set = unsafe {
+							vk.device
+								.allocate_descriptor_sets(&descriptor_set_allocate_info)?
+						}
+						.into_iter()
+						.next()
+						.unwrap();
+
+						let descriptor_image_infos = [ash::vk::DescriptorImageInfo::default()
+							.image_layout(ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+							.image_view(*image_view)
+							.sampler(vk.sampler)];
+
+						let descriptor_writes = [ash::vk::WriteDescriptorSet::default()
+							.dst_set(descriptor_set)
+							.dst_binding(0)
+							.descriptor_type(ash::vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+							.descriptor_count(1)
+							.image_info(&descriptor_image_infos)];
+
+						unsafe {
+							vk.device.update_descriptor_sets(&descriptor_writes, &[]);
+						}
+
+						descriptor_set
+					};
+
+					*texture = renderer::vulkan::Texture {
+						image: *image,
+						image_device_memory: ash::vk::DeviceMemory::null(),
+						image_view: *image_view,
+						buffer: ash::vk::Buffer::null(),
+						buffer_device_memory: ash::vk::DeviceMemory::null(),
+						buffer_size: 0,
+						descriptor_set,
+					};
+				}
 			}
 		}
 
