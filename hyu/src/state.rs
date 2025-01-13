@@ -7,7 +7,7 @@ use color_eyre::eyre::OptionExt as _;
 
 use crate::{
 	Client, Point, Result,
-	renderer::{self, gl},
+	renderer::{self},
 	wl, xkb,
 };
 
