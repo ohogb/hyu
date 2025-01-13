@@ -11,7 +11,6 @@ bytemuck = { version = "1.15.0", features = ["derive"] }
 clap = { version = "4.5.8", features = ["derive"] }
 color-eyre.workspace = true
 fixed = { version = "1.26.0", features = ["serde"] }
-glow = "0.13.1"
 nix = { version = "0.28.0", features = ["socket", "uio", "mman", "time", "ioctl", "poll", "fs", "term", "signal", "event"] }
 serde.workspace = true
 wlm = { path = "../wlm" }
