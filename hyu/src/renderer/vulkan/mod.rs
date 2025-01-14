@@ -14,9 +14,11 @@ pub struct Texture {
 	pub image: ash::vk::Image,
 	pub image_device_memory: ash::vk::DeviceMemory,
 	pub image_view: ash::vk::ImageView,
+	pub image_layout: ash::vk::ImageLayout,
 	pub buffer: ash::vk::Buffer,
 	pub buffer_device_memory: ash::vk::DeviceMemory,
 	pub buffer_size: usize,
+	pub buffer_ptr: *mut std::ffi::c_void,
 }
 
 impl Vertex {
@@ -56,6 +58,7 @@ pub struct Renderer {
 	pub render_pass: ash::vk::RenderPass,
 	pub staging_vertex_buffer: ash::vk::Buffer,
 	pub staging_vertex_buffer_device_memory: ash::vk::DeviceMemory,
+	pub staging_vertex_buffer_ptr: *mut std::ffi::c_void,
 	pub vertex_buffer: ash::vk::Buffer,
 	pub vertex_buffer_device_memory: ash::vk::DeviceMemory,
 	pub vertex_buffer_size: usize,
@@ -83,7 +86,13 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		ash::vk::ApplicationInfo::default().api_version(ash::vk::make_api_version(0, 1, 3, 0));
 
 	let extension_names = [c"VK_KHR_surface".as_ptr(), c"VK_EXT_debug_utils".as_ptr()];
-	let layer_names = [c"VK_LAYER_KHRONOS_validation".as_ptr()];
+
+	const VALIDATION: bool = true;
+	let layer_names = if VALIDATION {
+		&[c"VK_LAYER_KHRONOS_validation".as_ptr()] as &[*const i8]
+	} else {
+		&[]
+	};
 
 	let instance_create_info = ash::vk::InstanceCreateInfo::default()
 		.application_info(&application_info)
@@ -369,6 +378,15 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		ash::vk::MemoryPropertyFlags::HOST_VISIBLE | ash::vk::MemoryPropertyFlags::HOST_COHERENT,
 	)?;
 
+	let staging_vertex_buffer_ptr = unsafe {
+		device.map_memory(
+			staging_vertex_buffer_device_memory,
+			0,
+			staging_vertex_buffer_size as _,
+			ash::vk::MemoryMapFlags::default(),
+		)?
+	};
+
 	let (vertex_buffer, vertex_buffer_device_memory) = Renderer::create_buffer(
 		&instance,
 		&device,
@@ -416,6 +434,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		render_pass,
 		staging_vertex_buffer,
 		staging_vertex_buffer_device_memory,
+		staging_vertex_buffer_ptr,
 		vertex_buffer,
 		vertex_buffer_device_memory,
 		vertex_buffer_size: staging_vertex_buffer_size,
@@ -431,9 +450,11 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 			image: cursor_image,
 			image_device_memory: cursor_image_device_memory,
 			image_view: cursor_image_view,
+			image_layout: ash::vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
 			buffer: ash::vk::Buffer::null(),
 			buffer_device_memory: ash::vk::DeviceMemory::null(),
 			buffer_size: 0,
+			buffer_ptr: std::ptr::null_mut(),
 		},
 		semaphore_fd: None,
 		fence: None,
@@ -821,8 +842,6 @@ impl Renderer {
 		let ret;
 
 		let command_buffers = [{
-			// let command_buffer = self.command_buffer;
-
 			let begin_info = ash::vk::CommandBufferBeginInfo::default()
 				.flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
@@ -900,8 +919,6 @@ impl Renderer {
 
 		unsafe {
 			self.device.queue_submit(self.queue, &submits, fence)?;
-			// self.device
-			// 	.queue_submit(self.queue, &submits, ash::vk::Fence::null())?;
 		}
 
 		let semaphore_get_fd_info = ash::vk::SemaphoreGetFdInfoKHR::default()
@@ -916,11 +933,6 @@ impl Renderer {
 
 		self.semaphore_fd = Some(semaphore_fd);
 		self.fence = Some(fence);
-
-		// // TODO: set this as IN_FENCE_FD
-		// unsafe {
-		// 	self.device.wait_for_fences(&[fence], true, u64::MAX)?;
-		// }
 
 		ret
 	}
@@ -1043,78 +1055,6 @@ impl Renderer {
 		Ok((image, device_memory, image_view))
 	}
 
-	pub fn copy_to_buffer(
-		device: &ash::Device,
-		buffer_device_memory: ash::vk::DeviceMemory,
-		buffer_size: usize,
-		data: &[u8],
-	) -> Result<()> {
-		assert!(buffer_size >= data.len(), "{} {}", buffer_size, data.len());
-
-		unsafe {
-			let ptr = device.map_memory(
-				buffer_device_memory,
-				0,
-				buffer_size as _,
-				ash::vk::MemoryMapFlags::default(),
-			)?;
-
-			std::ptr::copy(data.as_ptr(), ptr as *mut u8, data.len());
-
-			device.unmap_memory(buffer_device_memory);
-		}
-
-		Ok(())
-	}
-
-	pub fn copy_buffer_to_image(
-		device: &ash::Device,
-		queue: ash::vk::Queue,
-		command_pool: ash::vk::CommandPool,
-		buffer: ash::vk::Buffer,
-		image: ash::vk::Image,
-		width: u32,
-		height: u32,
-	) -> Result<()> {
-		Self::single_time_command(
-			device,
-			queue,
-			command_pool,
-			|command_buffer| -> Result<()> {
-				let regions = [ash::vk::BufferImageCopy::default()
-					.buffer_offset(0)
-					.buffer_row_length(0)
-					.buffer_image_height(0)
-					.image_subresource(
-						ash::vk::ImageSubresourceLayers::default()
-							.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
-							.mip_level(0)
-							.base_array_layer(0)
-							.layer_count(1),
-					)
-					.image_offset(ash::vk::Offset3D::default())
-					.image_extent(
-						ash::vk::Extent3D::default()
-							.width(width)
-							.height(height)
-							.depth(1),
-					)];
-
-				unsafe {
-					device.cmd_copy_buffer_to_image(
-						command_buffer,
-						buffer,
-						image,
-						ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-						&regions,
-					);
-				}
-
-				Ok(())
-			},
-		)
-	}
-
 	pub fn copy_buffer_to_buffer(
 		device: &ash::Device,
 		queue: ash::vk::Queue,
@@ -1190,48 +1130,6 @@ impl Renderer {
 		ret
 	}
 
-	pub fn transition_image_layout(
-		device: &ash::Device,
-		queue: ash::vk::Queue,
-		command_pool: ash::vk::CommandPool,
-		image: ash::vk::Image,
-		old_layout: ash::vk::ImageLayout,
-		new_layout: ash::vk::ImageLayout,
-	) -> Result<()> {
-		Self::single_time_command(device, queue, command_pool, |command_buffer| {
-			let range = ash::vk::ImageSubresourceRange::default()
-				.aspect_mask(ash::vk::ImageAspectFlags::COLOR)
-				.base_mip_level(0)
-				.level_count(1)
-				.base_array_layer(0)
-				.layer_count(1);
-
-			let image_memory_barrier = ash::vk::ImageMemoryBarrier::default()
-				.src_access_mask(ash::vk::AccessFlags::empty())
-				.dst_access_mask(ash::vk::AccessFlags::TRANSFER_WRITE)
-				.old_layout(old_layout)
-				.new_layout(new_layout)
-				.src_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
-				.dst_queue_family_index(ash::vk::QUEUE_FAMILY_IGNORED)
-				.image(image)
-				.subresource_range(range);
-
-			unsafe {
-				device.cmd_pipeline_barrier(
-					command_buffer,
-					ash::vk::PipelineStageFlags::TOP_OF_PIPE,
-					ash::vk::PipelineStageFlags::TRANSFER,
-					ash::vk::DependencyFlags::empty(),
-					&[],
-					&[],
-					&[image_memory_barrier],
-				);
-			}
-
-			Ok(())
-		})
-	}
-
 	pub fn record_quad(&mut self, position: Point, size: Point, texture: &Texture) -> Result<()> {
 		let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
 			[
@@ -1281,12 +1179,13 @@ impl Renderer {
 		assert!(self.vertices.len() % 6 == 0);
 		assert!(self.vertices.len() / 6 == self.textures.len());
 
-		Renderer::copy_to_buffer(
-			&self.device,
-			self.staging_vertex_buffer_device_memory,
-			self.vertex_buffer_size,
-			bytemuck::cast_slice(&self.vertices),
-		)?;
+		unsafe {
+			std::ptr::copy(
+				self.vertices.as_ptr(),
+				self.staging_vertex_buffer_ptr as *mut _,
+				self.vertices.len(),
+			);
+		}
 
 		self.vertices.clear();
 

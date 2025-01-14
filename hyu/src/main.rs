@@ -66,8 +66,8 @@ fn main() -> Result<()> {
 	let tty = tty::Device::open_current()?;
 
 	let old_keyboard_mode = tty.get_keyboard_mode()?;
-	// tty.set_mode(1)?;
-	// tty.set_keyboard_mode(4)?;
+	tty.set_mode(1)?;
+	tty.set_keyboard_mode(4)?;
 
 	let _restorer = Defer(|| {
 		let _ = tty.set_keyboard_mode(old_keyboard_mode);

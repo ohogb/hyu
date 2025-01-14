@@ -41,6 +41,8 @@ pub struct Screen {
 
 	timer_tx: std::sync::Arc<nix::sys::timerfd::TimerFd>,
 	timer_rx: Option<elp::timer_fd::Source>,
+
+	last_refresh: Option<std::time::Duration>,
 }
 
 struct ConnectorProps {
@@ -229,6 +231,7 @@ impl Screen {
 			timer_tx,
 			timer_rx: Some(timer_rx),
 			buffers: asdf,
+			last_refresh: None,
 		})
 	}
 
@@ -386,23 +389,35 @@ pub fn attach(
 
 					state.hw.drm.screen.buffers.swap(0, 1);
 
-					let duration = std::time::Duration::from_micros(
+					let refresh_time = std::time::Duration::from_micros(
 						tv_sec as u64 * 1_000_000 + tv_usec as u64,
 					);
 
-					let till_next_refresh = std::time::Duration::from_micros(
+					let one_display_refresh_cycle = std::time::Duration::from_micros(
 						1_000_000 / state.hw.drm.screen.mode.vrefresh as u64,
 					);
 
+					if let Some(last_refresh) = state.hw.drm.screen.last_refresh {
+						let diff_from_expected_refresh_time = refresh_time
+							.saturating_sub(last_refresh)
+							.saturating_sub(one_display_refresh_cycle);
+
+						if diff_from_expected_refresh_time > std::time::Duration::from_micros(500) {
+							eprintln!("missed frame by {diff_from_expected_refresh_time:?}");
+						}
+					}
+
+					state.hw.drm.screen.last_refresh = Some(refresh_time);
+
 					state.compositor.after_render(
-						duration,
-						till_next_refresh,
+						refresh_time,
+						one_display_refresh_cycle,
 						sequence,
 						0x1 | 0x2 | 0x4,
 					)?;
 
-					let next_render =
-						duration + till_next_refresh - std::time::Duration::from_micros(1_000);
+					let next_render = refresh_time + one_display_refresh_cycle
+						- std::time::Duration::from_micros(1_000);
 
 					state.hw.drm.screen.timer_tx.set(
 						nix::sys::timerfd::Expiration::OneShot(
@@ -426,12 +441,13 @@ pub fn attach(
 
 			let &(_, image, _, framebuffer, command_buffer) =
 				state.hw.drm.screen.buffers.first().unwrap();
+
 			state
 				.hw
 				.drm
 				.vulkan
-				.render(image, framebuffer, command_buffer, |vk| {
-					state.compositor.render(vk)
+				.render(image, framebuffer, command_buffer, |vulkan| {
+					state.compositor.render(vulkan)
 				})?;
 
 			state.hw.drm.screen.render(
