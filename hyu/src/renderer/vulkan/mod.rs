@@ -62,7 +62,9 @@ pub struct Renderer {
 	pub sampler: ash::vk::Sampler,
 	pub descriptor_set_layouts: [ash::vk::DescriptorSetLayout; 1],
 	pub command_buffer: ash::vk::CommandBuffer,
+
 	pub external_memory_fd_device: ash::khr::external_memory_fd::Device,
+	pub external_semaphore_fd: ash::khr::external_semaphore_fd::Device,
 	pub push_descriptor: ash::khr::push_descriptor::Device,
 
 	pub vertices: Vec<Vertex>,
@@ -70,6 +72,8 @@ pub struct Renderer {
 	pub textures_to_delete: Vec<Texture>,
 
 	pub cursor_texture: Texture,
+	pub semaphore_fd: Option<std::os::fd::RawFd>,
+	pub fence: Option<ash::vk::Fence>,
 }
 
 pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
@@ -168,6 +172,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		c"VK_EXT_physical_device_drm".as_ptr(),
 		c"VK_EXT_queue_family_foreign".as_ptr(),
 		c"VK_KHR_external_memory_fd".as_ptr(),
+		c"VK_KHR_external_semaphore_fd".as_ptr(),
 		c"VK_KHR_push_descriptor".as_ptr(),
 	];
 
@@ -383,6 +388,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	)?;
 
 	let external_memory_fd_device = ash::khr::external_memory_fd::Device::new(&instance, &device);
+	let external_semaphore_fd = ash::khr::external_semaphore_fd::Device::new(&instance, &device);
 	let push_descriptor = ash::khr::push_descriptor::Device::new(&instance, &device);
 
 	let (cursor_image, cursor_image_device_memory, cursor_image_view) =
@@ -414,6 +420,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 		vertex_buffer_device_memory,
 		vertex_buffer_size: staging_vertex_buffer_size,
 		external_memory_fd_device,
+		external_semaphore_fd,
 		push_descriptor,
 		sampler,
 		descriptor_set_layouts,
@@ -428,6 +435,8 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 			buffer_device_memory: ash::vk::DeviceMemory::null(),
 			buffer_size: 0,
 		},
+		semaphore_fd: None,
+		fence: None,
 	})
 }
 
@@ -778,8 +787,23 @@ impl Renderer {
 		&mut self,
 		framebuffer_image: ash::vk::Image,
 		framebuffer: ash::vk::Framebuffer,
+		command_buffer: ash::vk::CommandBuffer,
 		mut callback: impl FnMut(&mut Renderer) -> Result<()>,
 	) -> Result<()> {
+		if let Some(semaphore_fd) = std::mem::take(&mut self.semaphore_fd) {
+			nix::unistd::close(semaphore_fd)?;
+		}
+
+		if let Some(fence) = std::mem::take(&mut self.fence) {
+			let status = unsafe { self.device.get_fence_status(fence)? };
+			assert!(status);
+
+			let fences = [fence];
+			unsafe {
+				self.device.reset_fences(&fences)?;
+			}
+		}
+
 		for texture in &self.textures_to_delete {
 			unsafe {
 				self.device.free_memory(texture.buffer_device_memory, None);
@@ -797,7 +821,7 @@ impl Renderer {
 		let ret;
 
 		let command_buffers = [{
-			let command_buffer = self.command_buffer;
+			// let command_buffer = self.command_buffer;
 
 			let begin_info = ash::vk::CommandBufferBeginInfo::default()
 				.flags(ash::vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
@@ -856,7 +880,19 @@ impl Renderer {
 			command_buffer
 		}];
 
-		let submits = [ash::vk::SubmitInfo::default().command_buffers(&command_buffers)];
+		let mut export_semaphore_create_info = ash::vk::ExportSemaphoreCreateInfo::default()
+			.handle_types(ash::vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD);
+
+		let semaphore_create_info =
+			ash::vk::SemaphoreCreateInfo::default().push_next(&mut export_semaphore_create_info);
+
+		let semaphore = unsafe { self.device.create_semaphore(&semaphore_create_info, None)? };
+
+		let signal_semaphores = [semaphore];
+
+		let submits = [ash::vk::SubmitInfo::default()
+			.command_buffers(&command_buffers)
+			.signal_semaphores(&signal_semaphores)];
 
 		let fence_create_info = ash::vk::FenceCreateInfo::default();
 
@@ -864,12 +900,27 @@ impl Renderer {
 
 		unsafe {
 			self.device.queue_submit(self.queue, &submits, fence)?;
+			// self.device
+			// 	.queue_submit(self.queue, &submits, ash::vk::Fence::null())?;
 		}
 
-		// TODO: set this as IN_FENCE_FD
-		unsafe {
-			self.device.wait_for_fences(&[fence], true, u64::MAX)?;
-		}
+		let semaphore_get_fd_info = ash::vk::SemaphoreGetFdInfoKHR::default()
+			.handle_type(ash::vk::ExternalSemaphoreHandleTypeFlags::SYNC_FD)
+			.semaphore(semaphore);
+
+		let semaphore_fd = unsafe {
+			self.external_semaphore_fd
+				.get_semaphore_fd(&semaphore_get_fd_info)
+				.unwrap()
+		};
+
+		self.semaphore_fd = Some(semaphore_fd);
+		self.fence = Some(fence);
+
+		// // TODO: set this as IN_FENCE_FD
+		// unsafe {
+		// 	self.device.wait_for_fences(&[fence], true, u64::MAX)?;
+		// }
 
 		ret
 	}

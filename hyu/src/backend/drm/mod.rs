@@ -34,6 +34,7 @@ pub struct Screen {
 		ash::vk::Image,
 		ash::vk::ImageView,
 		ash::vk::Framebuffer,
+		ash::vk::CommandBuffer,
 	); 2],
 
 	state: ScreenState,
@@ -62,6 +63,7 @@ struct PlaneProps {
 	crtc_y: u32,
 	crtc_w: u32,
 	crtc_h: u32,
+	in_fence_fd: u32,
 }
 
 struct Props {
@@ -161,7 +163,30 @@ impl Screen {
 							.create_framebuffer(&framebuffer_create_info, None)?
 					};
 
-					Ok((bo, image, image_view, framebuffer))
+					let command_pool_create_info = ash::vk::CommandPoolCreateInfo::default()
+						.flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER);
+
+					let command_pool = unsafe {
+						vulkan
+							.device
+							.create_command_pool(&command_pool_create_info, None)?
+					};
+
+					let command_buffer_allocation_info =
+						ash::vk::CommandBufferAllocateInfo::default()
+							.command_pool(command_pool)
+							.level(ash::vk::CommandBufferLevel::PRIMARY)
+							.command_buffer_count(1);
+
+					let command_buffers = unsafe {
+						vulkan
+							.device
+							.allocate_command_buffers(&command_buffer_allocation_info)?
+					};
+
+					let command_buffer = command_buffers.into_iter().next().unwrap();
+
+					Ok((bo, image, image_view, framebuffer, command_buffer))
 				})
 				.into_iter()
 				.collect::<Result<Vec<_>>>()?,
@@ -187,6 +212,7 @@ impl Screen {
 				crtc_y: plane.find_property("CRTC_Y").unwrap(),
 				crtc_w: plane.find_property("CRTC_W").unwrap(),
 				crtc_h: plane.find_property("CRTC_H").unwrap(),
+				in_fence_fd: plane.find_property("IN_FENCE_FD").unwrap(),
 			},
 		};
 
@@ -211,6 +237,7 @@ impl Screen {
 		device: &drm::Device,
 		ctx: &mut drm::AtomicHelper,
 		modeset: bool,
+		in_fence_fd: std::os::fd::RawFd,
 	) -> Result<()> {
 		let (bo, ..) = self.buffers.first().unwrap();
 		let fb = bo.get_fb(device)?;
@@ -264,6 +291,7 @@ impl Screen {
 			self.props.plane.crtc_h,
 			self.mode.vdisplay as _,
 		);
+		ctx.add_property(&self.plane, self.props.plane.in_fence_fd, in_fence_fd as _);
 
 		let mut has_flipped = false;
 		let mut flags = 0x200 | 0x1;
@@ -317,11 +345,11 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 		&vk,
 	)?;
 
-	let &(_, image, _, framebuffer) = screen.buffers.first().unwrap();
-	vk.render(image, framebuffer, |_| Ok(()))?;
+	let &(_, image, _, framebuffer, command_buffer) = screen.buffers.first().unwrap();
+	vk.render(image, framebuffer, command_buffer, |_| Ok(()))?;
 
 	let mut ctx = device.begin_atomic();
-	screen.render(&device, &mut ctx, true)?;
+	screen.render(&device, &mut ctx, true, -1)?;
 
 	let context = device.begin_atomic();
 
@@ -396,18 +424,22 @@ pub fn attach(
 				panic!();
 			}
 
-			let &(_, image, _, framebuffer) = state.hw.drm.screen.buffers.first().unwrap();
+			let &(_, image, _, framebuffer, command_buffer) =
+				state.hw.drm.screen.buffers.first().unwrap();
 			state
 				.hw
 				.drm
 				.vulkan
-				.render(image, framebuffer, |vk| state.compositor.render(vk))?;
+				.render(image, framebuffer, command_buffer, |vk| {
+					state.compositor.render(vk)
+				})?;
 
-			state
-				.hw
-				.drm
-				.screen
-				.render(&state.hw.drm.device, &mut state.hw.drm.context, false)
+			state.hw.drm.screen.render(
+				&state.hw.drm.device,
+				&mut state.hw.drm.context,
+				false,
+				state.hw.drm.vulkan.semaphore_fd.unwrap(),
+			)
 		},
 	)
 }
