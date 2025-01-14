@@ -89,6 +89,42 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 
 	let instance = unsafe { entry.create_instance(&instance_create_info, None)? };
 
+	let debug_utils = ash::ext::debug_utils::Instance::new(&entry, &instance);
+
+	unsafe extern "system" fn callback(
+		_message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
+		_message_types: ash::vk::DebugUtilsMessageTypeFlagsEXT,
+		p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT<'_>,
+		_p_user_data: *mut std::ffi::c_void,
+	) -> u32 {
+		eprintln!(
+			"[VULKAN] {}",
+			unsafe { std::ffi::CStr::from_ptr((*p_callback_data).p_message) }
+				.to_str()
+				.unwrap()
+		);
+
+		0
+	}
+
+	let debug_utils_messenger_create_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::default()
+		.message_severity(
+			ash::vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+				| ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+				| ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+				| ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+		)
+		.message_type(
+			ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+				| ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+				| ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+		)
+		.pfn_user_callback(Some(callback));
+
+	let _ = unsafe {
+		debug_utils.create_debug_utils_messenger(&debug_utils_messenger_create_info, None)?
+	};
+
 	let physical_devices = unsafe { instance.enumerate_physical_devices()? };
 
 	let dev = nix::sys::stat::stat(card.as_ref())?.st_rdev;
