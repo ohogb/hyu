@@ -8,7 +8,6 @@ mod client;
 pub mod drm;
 pub mod elp;
 pub mod gbm;
-mod global_wrapper;
 pub mod libinput;
 mod point;
 pub mod renderer;
@@ -21,7 +20,6 @@ pub mod wl;
 pub mod xkb;
 
 pub use client::*;
-pub use global_wrapper::*;
 pub use point::*;
 pub use store::*;
 pub use stream::*;
