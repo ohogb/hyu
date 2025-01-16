@@ -2,14 +2,14 @@ use crate::xkb;
 
 #[link(name = "xkbcommon")]
 unsafe extern "C" {
-	fn xkb_keymap_new_from_names(context: u64, names: u64, flags: i32) -> Option<Keymap>;
-	fn xkb_keymap_unref(keymap: u64);
-	fn xkb_keymap_get_as_string(keymap: u64, format: i32) -> u64;
+	fn xkb_keymap_new_from_names(context: usize, names: usize, flags: i32) -> Option<Keymap>;
+	fn xkb_keymap_unref(keymap: usize);
+	fn xkb_keymap_get_as_string(keymap: usize, format: i32) -> u64;
 }
 
 #[repr(transparent)]
 pub struct Keymap {
-	ptr: std::num::NonZeroU64,
+	ptr: std::num::NonZeroUsize,
 }
 
 impl Keymap {
@@ -32,7 +32,7 @@ impl Keymap {
 		}
 	}
 
-	pub fn as_ptr(&self) -> u64 {
+	pub fn as_ptr(&self) -> usize {
 		self.ptr.get()
 	}
 }

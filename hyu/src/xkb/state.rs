@@ -2,15 +2,15 @@ use crate::xkb;
 
 #[link(name = "xkbcommon")]
 unsafe extern "C" {
-	fn xkb_state_new(keymap: u64) -> Option<State>;
-	fn xkb_state_unref(state: u64);
-	fn xkb_state_update_key(state: u64, key: u32, direction: i32) -> i32;
-	fn xkb_state_serialize_mods(state: u64, components: i32) -> u32;
+	fn xkb_state_new(keymap: usize) -> Option<State>;
+	fn xkb_state_unref(state: usize);
+	fn xkb_state_update_key(state: usize, key: u32, direction: i32) -> i32;
+	fn xkb_state_serialize_mods(state: usize, components: i32) -> u32;
 }
 
 #[repr(transparent)]
 pub struct State {
-	ptr: std::num::NonZeroU64,
+	ptr: std::num::NonZeroUsize,
 }
 
 impl State {
@@ -26,7 +26,7 @@ impl State {
 		unsafe { xkb_state_serialize_mods(self.as_ptr(), components) }
 	}
 
-	pub fn as_ptr(&self) -> u64 {
+	pub fn as_ptr(&self) -> usize {
 		self.ptr.get()
 	}
 }

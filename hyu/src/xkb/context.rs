@@ -1,12 +1,12 @@
 #[link(name = "xkbcommon")]
 unsafe extern "C" {
 	fn xkb_context_new(flags: i32) -> Option<Context>;
-	fn xkb_context_unref(context: u64);
+	fn xkb_context_unref(context: usize);
 }
 
 #[repr(transparent)]
 pub struct Context {
-	ptr: std::num::NonZeroU64,
+	ptr: std::num::NonZeroUsize,
 }
 
 impl Context {
@@ -14,7 +14,7 @@ impl Context {
 		unsafe { xkb_context_new(0) }
 	}
 
-	pub fn as_ptr(&self) -> u64 {
+	pub fn as_ptr(&self) -> usize {
 		self.ptr.get()
 	}
 }
