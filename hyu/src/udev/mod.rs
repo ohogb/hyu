@@ -13,12 +13,16 @@ impl Instance {
 	pub fn create() -> Option<Self> {
 		unsafe { udev_new() }
 	}
+
+	pub fn as_ptr(&self) -> usize {
+		self.ptr.get()
+	}
 }
 
 impl Drop for Instance {
 	fn drop(&mut self) {
 		unsafe {
-			udev_unref(self.ptr.get());
+			udev_unref(self.as_ptr());
 		}
 	}
 }

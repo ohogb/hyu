@@ -16,7 +16,7 @@ pub fn attach(
 	_state: &mut state::State,
 ) -> Result<()> {
 	let udev = udev::Instance::create().ok_or_eyre("failed to create udev instance")?;
-	let context = libinput::Context::create_from_udev(udev)
+	let context = libinput::Context::create_from_udev(&udev)
 		.ok_or_eyre("failed to create libinput context")?;
 
 	let ret = context.assign();
