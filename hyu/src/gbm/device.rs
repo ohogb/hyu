@@ -2,51 +2,31 @@ use crate::gbm;
 
 #[link(name = "gbm")]
 unsafe extern "C" {
-	fn gbm_create_device(fd: std::os::fd::RawFd) -> u64;
-	fn gbm_surface_create(device: u64, width: u32, height: u32, format: u32, flags: u32) -> u64;
+	fn gbm_create_device(fd: std::os::fd::RawFd) -> Option<Device>;
+	fn gbm_device_destroy(device: usize);
 	fn gbm_bo_create_with_modifiers2(
-		device: u64,
+		device: usize,
 		width: u32,
 		height: u32,
 		format: u32,
-		modifiers: *const u64,
+		modifiers: usize,
 		count: u32,
 		flags: u32,
-	) -> u64;
+	) -> Option<gbm::BufferObject>;
 }
 
 #[repr(transparent)]
 pub struct Device {
-	ptr: std::ptr::NonNull<()>,
+	ptr: std::num::NonZeroUsize,
 }
 
 impl Device {
-	pub fn create(fd: std::os::fd::RawFd) -> Self {
-		Self {
-			ptr: unsafe { std::mem::transmute(gbm_create_device(fd)) },
-		}
+	pub fn create(fd: std::os::fd::RawFd) -> Option<Self> {
+		unsafe { gbm_create_device(fd) }
 	}
 
-	pub fn as_ptr(&self) -> u64 {
-		self.ptr.as_ptr() as _
-	}
-
-	pub fn create_surface(
-		&self,
-		width: u32,
-		height: u32,
-		format: u32,
-		flags: u32,
-	) -> Option<gbm::Surface> {
-		unsafe {
-			std::mem::transmute(gbm_surface_create(
-				self.as_ptr(),
-				width,
-				height,
-				format,
-				flags,
-			))
-		}
+	pub fn as_ptr(&self) -> usize {
+		self.ptr.get()
 	}
 
 	pub fn create_buffer_object(
@@ -58,15 +38,23 @@ impl Device {
 		flags: u32,
 	) -> Option<gbm::BufferObject> {
 		unsafe {
-			std::mem::transmute(gbm_bo_create_with_modifiers2(
+			gbm_bo_create_with_modifiers2(
 				self.as_ptr(),
 				width,
 				height,
 				format,
-				modifiers.as_ptr(),
+				modifiers.as_ptr() as _,
 				modifiers.len() as _,
 				flags,
-			))
+			)
+		}
+	}
+}
+
+impl Drop for Device {
+	fn drop(&mut self) {
+		unsafe {
+			gbm_device_destroy(self.as_ptr());
 		}
 	}
 }

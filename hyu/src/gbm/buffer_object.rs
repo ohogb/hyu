@@ -2,32 +2,39 @@ use crate::{Result, drm};
 
 #[link(name = "gbm")]
 unsafe extern "C" {
-	fn gbm_bo_set_user_data(bo: u64, data: u64, destructor: u64);
-	fn gbm_bo_get_user_data(bo: u64) -> u64;
-	fn gbm_bo_get_width(bo: u64) -> u32;
-	fn gbm_bo_get_height(bo: u64) -> u32;
-	fn gbm_bo_get_stride(bo: u64) -> u32;
-	fn gbm_bo_get_bpp(bo: u64) -> u32;
-	fn gbm_bo_get_handle(bo: u64) -> u64;
-	fn gbm_bo_get_fd(bo: u64) -> std::os::fd::RawFd;
-	fn gbm_bo_get_modifier(bo: u64) -> u64;
+	fn gbm_bo_destroy(bo: usize);
+	fn gbm_bo_set_user_data(bo: usize, data: usize, destructor: usize);
+	fn gbm_bo_get_user_data(bo: usize) -> u64;
+	fn gbm_bo_get_width(bo: usize) -> u32;
+	fn gbm_bo_get_height(bo: usize) -> u32;
+	fn gbm_bo_get_stride(bo: usize) -> u32;
+	fn gbm_bo_get_bpp(bo: usize) -> u32;
+	fn gbm_bo_get_handle(bo: usize) -> u64;
+	fn gbm_bo_get_fd(bo: usize) -> std::os::fd::RawFd;
+	fn gbm_bo_get_modifier(bo: usize) -> u64;
 }
 
 pub struct UserData {
 	fb: u32,
 }
 
-extern "C" fn user_data_destructor(_bo: BufferObject, _user_data: &mut UserData) {}
+extern "C" fn user_data_destructor(
+	_bo: std::mem::ManuallyDrop<BufferObject>,
+	user_data: *mut UserData,
+) {
+	let _ = unsafe { Box::from_raw(user_data) };
+	// TODO: free fb?
+}
 
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct BufferObject {
-	ptr: std::ptr::NonNull<()>,
+	ptr: std::num::NonZeroUsize,
 }
 
 impl BufferObject {
-	pub fn as_ptr(&self) -> u64 {
-		self.ptr.as_ptr() as _
+	pub fn as_ptr(&self) -> usize {
+		self.ptr.get()
 	}
 
 	pub fn get_width(&self) -> u32 {
@@ -57,26 +64,19 @@ impl BufferObject {
 			return Ok(unsafe { (*user_data).fb });
 		}
 
-		let user_data = Box::leak(Box::new(UserData {
-			fb: drm_device.add_fb(
-				self.get_width(),
-				self.get_height(),
-				24,
-				self.get_bpp() as _,
-				self.get_stride(),
-				self.get_handle() as _,
-			)?,
-		}));
+		let fb = drm_device.add_fb(
+			self.get_width(),
+			self.get_height(),
+			24,
+			self.get_bpp() as _,
+			self.get_stride(),
+			self.get_handle() as _,
+		)?;
 
-		unsafe {
-			gbm_bo_set_user_data(
-				self.as_ptr(),
-				user_data as *mut _ as _,
-				user_data_destructor as _,
-			)
-		};
+		let user_data = Box::into_raw(Box::new(UserData { fb }));
+		unsafe { gbm_bo_set_user_data(self.as_ptr(), user_data as _, user_data_destructor as _) };
 
-		Ok(user_data.fb)
+		Ok(fb)
 	}
 
 	pub fn get_fd(&self) -> std::os::fd::RawFd {
@@ -85,5 +85,13 @@ impl BufferObject {
 
 	pub fn get_modifier(&self) -> u64 {
 		unsafe { gbm_bo_get_modifier(self.as_ptr()) }
+	}
+}
+
+impl Drop for BufferObject {
+	fn drop(&mut self) {
+		unsafe {
+			gbm_bo_destroy(self.as_ptr());
+		}
 	}
 }

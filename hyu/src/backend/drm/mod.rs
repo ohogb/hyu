@@ -9,7 +9,7 @@ use color_eyre::eyre::OptionExt as _;
 pub struct State {
 	pub device: drm::Device,
 	#[expect(dead_code)]
-	gbm_device: gbm::Device,
+	gbm_device: std::mem::ManuallyDrop<gbm::Device>,
 	pub screen: Screen,
 	context: drm::AtomicHelper,
 	pub vulkan: crate::renderer::vulkan::Renderer,
@@ -30,7 +30,7 @@ pub struct Screen {
 	props: Props,
 
 	buffers: [(
-		gbm::BufferObject,
+		std::mem::ManuallyDrop<gbm::BufferObject>,
 		ash::vk::Image,
 		ash::vk::ImageView,
 		ash::vk::Framebuffer,
@@ -188,7 +188,13 @@ impl Screen {
 
 					let command_buffer = command_buffers.into_iter().next().unwrap();
 
-					Ok((bo, image, image_view, framebuffer, command_buffer))
+					Ok((
+						std::mem::ManuallyDrop::new(bo),
+						image,
+						image_view,
+						framebuffer,
+						command_buffer,
+					))
 				})
 				.collect::<Result<Vec<_>>>()?,
 		)
@@ -334,7 +340,8 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 		.filter(|x| x.connection == 1)
 		.collect::<Vec<_>>();
 
-	let gbm_device = gbm::Device::create(device.get_fd());
+	let gbm_device =
+		gbm::Device::create(device.get_fd()).ok_or_eyre("failed to create gbm device")?;
 
 	let mut vk = crate::renderer::vulkan::create(card)?;
 	eprintln!("VK: {:#?} {:#?}", vk.physical_device, vk.queue);
@@ -357,7 +364,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 
 	let state = State {
 		device,
-		gbm_device,
+		gbm_device: std::mem::ManuallyDrop::new(gbm_device),
 		screen,
 		context,
 		vulkan: vk,
