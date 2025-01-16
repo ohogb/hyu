@@ -190,7 +190,6 @@ impl Screen {
 
 					Ok((bo, image, image_view, framebuffer, command_buffer))
 				})
-				.into_iter()
 				.collect::<Result<Vec<_>>>()?,
 		)
 		.unwrap();

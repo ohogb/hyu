@@ -97,7 +97,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	let instance_create_info = ash::vk::InstanceCreateInfo::default()
 		.application_info(&application_info)
 		.enabled_extension_names(&extension_names)
-		.enabled_layer_names(&layer_names)
+		.enabled_layer_names(layer_names)
 		.flags(ash::vk::InstanceCreateFlags::empty());
 
 	let instance = unsafe { entry.create_instance(&instance_create_info, None)? };
@@ -410,7 +410,7 @@ pub fn create(card: impl AsRef<std::path::Path>) -> Result<Renderer> {
 	let push_descriptor = ash::khr::push_descriptor::Device::new(&instance, &device);
 
 	let (cursor_image, cursor_image_device_memory, cursor_image_view) =
-		Renderer::create_image(&device, &instance, physical_device, 2560, 1440, 2560 * 4)?;
+		Renderer::create_image(&device, &instance, physical_device, 2560, 1440)?;
 
 	Renderer::clear_image(
 		&device,
@@ -543,7 +543,7 @@ impl Renderer {
 		modifier: u64,
 		planes: &[crate::wl::Plane],
 	) -> Result<(ash::vk::Image, ash::vk::ImageView)> {
-		assert!(planes.len() > 0);
+		assert!(!planes.is_empty());
 
 		let plane_layouts = planes
 			.iter()
@@ -625,7 +625,7 @@ impl Renderer {
 		);
 
 		let planes_to_iter = if is_disjoint {
-			&planes[..]
+			planes
 		} else {
 			&planes[..1]
 		};
@@ -988,7 +988,6 @@ impl Renderer {
 		physical_device: ash::vk::PhysicalDevice,
 		width: usize,
 		height: usize,
-		stride: usize,
 	) -> Result<(ash::vk::Image, ash::vk::DeviceMemory, ash::vk::ImageView)> {
 		let image_create_info = ash::vk::ImageCreateInfo::default()
 			.image_type(ash::vk::ImageType::TYPE_2D)
@@ -1133,8 +1132,8 @@ impl Renderer {
 	pub fn record_quad(&mut self, position: Point, size: Point, texture: &Texture) -> Result<()> {
 		let pixels_to_float = |input: [i32; 2]| -> [f32; 2] {
 			[
-				input[0] as f32 / 2560 as f32 * 2.0 - 1.0,
-				(input[1] as f32 / 1440 as f32 * 2.0 - 1.0),
+				input[0] as f32 / 2560_f32 * 2.0 - 1.0,
+				(input[1] as f32 / 1440_f32 * 2.0 - 1.0),
 			]
 		};
 

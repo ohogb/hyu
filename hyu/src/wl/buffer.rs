@@ -49,7 +49,6 @@ impl Buffer {
 							vk.physical_device,
 							self.size.0 as _,
 							self.size.1 as _,
-							self.size.0 as usize * 4,
 						)?;
 
 					let buffer_size = (self.size.0 * self.size.1 * 4) as usize;

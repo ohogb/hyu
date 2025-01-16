@@ -21,7 +21,7 @@ impl wl::Object for ZwlrLayerShellV1 {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wlr-layer-shell-unstable-v1#zwlr_layer_shell_v1:request:get_layer_surface
-				let (id, surface, output, layer, namespace): (
+				let (id, surface, _output, _layer, _namespace): (
 					wl::Id<wl::ZwlrLayerSurfaceV1>,
 					wl::Id<wl::Surface>,
 					wl::Id<wl::Output>,
