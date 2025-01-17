@@ -241,6 +241,10 @@ impl Surface {
 
 		if self.current.buffer.is_some() {
 			self.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
+			hw_state.drm.screen.timer_tx.set(
+				nix::sys::timerfd::Expiration::OneShot(nix::sys::time::TimeSpec::new(1, 1)),
+				nix::sys::timerfd::TimerSetTimeFlags::TFD_TIMER_ABSTIME,
+			)?;
 		}
 
 		self.depth_first_sub_tree(client, &mut |client, _, surface| {

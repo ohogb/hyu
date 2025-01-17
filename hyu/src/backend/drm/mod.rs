@@ -39,7 +39,7 @@ pub struct Screen {
 
 	state: ScreenState,
 
-	timer_tx: std::sync::Arc<nix::sys::timerfd::TimerFd>,
+	pub timer_tx: std::sync::Arc<nix::sys::timerfd::TimerFd>,
 	timer_rx: Option<elp::timer_fd::Source>,
 
 	last_refresh: Option<std::time::Duration>,
@@ -52,6 +52,7 @@ struct ConnectorProps {
 struct CrtcProps {
 	mode_id: u32,
 	active: u32,
+	vrr_enabled: u32,
 }
 
 struct PlaneProps {
@@ -207,6 +208,7 @@ impl Screen {
 			crtc: CrtcProps {
 				mode_id: crtc.find_property("MODE_ID").unwrap(),
 				active: crtc.find_property("ACTIVE").unwrap(),
+				vrr_enabled: crtc.find_property("VRR_ENABLED").unwrap(),
 			},
 			plane: PlaneProps {
 				fb_id: plane.find_property("FB_ID").unwrap(),
@@ -266,6 +268,7 @@ impl Screen {
 
 			ctx.add_property(&self.crtc, self.props.crtc.mode_id, blob as _);
 			ctx.add_property(&self.crtc, self.props.crtc.active, 1);
+			ctx.add_property(&self.crtc, self.props.crtc.vrr_enabled, 1);
 		}
 
 		ctx.add_property(&self.plane, self.props.plane.fb_id, fb as _);
@@ -404,13 +407,16 @@ pub fn attach(
 					);
 
 					if let Some(last_refresh) = state.hw.drm.screen.last_refresh {
-						let diff_from_expected_refresh_time = refresh_time
-							.saturating_sub(last_refresh)
-							.saturating_sub(one_display_refresh_cycle);
+						let time_since_last_refresh = refresh_time.saturating_sub(last_refresh);
+						eprintln!("time_since_last_refresh: {time_since_last_refresh:?}");
 
-						if diff_from_expected_refresh_time > std::time::Duration::from_micros(500) {
-							eprintln!("missed frame by {diff_from_expected_refresh_time:?}");
-						}
+						// let diff_from_expected_refresh_time = refresh_time
+						// 	.saturating_sub(last_refresh)
+						// 	.saturating_sub(one_display_refresh_cycle);
+						//
+						// if diff_from_expected_refresh_time > std::time::Duration::from_micros(500) {
+						// 	eprintln!("missed frame by {diff_from_expected_refresh_time:?}");
+						// }
 					}
 
 					state.hw.drm.screen.last_refresh = Some(refresh_time);
@@ -422,8 +428,11 @@ pub fn attach(
 						0x1 | 0x2 | 0x4,
 					)?;
 
-					let next_render = refresh_time + one_display_refresh_cycle
-						- std::time::Duration::from_micros(1_000);
+					let next_render =
+						refresh_time + std::time::Duration::from_micros(1_000_000 / 50);
+
+					// let next_render = refresh_time + one_display_refresh_cycle
+					// 	- std::time::Duration::from_micros(1_000);
 
 					state.hw.drm.screen.timer_tx.set(
 						nix::sys::timerfd::Expiration::OneShot(
@@ -442,7 +451,8 @@ pub fn attach(
 		std::mem::take(&mut state.hw.drm.screen.timer_rx).unwrap(),
 		|_, state, _| {
 			if let ScreenState::WaitingForPageFlip { .. } = &state.hw.drm.screen.state {
-				panic!();
+				// panic!();
+				return Ok(());
 			}
 
 			let &(_, image, _, framebuffer, command_buffer) =
