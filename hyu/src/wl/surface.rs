@@ -16,8 +16,8 @@ pub struct SurfaceState {
 
 impl SurfaceState {
 	pub fn apply_to(&mut self, other: &mut Self) {
-		if let Some(buffer) = std::mem::take(&mut self.buffer) {
-			other.buffer = Some(buffer);
+		if let x @ Some(_) = std::mem::take(&mut self.buffer) {
+			other.buffer = x;
 		}
 
 		other.frame_callbacks.extend(&self.frame_callbacks);
@@ -56,17 +56,69 @@ pub enum SurfaceRole {
 	},
 }
 
-pub enum SurfaceTexture {
-	Vk(renderer::vulkan::Texture),
+#[derive(Default)]
+pub enum SurfaceRenderTexture {
+	#[default]
+	None,
+	UnattachedShmCopy((Point, renderer::vulkan::Texture)),
+	AttachedDmabuf(AttachedBuffer),
+}
+
+pub struct AttachedBuffer {
+	pub wl_buffer_id: wl::Id<wl::Buffer>,
+	ref_count: std::rc::Rc<std::cell::RefCell<usize>>,
+}
+
+impl AttachedBuffer {
+	pub fn new(wl_buffer_id: wl::Id<wl::Buffer>) -> Self {
+		Self {
+			wl_buffer_id,
+			ref_count: std::rc::Rc::new(std::cell::RefCell::new(1)),
+		}
+	}
+
+	pub fn release(&self, client: &mut Client) -> Result<()> {
+		let mut ref_count = self.ref_count.borrow_mut();
+		assert!(*ref_count > 0);
+		*ref_count -= 1;
+
+		if *ref_count == 0 {
+			let Ok(wl_buffer) = client.get_object(self.wl_buffer_id) else {
+				return Ok(());
+			};
+			wl_buffer.release(client)?;
+		}
+
+		Ok(())
+	}
+
+	pub fn clone(&self) -> Self {
+		*self.ref_count.borrow_mut() += 1;
+
+		Self {
+			wl_buffer_id: self.wl_buffer_id,
+			ref_count: self.ref_count.clone(),
+		}
+	}
+}
+
+impl Drop for AttachedBuffer {
+	fn drop(&mut self) {
+		if std::rc::Rc::strong_count(&self.ref_count) == 1 {
+			assert!(*self.ref_count.borrow() == 0, "{}", *self.wl_buffer_id);
+		}
+	}
 }
 
 pub struct Surface {
 	pub object_id: wl::Id<Self>,
 	pub children: Vec<wl::Id<wl::SubSurface>>,
-	pub data: Option<(Point, SurfaceTexture)>,
 	pub role: Option<SurfaceRole>,
 	pub pending: SurfaceState,
 	pub current: SurfaceState,
+	pub render_texture: SurfaceRenderTexture,
+	pub currently_rendered_buffer: Option<AttachedBuffer>,
+	pub currently_displaying_buffer: Option<AttachedBuffer>,
 }
 
 impl Surface {
@@ -74,10 +126,12 @@ impl Surface {
 		Self {
 			object_id,
 			children: Vec::new(),
-			data: None,
 			role: None,
 			pending: Default::default(),
 			current: Default::default(),
+			render_texture: SurfaceRenderTexture::None,
+			currently_rendered_buffer: None,
+			currently_displaying_buffer: None,
 		}
 	}
 
@@ -85,16 +139,13 @@ impl Surface {
 		self.children.push(child);
 	}
 
-	pub fn get_front_buffers(
-		&self,
-		client: &Client,
-	) -> Result<Vec<(Point, Point, wl::Id<wl::Surface>)>> {
-		let Some(data) = self.data.as_ref() else {
+	pub fn get_front_buffers(&self, client: &Client) -> Result<Vec<(Point, wl::Id<wl::Surface>)>> {
+		if let SurfaceRenderTexture::None = &self.render_texture {
 			return Ok(Vec::new());
-		};
+		}
 
 		let mut ret = Vec::new();
-		ret.push((Point(0, 0), data.0, self.object_id));
+		ret.push((Point(0, 0), self.object_id));
 
 		for i in &self.children {
 			let sub_surface = client.get_object(*i)?;
@@ -106,7 +157,7 @@ impl Surface {
 				surface
 					.get_front_buffers(client)?
 					.into_iter()
-					.map(|x| (x.0 + position, x.1, x.2)),
+					.map(|x| (x.0 + position, x.1)),
 			);
 		}
 
@@ -169,22 +220,62 @@ impl Surface {
 		client: &mut Client,
 		vk: &mut renderer::vulkan::Renderer,
 	) -> Result<()> {
-		if let Some(buffer) = &self.current.buffer {
-			let buffer = client.get_object(*buffer)?;
+		let Some(wl_buffer_id) = std::mem::take(&mut self.current.buffer) else {
+			return Ok(());
+		};
 
-			if let Some((size, tex)) = &self.data {
-				if buffer.size != *size {
-					let SurfaceTexture::Vk(texture) = tex;
-					vk.textures_to_delete.push(texture.clone());
-
-					self.data = None;
+		if wl_buffer_id.is_null() {
+			match std::mem::take(&mut self.render_texture) {
+				SurfaceRenderTexture::None => {}
+				SurfaceRenderTexture::UnattachedShmCopy((_, texture)) => {
+					vk.textures_to_delete.push(texture);
+				}
+				SurfaceRenderTexture::AttachedDmabuf(attached_buffer) => {
+					attached_buffer.release(client)?;
 				}
 			}
 
-			buffer.vk_copy_to_texture(client, vk, &mut self.data)?;
+			return Ok(());
+		}
 
-			buffer.release(client)?;
-			self.current.buffer = None;
+		let wl_buffer = client.get_object(wl_buffer_id)?;
+
+		match &wl_buffer.backing_storage {
+			wl::BufferBackingStorage::Shm(shm_backing_storage) => {
+				let mut render_texture = match std::mem::take(&mut self.render_texture) {
+					SurfaceRenderTexture::None => None,
+					SurfaceRenderTexture::UnattachedShmCopy(x) => Some(x),
+					SurfaceRenderTexture::AttachedDmabuf { .. } => todo!(),
+				};
+
+				if let &Some((size, _)) = &render_texture {
+					if size != shm_backing_storage.size {
+						render_texture = None;
+					}
+				}
+
+				shm_backing_storage.copy_into_texture(vk, &mut render_texture)?;
+
+				let Some(render_texture) = render_texture else {
+					panic!();
+				};
+
+				self.render_texture = SurfaceRenderTexture::UnattachedShmCopy(render_texture);
+
+				wl_buffer.release(client)?;
+			}
+			wl::BufferBackingStorage::Dmabuf(_) => {
+				match std::mem::take(&mut self.render_texture) {
+					SurfaceRenderTexture::None => {}
+					SurfaceRenderTexture::UnattachedShmCopy(_) => todo!(),
+					SurfaceRenderTexture::AttachedDmabuf(attached_buffer) => {
+						attached_buffer.release(client)?;
+					}
+				};
+
+				self.render_texture =
+					SurfaceRenderTexture::AttachedDmabuf(AttachedBuffer::new(wl_buffer_id));
+			}
 		}
 
 		Ok(())
@@ -239,13 +330,7 @@ impl Surface {
 
 		self.pending.apply_to(&mut self.current);
 
-		if self.current.buffer.is_some() {
-			self.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
-			hw_state.drm.screen.timer_tx.set(
-				nix::sys::timerfd::Expiration::OneShot(nix::sys::time::TimeSpec::new(1, 1)),
-				nix::sys::timerfd::TimerSetTimeFlags::TFD_TIMER_ABSTIME,
-			)?;
-		}
+		self.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
 
 		self.depth_first_sub_tree(client, &mut |client, _, surface| {
 			let Some(SurfaceRole::SubSurface { mode, .. }) = &mut surface.role else {
@@ -255,10 +340,7 @@ impl Surface {
 			// TODO: check if parent should override mode
 			if let SubSurfaceMode::Sync { state_to_apply } = mode {
 				state_to_apply.apply_to(&mut surface.current);
-
-				if surface.current.buffer.is_some() {
-					surface.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
-				}
+				surface.vk_do_textures(client, &mut hw_state.drm.vulkan)?;
 			}
 
 			Ok(())
@@ -295,6 +377,19 @@ impl wl::Object for Surface {
 		match op {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:destroy
+				if let SurfaceRenderTexture::AttachedDmabuf(attached_buffer) = &self.render_texture
+				{
+					attached_buffer.release(client)?;
+				}
+
+				if let Some(attached_buffer) = &self.currently_rendered_buffer {
+					attached_buffer.release(client)?;
+				}
+
+				if let Some(attached_buffer) = &self.currently_displaying_buffer {
+					attached_buffer.release(client)?;
+				}
+
 				client
 					.changes
 					.push(state::Change::RemoveSurface(client.fd, self.object_id));
@@ -308,12 +403,7 @@ impl wl::Object for Surface {
 				let (buffer, x, y): (wl::Id<wl::Buffer>, i32, i32) =
 					wlm::decode::from_slice(params)?;
 
-				self.pending.buffer = if !buffer.is_null() {
-					Some(buffer)
-				} else {
-					None
-				};
-
+				self.pending.buffer = Some(buffer);
 				self.pending.offset = Some((x, y));
 			}
 			2 => {

@@ -1,14 +1,13 @@
 use crate::{
-	Result,
+	Point, Result,
 	drm::{self, HasProps as _, Object as _},
-	elp, gbm, state,
+	elp, gbm, state, wl,
 };
 
 use color_eyre::eyre::OptionExt as _;
 
 pub struct State {
 	pub device: drm::Device,
-	#[expect(dead_code)]
 	gbm_device: std::mem::ManuallyDrop<gbm::Device>,
 	pub screen: Screen,
 	context: drm::AtomicHelper,
@@ -16,7 +15,7 @@ pub struct State {
 }
 
 pub enum ScreenState {
-	WaitingForPageFlip {},
+	WaitingForPageFlip { did_direct_scanout: bool },
 	Idle,
 }
 
@@ -52,6 +51,7 @@ struct ConnectorProps {
 struct CrtcProps {
 	mode_id: u32,
 	active: u32,
+	#[expect(dead_code)]
 	vrr_enabled: u32,
 }
 
@@ -125,12 +125,12 @@ impl Screen {
 				for (&id, &value) in std::iter::zip(props.prop_ids(), props.prop_values()) {
 					let prop = device.get_prop(id).unwrap();
 
-					if &prop.name[..4] == b"type" && value == 2 {
+					if &prop.name[..4] == b"type" && value == 1 {
 						return true;
 					}
 				}
 
-				true
+				false
 			})
 			.unwrap();
 
@@ -243,13 +243,13 @@ impl Screen {
 	}
 
 	pub fn render(
-		&mut self,
+		&self,
 		device: &drm::Device,
 		ctx: &mut drm::AtomicHelper,
 		modeset: bool,
 		in_fence_fd: std::os::fd::RawFd,
+		bo: &gbm::BufferObject,
 	) -> Result<()> {
-		let (bo, ..) = self.buffers.first().unwrap();
 		let fb = bo.get_fb(device)?;
 
 		if modeset {
@@ -268,7 +268,7 @@ impl Screen {
 
 			ctx.add_property(&self.crtc, self.props.crtc.mode_id, blob as _);
 			ctx.add_property(&self.crtc, self.props.crtc.active, 1);
-			ctx.add_property(&self.crtc, self.props.crtc.vrr_enabled, 1);
+			// ctx.add_property(&self.crtc, self.props.crtc.vrr_enabled, 1);
 		}
 
 		ctx.add_property(&self.plane, self.props.plane.fb_id, fb as _);
@@ -304,7 +304,6 @@ impl Screen {
 		);
 		ctx.add_property(&self.plane, self.props.plane.in_fence_fd, in_fence_fd as _);
 
-		let mut has_flipped = false;
 		let mut flags = 0x200 | 0x1;
 
 		if modeset {
@@ -313,13 +312,8 @@ impl Screen {
 			flags |= 0x2;
 		}
 
-		device
-			.commit(ctx, flags, &mut has_flipped as *mut _ as _)
-			.unwrap();
-
+		device.commit(ctx, flags, std::ptr::null_mut())?;
 		ctx.clear();
-
-		self.state = ScreenState::WaitingForPageFlip {};
 
 		Ok(())
 	}
@@ -361,7 +355,17 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	vk.render(image, framebuffer, command_buffer, |_| Ok(()))?;
 
 	let mut ctx = device.begin_atomic();
-	screen.render(&device, &mut ctx, true, -1)?;
+	screen.render(
+		&device,
+		&mut ctx,
+		true,
+		-1,
+		&screen.buffers.first().unwrap().0,
+	)?;
+
+	screen.state = ScreenState::WaitingForPageFlip {
+		did_direct_scanout: false,
+	};
 
 	let context = device.begin_atomic();
 
@@ -390,7 +394,7 @@ pub fn attach(
 					sequence,
 					..
 				} => {
-					let ScreenState::WaitingForPageFlip {} =
+					let ScreenState::WaitingForPageFlip { did_direct_scanout } =
 						std::mem::replace(&mut state.hw.drm.screen.state, ScreenState::Idle)
 					else {
 						panic!();
@@ -408,31 +412,32 @@ pub fn attach(
 
 					if let Some(last_refresh) = state.hw.drm.screen.last_refresh {
 						let time_since_last_refresh = refresh_time.saturating_sub(last_refresh);
-						eprintln!("time_since_last_refresh: {time_since_last_refresh:?}");
 
-						// let diff_from_expected_refresh_time = refresh_time
-						// 	.saturating_sub(last_refresh)
-						// 	.saturating_sub(one_display_refresh_cycle);
-						//
-						// if diff_from_expected_refresh_time > std::time::Duration::from_micros(500) {
-						// 	eprintln!("missed frame by {diff_from_expected_refresh_time:?}");
-						// }
+						let diff_from_expected_refresh_time =
+							time_since_last_refresh.saturating_sub(one_display_refresh_cycle);
+
+						if diff_from_expected_refresh_time > std::time::Duration::from_micros(500) {
+							eprintln!("missed frame by {diff_from_expected_refresh_time:?}");
+						}
 					}
 
 					state.hw.drm.screen.last_refresh = Some(refresh_time);
+
+					let mut wp_presentation_flags = 0x1 | 0x2 | 0x4;
+
+					if did_direct_scanout {
+						wp_presentation_flags |= 0x8;
+					}
 
 					state.compositor.after_render(
 						refresh_time,
 						one_display_refresh_cycle,
 						sequence,
-						0x1 | 0x2 | 0x4,
+						wp_presentation_flags,
 					)?;
 
-					let next_render =
-						refresh_time + std::time::Duration::from_micros(1_000_000 / 50);
-
-					// let next_render = refresh_time + one_display_refresh_cycle
-					// 	- std::time::Duration::from_micros(1_000);
+					let next_render = refresh_time + one_display_refresh_cycle
+						- std::time::Duration::from_micros(1_000);
 
 					state.hw.drm.screen.timer_tx.set(
 						nix::sys::timerfd::Expiration::OneShot(
@@ -450,28 +455,96 @@ pub fn attach(
 	event_loop.on(
 		std::mem::take(&mut state.hw.drm.screen.timer_rx).unwrap(),
 		|_, state, _| {
-			if let ScreenState::WaitingForPageFlip { .. } = &state.hw.drm.screen.state {
-				// panic!();
-				return Ok(());
+			let screen = &mut state.hw.drm.screen;
+
+			if let ScreenState::WaitingForPageFlip { .. } = &screen.state {
+				panic!();
 			}
 
-			let &(_, image, _, framebuffer, command_buffer) =
-				state.hw.drm.screen.buffers.first().unwrap();
+			if state.compositor.windows.len() == 1 {
+				let window = state.compositor.windows.first().unwrap();
+				let client = state.compositor.clients.get_mut(&window.0).unwrap();
+
+				let xdg_toplevel = client.get_object(window.1)?;
+				let xdg_surface = client.get_object(xdg_toplevel.surface)?;
+				let wl_surface = client.get_object_mut(xdg_surface.surface)?;
+
+				if wl_surface.children.len() == 0 {
+					if let wl::SurfaceRenderTexture::AttachedDmabuf(attached_buffer) =
+						&wl_surface.render_texture
+					{
+						let wl_buffer = client.get_object_mut(attached_buffer.wl_buffer_id)?;
+						let wl::BufferBackingStorage::Dmabuf(dmabuf_backing_storage) =
+							&mut wl_buffer.backing_storage
+						else {
+							panic!();
+						};
+
+						if dmabuf_backing_storage.size == Point(2560, 1440) {
+							if dmabuf_backing_storage.gbm_buffer_object.is_none() {
+								dmabuf_backing_storage.gbm_buffer_object = Some(
+									state
+										.hw
+										.drm
+										.gbm_device
+										.import_dmabuf(&dmabuf_backing_storage.attributes)
+										.ok_or_eyre("failed to import dmabuf as bo")?,
+								);
+							}
+
+							let Some(gbm_buffer_object) = &dmabuf_backing_storage.gbm_buffer_object
+							else {
+								panic!();
+							};
+
+							screen.render(
+								&state.hw.drm.device,
+								&mut state.hw.drm.context,
+								false,
+								-1,
+								&gbm_buffer_object,
+							)?;
+
+							if let Some(currently_renderer_buffer) = std::mem::replace(
+								&mut wl_surface.currently_rendered_buffer,
+								Some(attached_buffer.clone()),
+							) {
+								currently_renderer_buffer.release(client)?;
+							}
+
+							screen.state = ScreenState::WaitingForPageFlip {
+								did_direct_scanout: true,
+							};
+
+							return Ok(());
+						}
+					}
+				}
+			}
+
+			let (bo, image, _, framebuffer, command_buffer) = screen.buffers.first().unwrap();
 
 			state
 				.hw
 				.drm
 				.vulkan
-				.render(image, framebuffer, command_buffer, |vulkan| {
+				.render(*image, *framebuffer, *command_buffer, |vulkan| {
 					state.compositor.render(vulkan)
 				})?;
 
-			state.hw.drm.screen.render(
+			screen.render(
 				&state.hw.drm.device,
 				&mut state.hw.drm.context,
 				false,
 				state.hw.drm.vulkan.semaphore_fd.unwrap(),
-			)
+				bo,
+			)?;
+
+			screen.state = ScreenState::WaitingForPageFlip {
+				did_direct_scanout: false,
+			};
+
+			Ok(())
 		},
 	)
 }

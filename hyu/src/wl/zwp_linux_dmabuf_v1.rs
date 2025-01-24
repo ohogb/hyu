@@ -10,34 +10,34 @@ struct Format {
 	modifier: u64,
 }
 
-const FORMATS: [Format; 6] = [
+const FORMATS: [Format; 3] = [
 	// AR24
 	Format {
 		format: 0x34325241,
 		modifier: 0x0,
 	},
-	Format {
-		format: 0x34325241,
-		modifier: 0x20000002096BB03,
-	},
+	// Format {
+	// 	format: 0x34325241,
+	// 	modifier: 0x20000002096BB03,
+	// },
 	// XR24
 	Format {
 		format: 0x34325258,
 		modifier: 0x0,
 	},
-	Format {
-		format: 0x34325258,
-		modifier: 0x20000002096BB03,
-	},
+	// Format {
+	// 	format: 0x34325258,
+	// 	modifier: 0x20000002096BB03,
+	// },
 	// AB24
 	Format {
 		format: 0x34324241,
 		modifier: 0x0,
 	},
-	Format {
-		format: 0x34324241,
-		modifier: 0x20000002096BB03,
-	},
+	// Format {
+	// 	format: 0x34324241,
+	// 	modifier: 0x20000002096BB03,
+	// },
 ];
 
 pub struct ZwpLinuxDmabufV1 {
@@ -125,8 +125,9 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
-				feedback.tranche_flags(client, 0)?;
-				feedback.tranche_formats(client, &[0, 1, 2, 3, 4, 5])?;
+				feedback.tranche_flags(client, 1 << 0)?;
+				feedback
+					.tranche_formats(client, &(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
 				feedback.tranche_done(client)?;
 
 				feedback.done(client)?;
@@ -145,8 +146,9 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
-				feedback.tranche_flags(client, 0)?;
-				feedback.tranche_formats(client, &[0, 1, 2, 3, 4, 5])?;
+				feedback.tranche_flags(client, 1 << 0)?;
+				feedback
+					.tranche_formats(client, &(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
 				feedback.tranche_done(client)?;
 
 				feedback.done(client)?;

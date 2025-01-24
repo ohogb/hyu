@@ -1,5 +1,15 @@
 use crate::{Client, Point, Result, state::HwState, wl};
 
+#[derive(Debug)]
+pub struct DmabufAttributes {
+	pub width: u32,
+	pub height: u32,
+	pub format: u32,
+	pub modifier: u64,
+	pub planes: Vec<Plane>,
+}
+
+#[derive(Debug)]
 pub struct Plane {
 	pub fd: std::os::fd::RawFd,
 	pub offset: u32,
@@ -74,6 +84,8 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 				assert!(!self.planes.is_empty());
 				assert!(self.modifier.is_some());
 
+				let modifier = self.modifier.unwrap();
+
 				let (image, image_view) = hw_state.drm.vulkan.create_image_from_dmabuf(
 					width as _,
 					height as _,
@@ -82,16 +94,30 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 						0x34324241 => ash::vk::Format::R8G8B8A8_UNORM,
 						_ => panic!("{}", format),
 					},
-					self.modifier.unwrap(),
+					modifier,
 					&self.planes,
 				)?;
 
+				let attributes = DmabufAttributes {
+					width: width as _,
+					height: height as _,
+					format,
+					modifier,
+					planes: std::mem::take(&mut self.planes),
+				};
+
 				client.new_object(
 					buffer_id,
-					wl::Buffer::new(buffer_id, Point(width, height), wl::BufferStorage::Dmabuf {
-						image,
-						image_view,
-					}),
+					wl::Buffer::new(
+						buffer_id,
+						wl::BufferBackingStorage::Dmabuf(wl::DmabufBackingStorage {
+							size: Point(width, height),
+							attributes,
+							image,
+							image_view,
+							gbm_buffer_object: None,
+						}),
+					),
 				);
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxBufferParamsV1"),

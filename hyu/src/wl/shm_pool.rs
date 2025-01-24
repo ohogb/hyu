@@ -114,12 +114,16 @@ impl wl::Object for ShmPool {
 
 				client.new_object(
 					id,
-					wl::Buffer::new(id, Point(width, height), wl::BufferStorage::Shm {
-						map: self.map.clone(),
-						offset,
-						stride,
-						format,
-					}),
+					wl::Buffer::new(
+						id,
+						wl::BufferBackingStorage::Shm(wl::ShmBackingStorage {
+							size: Point(width, height),
+							map: self.map.clone(),
+							offset,
+							stride,
+							format,
+						}),
+					),
 				);
 			}
 			1 => {

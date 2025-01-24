@@ -624,18 +624,14 @@ impl Renderer {
 			&mut bind_image_plane_memory_infos,
 		);
 
-		let planes_to_iter = if is_disjoint {
-			planes
-		} else {
-			&planes[..1]
-		};
+		let planes_to_iter = if is_disjoint { planes } else { &planes[..1] };
 
 		for (idx, (plane, (memory_info, plane_memory_info))) in
 			std::iter::zip(planes_to_iter, info_iter).enumerate()
 		{
 			let mut memory_fd_properties = ash::vk::MemoryFdPropertiesKHR::default();
 
-			let fd = nix::unistd::dup(plane.fd)?;
+			let fd = nix::fcntl::fcntl(plane.fd, nix::fcntl::FcntlArg::F_DUPFD_CLOEXEC(plane.fd))?;
 
 			unsafe {
 				self.external_memory_fd_device.get_memory_fd_properties(

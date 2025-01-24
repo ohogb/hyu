@@ -137,6 +137,36 @@ impl Device {
 		Ok(unsafe { ret.assume_init() }.fb_id)
 	}
 
+	pub fn add_fb2(
+		&self,
+		width: u32,
+		height: u32,
+		format: u32,
+		handles: [u32; 4],
+		pitches: [u32; 4],
+		offsets: [u32; 4],
+		modifiers: [u64; 4],
+	) -> Result<u32> {
+		nix::ioctl_readwrite!(func, 'd', 0xB8, FbCmd2);
+
+		let mut ret = std::mem::MaybeUninit::<FbCmd2>::zeroed();
+		unsafe {
+			let ptr = ret.as_mut_ptr();
+			(*ptr).width = width;
+			(*ptr).height = height;
+			(*ptr).pixel_format = format;
+			(*ptr).flags = 1 << 1;
+			(*ptr).handles = handles;
+			(*ptr).pitches = pitches;
+			(*ptr).offsets = offsets;
+			(*ptr).modifier = modifiers;
+
+			func(self.file.as_raw_fd(), ptr)?;
+		}
+
+		Ok(unsafe { ret.assume_init() }.fb_id)
+	}
+
 	pub fn get_crtc(&self, crtc_id: u32) -> Result<Crtc> {
 		nix::ioctl_readwrite!(func, 'd', 0xA1, Crtc);
 
@@ -507,6 +537,19 @@ pub struct FbCmd {
 	pub bpp: u32,
 	pub depth: u32,
 	pub handle: u32,
+}
+
+#[repr(C)]
+pub struct FbCmd2 {
+	pub fb_id: u32,
+	pub width: u32,
+	pub height: u32,
+	pub pixel_format: u32,
+	pub flags: u32,
+	pub handles: [u32; 4],
+	pub pitches: [u32; 4],
+	pub offsets: [u32; 4],
+	pub modifier: [u64; 4],
 }
 
 #[repr(C)]

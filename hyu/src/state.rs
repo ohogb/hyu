@@ -310,23 +310,40 @@ impl CompositorState {
 			let client = self.clients.get_mut(&fd).unwrap();
 
 			fn is_cursor_over_surface(
+				client: &mut Client,
 				cursor_position: Point,
 				surface_position: Point,
 				surface: &wl::Surface,
-			) -> bool {
+			) -> Result<bool> {
 				if let Some(input_region) = &surface.current.input_region {
 					for area in &input_region.areas {
 						let position = surface_position + area.0;
 
 						if cursor_position.is_inside((position, area.1)) {
-							return true;
+							return Ok(true);
 						}
 					}
-				} else if let Some(&(size, ..)) = surface.data.as_ref() {
-					return cursor_position.is_inside((surface_position, size));
-				}
 
-				false
+					Ok(false)
+				} else {
+					match &surface.render_texture {
+						wl::SurfaceRenderTexture::None => Ok(false),
+						&wl::SurfaceRenderTexture::UnattachedShmCopy((size, _)) => {
+							Ok(cursor_position.is_inside((surface_position, size)))
+						}
+						wl::SurfaceRenderTexture::AttachedDmabuf(attached_buffer) => {
+							let wl_buffer = client.get_object(attached_buffer.wl_buffer_id)?;
+							let wl::BufferBackingStorage::Dmabuf(dmabuf_backing_storage) =
+								&wl_buffer.backing_storage
+							else {
+								panic!();
+							};
+
+							Ok(cursor_position
+								.is_inside((surface_position, dmabuf_backing_storage.size)))
+						}
+					}
+				}
 			}
 
 			fn recurse(
@@ -337,7 +354,7 @@ impl CompositorState {
 				cursor_position: Point,
 				surface_position: Point,
 			) -> Result<()> {
-				if is_cursor_over_surface(cursor_position, surface_position, surface) {
+				if is_cursor_over_surface(client, cursor_position, surface_position, surface)? {
 					*pointer_over = Some(PointerOver {
 						fd: client.fd,
 						toplevel: toplevel.object_id,
@@ -660,18 +677,60 @@ impl CompositorState {
 			                xdg_surface: &wl::XdgSurface,
 			                surface: &mut wl::Surface|
 			 -> Result<()> {
-				for (position, size, surface_id) in surface.get_front_buffers(client)? {
-					let surface = client.get_object(surface_id)?;
+				for (position, surface_id) in surface.get_front_buffers(client)? {
+					let surface = client.get_object_mut(surface_id)?;
 
-					let Some((.., wl::SurfaceTexture::Vk(texture))) = &surface.data else {
-						panic!();
-					};
+					match &surface.render_texture {
+						wl::SurfaceRenderTexture::None => {
+							panic!();
+						}
+						wl::SurfaceRenderTexture::UnattachedShmCopy((size, texture)) => {
+							vk.record_quad(
+								toplevel_position - xdg_surface.position + position,
+								*size,
+								texture,
+							)?;
+						}
+						wl::SurfaceRenderTexture::AttachedDmabuf(attached_buffer) => {
+							let wl_buffer = client.get_object(attached_buffer.wl_buffer_id)?;
 
-					vk.record_quad(
-						toplevel_position - xdg_surface.position + position,
-						size,
-						texture,
-					)?;
+							let wl::BufferBackingStorage::Dmabuf(dmabuf_baking_storage) =
+								&wl_buffer.backing_storage
+							else {
+								panic!();
+							};
+
+							let size = dmabuf_baking_storage.size;
+							let texture = renderer::vulkan::Texture {
+								image: dmabuf_baking_storage.image,
+								image_view: dmabuf_baking_storage.image_view,
+								image_device_memory: ash::vk::DeviceMemory::null(),
+								image_layout: ash::vk::ImageLayout::GENERAL,
+								buffer: ash::vk::Buffer::null(),
+								buffer_device_memory: ash::vk::DeviceMemory::null(),
+								buffer_size: 0,
+								buffer_ptr: std::ptr::null_mut(),
+							};
+
+							vk.record_quad(
+								toplevel_position - xdg_surface.position + position,
+								size,
+								&texture,
+							)?;
+
+							eprintln!(
+								"surface({})::render_buffer({})",
+								*surface.object_id, *attached_buffer.wl_buffer_id
+							);
+
+							if let Some(currently_renderer_buffer) = std::mem::replace(
+								&mut surface.currently_rendered_buffer,
+								Some(attached_buffer.clone()),
+							) {
+								currently_renderer_buffer.release(client)?;
+							}
+						}
+					}
 				}
 
 				Ok(())
@@ -727,6 +786,17 @@ impl CompositorState {
 			let display = client.get_object(wl::Id::<wl::Display>::new(1))?;
 
 			let frame = |client: &mut Client, surface: &mut wl::Surface| -> Result<()> {
+				if let Some(currently_rendered_buffer) =
+					std::mem::take(&mut surface.currently_rendered_buffer)
+				{
+					if let Some(old_displayed_buffer) = std::mem::replace(
+						&mut surface.currently_displaying_buffer,
+						Some(currently_rendered_buffer),
+					) {
+						old_displayed_buffer.release(client)?;
+					}
+				}
+
 				surface.frame(display.get_time().as_millis() as u32, client)?;
 				surface.presentation_feedback(
 					duration,
