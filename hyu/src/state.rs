@@ -1,12 +1,12 @@
 use std::{
 	io::{Seek as _, Write as _},
-	os::fd::{FromRawFd as _, IntoRawFd as _},
+	os::fd::IntoRawFd as _,
 };
 
 use color_eyre::eyre::OptionExt as _;
 
 use crate::{
-	Client, Point, Result,
+	Client, Config, Point, Result,
 	renderer::{self},
 	wl, xkb,
 };
@@ -56,21 +56,22 @@ pub struct CompositorState {
 	pub xkb_state: XkbState,
 	pub width: u16,
 	pub height: u16,
+	pub config: &'static Config,
 }
 
 impl CompositorState {
-	pub fn create(width: u16, height: u16, layout: impl AsRef<str>) -> Result<Self> {
+	pub fn create(width: u16, height: u16, config: &'static Config) -> Result<Self> {
 		let xkb_context = xkb::Context::create().ok_or_eyre("failed to create xkb context")?;
 
-		let xkb_keymap =
-			xkb::Keymap::create(&xkb_context, layout).ok_or_eyre("failed to create xkb keymap")?;
+		let xkb_keymap = xkb::Keymap::create(&xkb_context, &config.keymap)
+			.ok_or_eyre("failed to create xkb keymap")?;
 
 		let xkb_state = xkb::State::new(&xkb_keymap).ok_or_eyre("failed to create xkb state")?;
 
 		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
 		nix::unistd::unlink(&path)?;
 
-		let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+		let mut file = std::fs::File::from(fd);
 		write!(file, "{}", xkb_keymap.get_as_string())?;
 
 		let size = file.stream_len()?;
@@ -91,6 +92,7 @@ impl CompositorState {
 			},
 			width,
 			height,
+			config,
 		})
 	}
 

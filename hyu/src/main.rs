@@ -5,6 +5,7 @@
 
 pub mod backend;
 mod client;
+pub mod config;
 pub mod drm;
 pub mod elp;
 pub mod gbm;
@@ -20,26 +21,16 @@ pub mod wl;
 pub mod xkb;
 
 pub use client::*;
+pub use config::*;
 pub use point::*;
 pub use store::*;
 pub use stream::*;
-
-use clap::Parser as _;
 
 use wl::Object as _;
 
 use std::os::fd::AsRawFd as _;
 
 pub type Result<T> = color_eyre::Result<T>;
-
-#[derive(clap::Parser)]
-struct Args {
-	#[arg(short, long)]
-	keymap: Option<String>,
-
-	#[arg(short, long)]
-	card: Option<std::path::PathBuf>,
-}
 
 struct Defer<T: FnMut()>(T);
 
@@ -52,15 +43,7 @@ impl<T: FnMut()> Drop for Defer<T> {
 fn main() -> Result<()> {
 	color_eyre::install()?;
 
-	let args = Args::parse();
-
-	let keymap = args.keymap.unwrap_or_default();
-	let card = std::sync::Arc::from(
-		args.card
-			.as_deref()
-			.unwrap_or_else(|| std::path::Path::new("/dev/dri/card0")),
-	);
-
+	let config = Config::read_from_config_file()?;
 	let tty = tty::Device::open_current()?;
 
 	let old_keyboard_mode = tty.get_keyboard_mode()?;
@@ -81,7 +64,7 @@ fn main() -> Result<()> {
 		std::fs::remove_file(&path)?;
 	}
 
-	let drm_state = backend::drm::initialize_state(&card)?;
+	let drm_state = backend::drm::initialize_state(&config)?;
 
 	let width = drm_state.screen.mode.hdisplay;
 	let height = drm_state.screen.mode.vdisplay;
@@ -91,7 +74,7 @@ fn main() -> Result<()> {
 			drm: drm_state,
 			input: backend::input::initialize_state()?,
 		},
-		compositor: state::CompositorState::create(width, height, keymap)?,
+		compositor: state::CompositorState::create(width, height, &config)?,
 	};
 
 	let socket = std::os::unix::net::UnixListener::bind(&path)?;
@@ -124,7 +107,7 @@ fn main() -> Result<()> {
 			));
 			display.push_global(wl::Output::new(wl::Id::null()));
 			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
-			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null(), card.clone())?);
+			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null(), config)?);
 			display.push_global(wl::WpPresentation::new(wl::Id::null()));
 			display.push_global(wl::ZwlrLayerShellV1::new(wl::Id::null()));
 			display.push_global(wl::ZxdgOutputManagerV1::new(wl::Id::null(), u32::MAX));

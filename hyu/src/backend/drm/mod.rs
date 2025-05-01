@@ -1,5 +1,5 @@
 use crate::{
-	Point, Result,
+	Config, Point, Result,
 	drm::{self, HasProps as _, Object as _},
 	elp, gbm, state, wl,
 };
@@ -319,8 +319,8 @@ impl Screen {
 	}
 }
 
-pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
-	let device = drm::Device::open(&card)?;
+pub fn initialize_state(config: &Config) -> Result<State> {
+	let device = drm::Device::open(&config.card)?;
 	device.set_client_capability(2, 1)?;
 	device.set_client_capability(3, 1)?;
 
@@ -340,7 +340,7 @@ pub fn initialize_state(card: impl AsRef<std::path::Path>) -> Result<State> {
 	let gbm_device =
 		gbm::Device::create(device.get_fd()).ok_or_eyre("failed to create gbm device")?;
 
-	let mut vk = crate::renderer::vulkan::create(card)?;
+	let mut vk = crate::renderer::vulkan::create(&config.card)?;
 	eprintln!("VK: {:#?} {:#?}", vk.physical_device, vk.queue);
 
 	let mut screen = Screen::create(

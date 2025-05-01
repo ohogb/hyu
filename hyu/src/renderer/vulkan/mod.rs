@@ -568,7 +568,10 @@ impl Renderer {
 			if planes.len() > 1 {
 				let mut other_ino = None;
 				for x in planes {
-					let ino = nix::sys::stat::fstat(x.fd)?.st_ino;
+					let ino = nix::sys::stat::fstat(unsafe {
+						std::os::fd::BorrowedFd::borrow_raw(x.fd)
+					})?
+					.st_ino;
 
 					if let Some(other_ino) = &other_ino {
 						if ino != *other_ino {
@@ -631,7 +634,10 @@ impl Renderer {
 		{
 			let mut memory_fd_properties = ash::vk::MemoryFdPropertiesKHR::default();
 
-			let fd = nix::fcntl::fcntl(plane.fd, nix::fcntl::FcntlArg::F_DUPFD_CLOEXEC(plane.fd))?;
+			let fd = nix::fcntl::fcntl(
+				unsafe { std::os::fd::BorrowedFd::borrow_raw(plane.fd) },
+				nix::fcntl::FcntlArg::F_DUPFD_CLOEXEC(plane.fd),
+			)?;
 
 			unsafe {
 				self.external_memory_fd_device.get_memory_fd_properties(

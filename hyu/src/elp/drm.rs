@@ -40,7 +40,10 @@ impl elp::Source for Source {
 	) -> Result<std::ops::ControlFlow<()>> {
 		let mut ret = [0u8; 0x1000];
 
-		let amount = nix::unistd::read(self.fd, &mut ret)?;
+		let amount = nix::unistd::read(
+			unsafe { std::os::fd::BorrowedFd::borrow_raw(self.fd) },
+			&mut ret,
+		)?;
 		assert!(amount == std::mem::size_of::<DrmEventVBlank>());
 
 		let mut ret = &ret[..amount];

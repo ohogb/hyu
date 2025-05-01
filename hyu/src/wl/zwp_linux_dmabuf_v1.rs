@@ -1,9 +1,9 @@
 use std::{
 	io::{Seek as _, Write as _},
-	os::fd::{FromRawFd as _, IntoRawFd as _},
+	os::fd::IntoRawFd as _,
 };
 
-use crate::{Client, Result, state::HwState, wl};
+use crate::{Client, Config, Result, state::HwState, wl};
 
 struct Format {
 	format: u32,
@@ -43,15 +43,15 @@ const FORMATS: [Format; 3] = [
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
 	formats: (std::os::fd::RawFd, u64),
-	card: std::sync::Arc<std::path::Path>,
+	config: &'static Config,
 }
 
 impl ZwpLinuxDmabufV1 {
-	pub fn new(object_id: wl::Id<Self>, card: std::sync::Arc<std::path::Path>) -> Result<Self> {
+	pub fn new(object_id: wl::Id<Self>, config: &'static Config) -> Result<Self> {
 		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
 		nix::unistd::unlink(&path)?;
 
-		let mut file = unsafe { std::fs::File::from_raw_fd(fd) };
+		let mut file = std::fs::File::from(fd);
 
 		for format in FORMATS {
 			file.write_all(&u64::to_ne_bytes(format.format as _))?;
@@ -64,7 +64,7 @@ impl ZwpLinuxDmabufV1 {
 		Ok(Self {
 			object_id,
 			formats: (fd, size),
-			card,
+			config,
 		})
 	}
 
@@ -121,7 +121,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.format_table(client)?;
 
-				let dev = nix::sys::stat::stat(self.card.as_ref())?.st_rdev;
+				let dev = nix::sys::stat::stat(&self.config.card)?.st_rdev;
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
@@ -142,7 +142,7 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 
 				feedback.format_table(client)?;
 
-				let dev = nix::sys::stat::stat(self.card.as_ref())?.st_rdev;
+				let dev = nix::sys::stat::stat(&self.config.card)?.st_rdev;
 				feedback.main_device(client, &[dev])?;
 
 				feedback.tranche_target_device(client, &[dev])?;
@@ -171,7 +171,7 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 
 	fn bind(&self, client: &mut Client, object_id: u32, version: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		let object = client.new_object(id, Self::new(id, self.card.clone())?);
+		let object = client.new_object(id, Self::new(id, self.config)?);
 
 		assert!(version >= 3);
 

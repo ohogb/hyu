@@ -3,20 +3,18 @@ use crate::{Result, drm};
 #[link(name = "gbm")]
 unsafe extern "C" {
 	fn gbm_bo_destroy(bo: usize);
-	fn gbm_bo_get_bpp(bo: usize) -> u32;
 	fn gbm_bo_get_fd(bo: usize) -> std::os::fd::RawFd;
-	fn gbm_bo_get_handle(bo: usize) -> u64;
+	fn gbm_bo_get_format(bo: usize) -> u32;
+	fn gbm_bo_get_handle_for_plane(bo: usize, plane: i32) -> u64;
 	fn gbm_bo_get_height(bo: usize) -> u32;
 	fn gbm_bo_get_modifier(bo: usize) -> u64;
+	fn gbm_bo_get_offset(bo: usize, plane: i32) -> u32;
+	fn gbm_bo_get_plane_count(bo: usize) -> i32;
 	fn gbm_bo_get_stride(bo: usize) -> u32;
+	fn gbm_bo_get_stride_for_plane(bo: usize, plane: i32) -> u32;
 	fn gbm_bo_get_user_data(bo: usize) -> u64;
 	fn gbm_bo_get_width(bo: usize) -> u32;
 	fn gbm_bo_set_user_data(bo: usize, data: usize, destructor: usize);
-	fn gbm_bo_get_handle_for_plane(bo: usize, plane: i32) -> u64;
-	fn gbm_bo_get_offset(bo: usize, plane: i32) -> u32;
-	fn gbm_bo_get_plane_count(bo: usize) -> i32;
-	fn gbm_bo_get_stride_for_plane(bo: usize, plane: i32) -> u32;
-	fn gbm_bo_get_format(bo: usize) -> u32;
 }
 
 pub struct UserData {
@@ -52,14 +50,6 @@ impl BufferObject {
 
 	pub fn get_stride(&self) -> u32 {
 		unsafe { gbm_bo_get_stride(self.as_ptr()) }
-	}
-
-	pub fn get_bpp(&self) -> u32 {
-		unsafe { gbm_bo_get_bpp(self.as_ptr()) }
-	}
-
-	pub fn get_handle(&self) -> u64 {
-		unsafe { gbm_bo_get_handle(self.as_ptr()) }
 	}
 
 	pub fn get_plane_count(&self) -> usize {
