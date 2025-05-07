@@ -1,4 +1,6 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 struct Ptr(std::ptr::NonNull<std::ffi::c_void>);
 
@@ -76,13 +78,20 @@ impl SharedMap {
 
 pub struct ShmPool {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	map: SharedMap,
 }
 
 impl ShmPool {
-	pub fn new(object_id: wl::Id<Self>, fd: std::os::fd::RawFd, size: u32) -> Result<Self> {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
+		fd: std::os::fd::RawFd,
+		size: u32,
+	) -> Result<Self> {
 		Ok(Self {
 			object_id,
+			conn,
 			map: SharedMap::new(Map::new(size as _, fd)?),
 		})
 	}
@@ -116,6 +125,7 @@ impl wl::Object for ShmPool {
 					id,
 					wl::Buffer::new(
 						id,
+						self.conn.clone(),
 						wl::BufferBackingStorage::Shm(wl::ShmBackingStorage {
 							size: Point(width, height),
 							map: self.map.clone(),

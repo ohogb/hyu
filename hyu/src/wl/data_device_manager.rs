@@ -1,11 +1,14 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
 
-#[derive(Debug)]
-pub struct DataDeviceManager {}
+use crate::{Client, Connection, Result, state::HwState, wl};
+
+pub struct DataDeviceManager {
+	conn: Rc<Connection>,
+}
 
 impl DataDeviceManager {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(conn: Rc<Connection>) -> Self {
+		Self { conn }
 	}
 }
 
@@ -21,14 +24,14 @@ impl wl::Object for DataDeviceManager {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:create_data_source
 				let id: wl::Id<wl::DataSource> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::DataSource::new(id));
+				client.new_object(id, wl::DataSource::new(id, self.conn.clone()));
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_data_device_manager:request:get_data_device
 				let (id, seat): (wl::Id<wl::DataDevice>, wl::Id<wl::Seat>) =
 					wlm::decode::from_slice(params)?;
 
-				client.new_object(id, wl::DataDevice::new(id, seat));
+				client.new_object(id, wl::DataDevice::new(id, self.conn.clone(), seat));
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in DataDeviceManager"),
 		}
@@ -47,7 +50,7 @@ impl wl::Global for DataDeviceManager {
 	}
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new());
+		client.new_object(wl::Id::new(object_id), Self::new(self.conn.clone()));
 		Ok(())
 	}
 }

@@ -1,16 +1,20 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 pub struct Pointer {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	#[expect(dead_code)]
 	seat_id: wl::Id<wl::Seat>,
 	pub should_hide_cursor: bool,
 }
 
 impl Pointer {
-	pub fn new(object_id: wl::Id<Self>, seat_id: wl::Id<wl::Seat>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>, seat_id: wl::Id<wl::Seat>) -> Self {
 		Self {
 			object_id,
+			conn,
 			seat_id,
 			should_hide_cursor: false,
 		}
@@ -18,13 +22,12 @@ impl Pointer {
 
 	pub fn enter(
 		&mut self,
-		client: &mut Client,
 		serial: u32,
 		surface: wl::Id<wl::Surface>,
 		position: Point,
 	) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:enter
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (
@@ -36,14 +39,9 @@ impl Pointer {
 		})
 	}
 
-	pub fn leave(
-		&mut self,
-		client: &mut Client,
-		serial: u32,
-		surface: wl::Id<wl::Surface>,
-	) -> Result<()> {
+	pub fn leave(&mut self, serial: u32, surface: wl::Id<wl::Surface>) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:leave
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (serial, surface),
@@ -55,7 +53,7 @@ impl Pointer {
 		let time = display.get_time().as_millis();
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:motion
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (
@@ -77,7 +75,7 @@ impl Pointer {
 		let time = display.get_time().as_millis();
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:button
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
 			args: (serial, time as u32, button, state),
@@ -89,34 +87,34 @@ impl Pointer {
 		let time = display.get_time().as_millis();
 
 		// https://wayland.app/protocols/wayland#wl_pointer:event:axis
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 4,
 			args: (time as u32, axis, fixed::types::I24F8::from_num(value)),
 		})
 	}
 
-	pub fn frame(&mut self, client: &mut Client) -> Result<()> {
+	pub fn frame(&mut self) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:frame
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 5,
 			args: (),
 		})
 	}
 
-	pub fn axis_source(&mut self, client: &mut Client, axis_source: u32) -> Result<()> {
+	pub fn axis_source(&mut self, axis_source: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_source
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 6,
 			args: axis_source,
 		})
 	}
 
-	pub fn axis_discrete(&mut self, client: &mut Client, axis: u32, discrete: i32) -> Result<()> {
+	pub fn axis_discrete(&mut self, axis: u32, discrete: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_pointer:event:axis_discrete
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 8,
 			args: (axis, discrete),

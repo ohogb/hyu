@@ -1,15 +1,20 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 #[derive(Clone)]
 pub struct Region {
 	object_id: wl::Id<Self>,
+	#[expect(unused)]
+	conn: Rc<Connection>,
 	pub areas: Vec<(Point, Point)>,
 }
 
 impl Region {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
 		Self {
 			object_id,
+			conn,
 			areas: Vec::new(),
 		}
 	}

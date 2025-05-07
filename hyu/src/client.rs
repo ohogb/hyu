@@ -6,19 +6,17 @@ pub struct Client {
 	pub start_position: Point,
 	pub received_fds: std::collections::VecDeque<std::os::fd::RawFd>,
 	pub to_send_fds: Vec<std::os::fd::RawFd>,
-	pub stream: crate::Stream,
 	pub changes: Vec<state::Change>,
 }
 
 impl<'object> Client {
-	pub fn new(fd: std::os::fd::RawFd, start_position: Point, stream: crate::Stream) -> Self {
+	pub fn new(fd: std::os::fd::RawFd, start_position: Point) -> Self {
 		Self {
 			fd,
 			client_store: Default::default(),
 			start_position,
 			received_fds: Default::default(),
 			to_send_fds: Default::default(),
-			stream,
 			changes: Vec::new(),
 		}
 	}
@@ -42,7 +40,7 @@ impl<'object> Client {
 		const DISPLAY_ID: wl::Id<wl::Display> = wl::Id::new(1);
 
 		let display = self.get_object(DISPLAY_ID)?;
-		display.delete_id(self, id)
+		display.delete_id(id)
 	}
 
 	pub fn get_object<T>(&self, id: wl::Id<T>) -> Result<&'object T>
@@ -65,25 +63,6 @@ impl<'object> Client {
 
 	pub fn get_resource_mut(&self, id: u32) -> Option<&'object mut wl::Resource> {
 		self.client_store.get_resource_mut(id)
-	}
-
-	pub fn send_message<T: serde::Serialize>(&mut self, message: wlm::Message<T>) -> Result<()> {
-		let mut cmsg_buffer = [0u8; 0x20];
-		let mut cmsg = std::os::unix::net::SocketAncillary::new(&mut cmsg_buffer);
-
-		cmsg.add_fds(&self.to_send_fds);
-		self.to_send_fds.clear();
-
-		let ret = self
-			.stream
-			.get()
-			.send_vectored_with_ancillary(&[std::io::IoSlice::new(&message.to_vec()?)], &mut cmsg);
-
-		if ret.is_err() {
-			eprintln!("Client::send_message() failed!");
-		}
-
-		Ok(())
 	}
 
 	pub fn objects_mut<T>(&self) -> Vec<&'object mut T>

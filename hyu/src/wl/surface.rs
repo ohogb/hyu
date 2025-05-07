@@ -1,5 +1,7 @@
+use std::rc::Rc;
+
 use crate::{
-	Client, Point, Result,
+	Client, Connection, Point, Result,
 	renderer::{self},
 	state::{self, HwState},
 	wl,
@@ -86,7 +88,7 @@ impl AttachedBuffer {
 			let Ok(wl_buffer) = client.get_object(self.wl_buffer_id) else {
 				return Ok(());
 			};
-			wl_buffer.release(client)?;
+			wl_buffer.release()?;
 		}
 
 		Ok(())
@@ -112,6 +114,7 @@ impl Drop for AttachedBuffer {
 
 pub struct Surface {
 	pub object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	pub children: Vec<wl::Id<wl::SubSurface>>,
 	pub role: Option<SurfaceRole>,
 	pub pending: SurfaceState,
@@ -122,9 +125,10 @@ pub struct Surface {
 }
 
 impl Surface {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
 		Self {
 			object_id,
+			conn,
 			children: Vec::new(),
 			role: None,
 			pending: Default::default(),
@@ -199,7 +203,7 @@ impl Surface {
 				.unwrap()
 				.object_id;
 
-			presentation_feedback.sync_output(client, output)?;
+			presentation_feedback.sync_output(output)?;
 			presentation_feedback.presented(client, time, till_next_refresh, sequence, flags)?;
 
 			self.current.presentation_feedback = None;
@@ -262,7 +266,7 @@ impl Surface {
 
 				self.render_texture = SurfaceRenderTexture::UnattachedShmCopy(render_texture);
 
-				wl_buffer.release(client)?;
+				wl_buffer.release()?;
 			}
 			wl::BufferBackingStorage::Dmabuf(_) => {
 				match std::mem::take(&mut self.render_texture) {
@@ -307,7 +311,7 @@ impl Surface {
 				let wl_display = client.get_object_mut(wl::Id::<wl::Display>::new(1))?;
 
 				let wlr_layer_surface = client.get_object_mut(*wlr_layer_surface)?;
-				wlr_layer_surface.configure(client, wl_display.new_serial(), 0, 0)?;
+				wlr_layer_surface.configure(wl_display.new_serial(), 0, 0)?;
 
 				return Ok(());
 			}
@@ -413,7 +417,7 @@ impl wl::Object for Surface {
 			3 => {
 				// https://wayland.app/protocols/wayland#wl_surface:request:frame
 				let callback: wl::Id<wl::Callback> = wlm::decode::from_slice(params)?;
-				client.new_object(callback, wl::Callback::new(callback));
+				client.new_object(callback, wl::Callback::new(callback, self.conn.clone()));
 
 				self.pending.frame_callbacks.push(callback);
 			}
@@ -426,7 +430,7 @@ impl wl::Object for Surface {
 				let region: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
 
 				let region = if region.is_null() {
-					wl::Region::new(wl::Id::null())
+					wl::Region::new(wl::Id::null(), self.conn.clone())
 				} else {
 					client.get_object(region)?.clone()
 				};

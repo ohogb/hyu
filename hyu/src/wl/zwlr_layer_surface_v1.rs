@@ -1,23 +1,20 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct ZwlrLayerSurfaceV1 {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl ZwlrLayerSurfaceV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 
-	pub fn configure(
-		&self,
-		client: &mut wl::Client,
-		serial: u32,
-		width: u32,
-		height: u32,
-	) -> Result<()> {
+	pub fn configure(&self, serial: u32, width: u32, height: u32) -> Result<()> {
 		// https://wayland.app/protocols/wlr-layer-shell-unstable-v1#zwlr_layer_surface_v1:event:configure
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (serial, width, height),

@@ -1,18 +1,21 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 #[derive(Clone)]
 pub struct Callback {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl Callback {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 
 	pub fn done(self, client: &mut Client, data: u32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_callback:event:done
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: data,

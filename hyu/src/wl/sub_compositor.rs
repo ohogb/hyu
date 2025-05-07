@@ -1,12 +1,15 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct SubCompositor {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl SubCompositor {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 }
 
@@ -44,7 +47,10 @@ impl wl::Object for SubCompositor {
 					parent: parent_id,
 				})?;
 
-				client.new_object(id, wl::SubSurface::new(id, surface_id, parent_id));
+				client.new_object(
+					id,
+					wl::SubSurface::new(id, self.conn.clone(), surface_id, parent_id),
+				);
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in SubCompositor"),
 		}
@@ -63,7 +69,10 @@ impl wl::Global for SubCompositor {
 	}
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		client.new_object(
+			wl::Id::new(object_id),
+			Self::new(wl::Id::new(object_id), self.conn.clone()),
+		);
 		Ok(())
 	}
 }

@@ -1,40 +1,48 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct ZxdgOutputV1 {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	#[expect(unused)]
 	output_id: wl::Id<wl::Output>,
 }
 
 impl ZxdgOutputV1 {
-	pub fn new(object_id: wl::Id<Self>, output_id: wl::Id<wl::Output>) -> Self {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
+		output_id: wl::Id<wl::Output>,
+	) -> Self {
 		Self {
 			object_id,
+			conn,
 			output_id,
 		}
 	}
 
-	pub fn logical_position(&self, client: &mut wl::Client, x: i32, y: i32) -> Result<()> {
+	pub fn logical_position(&self, x: i32, y: i32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-output-unstable-v1#zxdg_output_v1:event:logical_position
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (x, y),
 		})
 	}
 
-	pub fn logical_size(&self, client: &mut wl::Client, width: i32, height: i32) -> Result<()> {
+	pub fn logical_size(&self, width: i32, height: i32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-output-unstable-v1#zxdg_output_v1:event:logical_size
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (width, height),
 		})
 	}
 
-	pub fn done(&self, client: &mut wl::Client) -> Result<()> {
+	pub fn done(&self) -> Result<()> {
 		// https://wayland.app/protocols/xdg-output-unstable-v1#zxdg_output_v1:event:done
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (),

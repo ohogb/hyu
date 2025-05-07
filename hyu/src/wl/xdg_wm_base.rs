@@ -1,17 +1,20 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct XdgWmBase {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl XdgWmBase {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 
-	pub fn ping(&self, client: &mut Client, serial: u32) -> Result<()> {
+	pub fn ping(&self, serial: u32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_wm_base:event:ping
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: serial,
@@ -37,14 +40,14 @@ impl wl::Object for XdgWmBase {
 			1 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:create_positioner
 				let id: wl::Id<wl::XdgPositioner> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::XdgPositioner::new(id));
+				client.new_object(id, wl::XdgPositioner::new(id, self.conn.clone()));
 			}
 			2 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:get_xdg_surface
 				let (id, surface): (wl::Id<wl::XdgSurface>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
-				client.new_object(id, wl::XdgSurface::new(id, surface));
+				client.new_object(id, wl::XdgSurface::new(id, self.conn.clone(), surface));
 			}
 			3 => {
 				// https://wayland.app/protocols/xdg-shell#xdg_wm_base:request:pong
@@ -67,7 +70,10 @@ impl wl::Global for XdgWmBase {
 	}
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		client.new_object(
+			wl::Id::new(object_id),
+			Self::new(wl::Id::new(object_id), self.conn.clone()),
+		);
 		Ok(())
 	}
 }

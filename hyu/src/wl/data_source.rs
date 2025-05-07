@@ -1,12 +1,16 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct DataSource {
 	object_id: wl::Id<Self>,
+	#[expect(unused)]
+	conn: Rc<Connection>,
 }
 
 impl DataSource {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 }
 

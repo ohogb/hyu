@@ -1,11 +1,14 @@
+use std::rc::Rc;
+
 use crate::{
-	Client, Point, Result,
+	Client, Connection, Point, Result,
 	state::{self, HwState},
 	wl,
 };
 
 pub struct XdgToplevel {
 	pub object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	pub surface: wl::Id<wl::XdgSurface>,
 	app_id: String,
 	title: String,
@@ -18,6 +21,7 @@ impl XdgToplevel {
 	pub fn new(
 		client: &mut Client,
 		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
 		surface: wl::Id<wl::XdgSurface>,
 		position: Point,
 		fd: std::os::fd::RawFd,
@@ -26,6 +30,7 @@ impl XdgToplevel {
 
 		Self {
 			object_id,
+			conn,
 			surface,
 			app_id: String::new(),
 			title: String::new(),
@@ -39,28 +44,28 @@ impl XdgToplevel {
 		let size = self.size.unwrap_or(Point(0, 0));
 
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (size.0, size.1, &self.states),
 		})?;
 
 		let xdg_surface = client.get_object_mut(self.surface)?;
-		xdg_surface.configure(client)
+		xdg_surface.configure()
 	}
 
-	pub fn close(&self, client: &mut Client) -> Result<()> {
+	pub fn close(&self) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:close
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (),
 		})
 	}
 
-	pub fn configure_bounds(&self, client: &mut Client, width: i32, height: i32) -> Result<()> {
+	pub fn configure_bounds(&self, width: i32, height: i32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_toplevel:event:configure_bounds
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (width, height),

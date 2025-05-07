@@ -1,7 +1,10 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 pub struct XdgSurface {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	pub surface: wl::Id<wl::Surface>,
 	pub position: Point,
 	pub size: Point,
@@ -10,9 +13,14 @@ pub struct XdgSurface {
 }
 
 impl XdgSurface {
-	pub fn new(object_id: wl::Id<Self>, surface: wl::Id<wl::Surface>) -> Self {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
+		surface: wl::Id<wl::Surface>,
+	) -> Self {
 		Self {
 			object_id,
+			conn,
 			surface,
 			position: Point(0, 0),
 			size: Point(0, 0),
@@ -21,12 +29,13 @@ impl XdgSurface {
 		}
 	}
 
-	pub fn configure(&mut self, client: &mut Client) -> Result<()> {
+	pub fn configure(&mut self) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_surface:event:configure
-		client.send_message(wlm::Message {
+		let serial = self.serial();
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
-			args: self.serial(),
+			args: serial,
 		})
 	}
 
@@ -60,6 +69,7 @@ impl wl::Object for XdgSurface {
 				let xdg_toplevel = wl::XdgToplevel::new(
 					client,
 					id,
+					self.conn.clone(),
 					self.object_id,
 					client.start_position,
 					client.fd,
@@ -80,8 +90,10 @@ impl wl::Object for XdgSurface {
 					wl::Id<wl::XdgPositioner>,
 				) = wlm::decode::from_slice(params)?;
 
-				let xdg_popup =
-					client.new_object(id, wl::XdgPopup::new(id, self.object_id, parent));
+				let xdg_popup = client.new_object(
+					id,
+					wl::XdgPopup::new(id, self.conn.clone(), self.object_id, parent),
+				);
 
 				let positioner = client.get_object(positioner)?;
 

@@ -1,9 +1,10 @@
 use std::{
 	io::{Seek as _, Write as _},
 	os::fd::IntoRawFd as _,
+	rc::Rc,
 };
 
-use crate::{Client, Config, Result, state::HwState, wl};
+use crate::{Client, Config, Connection, Result, state::HwState, wl};
 
 struct Format {
 	format: u32,
@@ -42,12 +43,17 @@ const FORMATS: [Format; 3] = [
 
 pub struct ZwpLinuxDmabufV1 {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	formats: (std::os::fd::RawFd, u64),
 	config: &'static Config,
 }
 
 impl ZwpLinuxDmabufV1 {
-	pub fn new(object_id: wl::Id<Self>, config: &'static Config) -> Result<Self> {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
+		config: &'static Config,
+	) -> Result<Self> {
 		let (fd, path) = nix::unistd::mkstemp("/tmp/temp_XXXXXX")?;
 		nix::unistd::unlink(&path)?;
 
@@ -63,29 +69,24 @@ impl ZwpLinuxDmabufV1 {
 
 		Ok(Self {
 			object_id,
+			conn,
 			formats: (fd, size),
 			config,
 		})
 	}
 
-	pub fn format(&self, client: &mut Client, format: u32) -> Result<()> {
+	pub fn format(&self, format: u32) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:event:format
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: format,
 		})
 	}
 
-	pub fn modifier(
-		&self,
-		client: &mut Client,
-		format: u32,
-		modifier_hi: u32,
-		modifier_lo: u32,
-	) -> Result<()> {
+	pub fn modifier(&self, format: u32, modifier_hi: u32, modifier_lo: u32) -> Result<()> {
 		// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:event:modifier
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (format, modifier_hi, modifier_lo),
@@ -111,47 +112,49 @@ impl wl::Object for ZwpLinuxDmabufV1 {
 			1 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:create_params
 				let id: wl::Id<wl::ZwpLinuxBufferParamsV1> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::ZwpLinuxBufferParamsV1::new(id));
+				client.new_object(id, wl::ZwpLinuxBufferParamsV1::new(id, self.conn.clone()));
 			}
 			2 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_default_feedback
 				let id: wl::Id<wl::ZwpLinuxDmabufFeedbackV1> = wlm::decode::from_slice(params)?;
-				let feedback =
-					client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id, self.formats));
+				let feedback = client.new_object(
+					id,
+					wl::ZwpLinuxDmabufFeedbackV1::new(id, self.conn.clone(), self.formats),
+				);
 
-				feedback.format_table(client)?;
+				feedback.format_table()?;
 
 				let dev = nix::sys::stat::stat(&self.config.card)?.st_rdev;
-				feedback.main_device(client, &[dev])?;
+				feedback.main_device(&[dev])?;
 
-				feedback.tranche_target_device(client, &[dev])?;
-				feedback.tranche_flags(client, 1 << 0)?;
-				feedback
-					.tranche_formats(client, &(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
-				feedback.tranche_done(client)?;
+				feedback.tranche_target_device(&[dev])?;
+				feedback.tranche_flags(1 << 0)?;
+				feedback.tranche_formats(&(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
+				feedback.tranche_done()?;
 
-				feedback.done(client)?;
+				feedback.done()?;
 			}
 			3 => {
 				// https://wayland.app/protocols/linux-dmabuf-v1#zwp_linux_dmabuf_v1:request:get_surface_feedback
 				let (id, _surface): (wl::Id<wl::ZwpLinuxDmabufFeedbackV1>, wl::Id<wl::Surface>) =
 					wlm::decode::from_slice(params)?;
 
-				let feedback =
-					client.new_object(id, wl::ZwpLinuxDmabufFeedbackV1::new(id, self.formats));
+				let feedback = client.new_object(
+					id,
+					wl::ZwpLinuxDmabufFeedbackV1::new(id, self.conn.clone(), self.formats),
+				);
 
-				feedback.format_table(client)?;
+				feedback.format_table()?;
 
 				let dev = nix::sys::stat::stat(&self.config.card)?.st_rdev;
-				feedback.main_device(client, &[dev])?;
+				feedback.main_device(&[dev])?;
 
-				feedback.tranche_target_device(client, &[dev])?;
-				feedback.tranche_flags(client, 1 << 0)?;
-				feedback
-					.tranche_formats(client, &(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
-				feedback.tranche_done(client)?;
+				feedback.tranche_target_device(&[dev])?;
+				feedback.tranche_flags(1 << 0)?;
+				feedback.tranche_formats(&(0..(FORMATS.len() as u16)).collect::<Vec<_>>())?;
+				feedback.tranche_done()?;
 
-				feedback.done(client)?;
+				feedback.done()?;
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in ZwpLinuxDmabufV1"),
 		}
@@ -171,14 +174,13 @@ impl wl::Global for ZwpLinuxDmabufV1 {
 
 	fn bind(&self, client: &mut Client, object_id: u32, version: u32) -> Result<()> {
 		let id = wl::Id::new(object_id);
-		let object = client.new_object(id, Self::new(id, self.config)?);
+		let object = client.new_object(id, Self::new(id, self.conn.clone(), self.config)?);
 
 		assert!(version >= 3);
 
 		if version == 3 {
 			for format in FORMATS {
 				object.modifier(
-					client,
 					format.format,
 					((format.modifier >> 32) & 0xFFFF_FFFF) as u32,
 					(format.modifier & 0xFFFF_FFFF) as u32,

@@ -432,11 +432,11 @@ impl CompositorState {
 				let serial = display.new_serial();
 
 				for pointer in &mut pointers {
-					pointer.leave(client, serial, surface)?;
+					pointer.leave(serial, surface)?;
 				}
 
 				for pointer in &mut pointers {
-					pointer.frame(client)?;
+					pointer.frame()?;
 				}
 			}
 
@@ -454,11 +454,11 @@ impl CompositorState {
 				let serial = display.new_serial();
 
 				for pointer in &mut pointers {
-					pointer.enter(client, serial, surface, position)?;
+					pointer.enter(serial, surface, position)?;
 				}
 
 				for pointer in &mut pointers {
-					pointer.frame(client)?;
+					pointer.frame()?;
 				}
 			}
 		} else if old.map(|x| x.position) != new.map(|x| x.position) {
@@ -472,7 +472,7 @@ impl CompositorState {
 			}
 
 			for pointer in &mut pointers {
-				pointer.frame(client)?;
+				pointer.frame()?;
 			}
 		}
 
@@ -499,7 +499,7 @@ impl CompositorState {
 			}
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.frame(client)?;
+				pointer.frame()?;
 			}
 
 			let Some(focused_window) = self.get_focused_window() else {
@@ -521,13 +521,13 @@ impl CompositorState {
 			let client = self.clients.get_mut(&fd).unwrap();
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.axis_source(client, 0)?;
-				pointer.axis_discrete(client, axis, discrete)?;
+				pointer.axis_source(0)?;
+				pointer.axis_discrete(axis, discrete)?;
 				pointer.axis(client, axis, value)?;
 			}
 
 			for pointer in client.objects_mut::<wl::Pointer>() {
-				pointer.frame(client)?;
+				pointer.frame()?;
 			}
 		}
 
@@ -560,7 +560,7 @@ impl CompositorState {
 					let client = self.clients.get_mut(&fd).unwrap();
 					let xdg_toplevel = client.get_object(xdg_toplevel)?;
 
-					xdg_toplevel.close(client)?;
+					xdg_toplevel.close()?;
 				}
 
 				return Ok(());

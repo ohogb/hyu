@@ -1,4 +1,6 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 pub enum Direction {
 	Top,
@@ -42,6 +44,8 @@ impl Direction {
 
 pub struct XdgPositioner {
 	object_id: wl::Id<Self>,
+	#[expect(unused)]
+	conn: Rc<Connection>,
 	pub size: Option<Point>,
 	pub anchor: Option<Direction>,
 	pub anchor_rect: Option<(Point, Point)>,
@@ -50,9 +54,10 @@ pub struct XdgPositioner {
 }
 
 impl XdgPositioner {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
 		Self {
 			object_id,
+			conn,
 			size: None,
 			anchor: None,
 			anchor_rect: None,

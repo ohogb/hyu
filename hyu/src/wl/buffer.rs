@@ -1,4 +1,6 @@
-use crate::{Client, Point, Result, gbm, renderer, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, gbm, renderer, state::HwState, wl};
 
 pub struct ShmBackingStorage {
 	pub size: Point,
@@ -45,16 +47,19 @@ impl ShmBackingStorage {
 				)?
 			};
 
-			*output = Some((self.size, renderer::vulkan::Texture {
-				image,
-				image_device_memory,
-				image_view,
-				image_layout: ash::vk::ImageLayout::UNDEFINED,
-				buffer,
-				buffer_device_memory,
-				buffer_size,
-				buffer_ptr,
-			}))
+			*output = Some((
+				self.size,
+				renderer::vulkan::Texture {
+					image,
+					image_device_memory,
+					image_view,
+					image_layout: ash::vk::ImageLayout::UNDEFINED,
+					buffer,
+					buffer_device_memory,
+					buffer_size,
+					buffer_ptr,
+				},
+			))
 		}
 
 		let Some((texture_size, texture)) = output else {
@@ -186,20 +191,26 @@ pub enum BufferBackingStorage {
 
 pub struct Buffer {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	pub backing_storage: BufferBackingStorage,
 }
 
 impl Buffer {
-	pub fn new(object_id: wl::Id<Self>, backing_storage: BufferBackingStorage) -> Self {
+	pub fn new(
+		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
+		backing_storage: BufferBackingStorage,
+	) -> Self {
 		Self {
 			object_id,
+			conn,
 			backing_storage,
 		}
 	}
 
-	pub fn release(&self, client: &mut Client) -> Result<()> {
+	pub fn release(&self) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_buffer:event:release
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (),

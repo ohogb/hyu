@@ -6,6 +6,7 @@
 pub mod backend;
 mod client;
 pub mod config;
+pub mod connection;
 pub mod drm;
 pub mod elp;
 pub mod gbm;
@@ -14,7 +15,6 @@ mod point;
 pub mod renderer;
 mod state;
 pub mod store;
-mod stream;
 pub mod tty;
 pub mod udev;
 pub mod wl;
@@ -22,13 +22,13 @@ pub mod xkb;
 
 pub use client::*;
 pub use config::*;
+pub use connection::*;
 pub use point::*;
 pub use store::*;
-pub use stream::*;
 
 use wl::Object as _;
 
-use std::os::fd::AsRawFd as _;
+use std::rc::Rc;
 
 pub type Result<T> = color_eyre::Result<T>;
 
@@ -89,68 +89,79 @@ fn main() -> Result<()> {
 		elp::unix_listener::create(socket),
 		move |(stream, _), state, runtime| {
 			stream.set_nonblocking(true)?;
+			let conn = Rc::new(Connection::new(stream));
 
-			let stream = Stream::new(stream);
-			let fd = stream.get().as_raw_fd();
+			let fd = conn.as_raw_fd();
+			let mut client = Client::new(fd, Point(0, 0));
 
-			let mut client = Client::new(fd, Point(0, 0), stream.clone());
+			let mut display = wl::Display::new(wl::Id::new(1), conn.clone());
 
-			let mut display = wl::Display::new(wl::Id::new(1));
-
-			display.push_global(wl::Shm::new(wl::Id::null()));
-			display.push_global(wl::Compositor::new());
-			display.push_global(wl::SubCompositor::new(wl::Id::null()));
-			display.push_global(wl::DataDeviceManager::new());
+			display.push_global(wl::Shm::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::Compositor::new(conn.clone()));
+			display.push_global(wl::SubCompositor::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::DataDeviceManager::new(conn.clone()));
 			display.push_global(wl::Seat::new(
 				wl::Id::null(),
+				conn.clone(),
 				state.compositor.xkb_state.keymap_file,
 			));
-			display.push_global(wl::Output::new(wl::Id::null()));
-			display.push_global(wl::XdgWmBase::new(wl::Id::null()));
-			display.push_global(wl::ZwpLinuxDmabufV1::new(wl::Id::null(), config)?);
-			display.push_global(wl::WpPresentation::new(wl::Id::null()));
-			display.push_global(wl::ZwlrLayerShellV1::new(wl::Id::null()));
-			display.push_global(wl::ZxdgOutputManagerV1::new(wl::Id::null(), u32::MAX));
+			display.push_global(wl::Output::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::XdgWmBase::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::ZwpLinuxDmabufV1::new(
+				wl::Id::null(),
+				conn.clone(),
+				config,
+			)?);
+			display.push_global(wl::WpPresentation::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::ZwlrLayerShellV1::new(wl::Id::null(), conn.clone()));
+			display.push_global(wl::ZxdgOutputManagerV1::new(
+				wl::Id::null(),
+				conn.clone(),
+				u32::MAX,
+			));
 
 			client.ensure_objects_capacity();
 			client.new_object(wl::Id::new(1), display);
 
 			state.compositor.clients.insert(fd, client);
 
-			runtime.on(elp::wl::create(stream), move |msg, state, _| match msg {
-				elp::wl::Message::Request {
-					object,
-					op,
-					params,
-					fds,
-				} => {
-					let client = state.compositor.clients.get_mut(&fd).unwrap();
-					client.received_fds.extend(fds);
+			runtime.on(
+				elp::wl::create(conn.clone()),
+				move |msg, state, _| match msg {
+					elp::wl::Message::Request {
+						object,
+						op,
+						params,
+						fds,
+					} => {
+						let client = state.compositor.clients.get_mut(&fd).unwrap();
+						client.received_fds.extend(fds);
 
-					client.ensure_objects_capacity();
+						client.ensure_objects_capacity();
 
-					let Some(object) = client.get_resource_mut(object) else {
-						color_eyre::eyre::bail!("unknown object '{object}'");
-					};
+						let Some(object) = client.get_resource_mut(object) else {
+							color_eyre::eyre::bail!("unknown object '{object}'");
+						};
 
-					object.handle(client, &mut state.hw, op, params)?;
+						object.handle(client, &mut state.hw, op, params)?;
 
-					state
-						.compositor
-						.changes
-						.extend(std::mem::take(&mut client.changes));
+						state
+							.compositor
+							.changes
+							.extend(std::mem::take(&mut client.changes));
 
-					state.compositor.process_focus_changes()
-				}
-				elp::wl::Message::Closed => {
-					state
-						.compositor
-						.changes
-						.push(state::Change::RemoveClient(fd));
+						state.compositor.process_focus_changes()
+					}
+					elp::wl::Message::Closed => {
+						state
+							.compositor
+							.changes
+							.push(state::Change::RemoveClient(fd));
 
-					state.compositor.process_focus_changes()
-				}
-			})
+						state.compositor.process_focus_changes()
+					}
+				},
+			)
 		},
 	)?;
 

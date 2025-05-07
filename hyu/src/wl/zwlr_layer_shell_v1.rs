@@ -1,12 +1,15 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct ZwlrLayerShellV1 {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl ZwlrLayerShellV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 }
 
@@ -29,7 +32,7 @@ impl wl::Object for ZwlrLayerShellV1 {
 					String,
 				) = wlm::decode::from_slice(params)?;
 
-				client.new_object(id, wl::ZwlrLayerSurfaceV1::new(id));
+				client.new_object(id, wl::ZwlrLayerSurfaceV1::new(id, self.conn.clone()));
 
 				let wl_surface = client.get_object_mut(surface)?;
 				wl_surface.set_role(wl::SurfaceRole::LayerSurface {
@@ -61,7 +64,7 @@ impl wl::Global for ZwlrLayerShellV1 {
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
 		let id = wl::Id::<Self>::new(object_id);
-		client.new_object(id, Self::new(id));
+		client.new_object(id, Self::new(id, self.conn.clone()));
 
 		Ok(())
 	}

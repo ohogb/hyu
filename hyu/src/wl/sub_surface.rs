@@ -1,7 +1,11 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 pub struct SubSurface {
 	object_id: wl::Id<Self>,
+	#[expect(unused)]
+	conn: Rc<Connection>,
 	pub surface: wl::Id<wl::Surface>,
 	pub parent_surface: wl::Id<wl::Surface>,
 	pub position: Point,
@@ -10,11 +14,13 @@ pub struct SubSurface {
 impl SubSurface {
 	pub fn new(
 		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
 		surface: wl::Id<wl::Surface>,
 		parent_surface: wl::Id<wl::Surface>,
 	) -> Self {
 		Self {
 			object_id,
+			conn,
 			surface,
 			parent_surface,
 			position: Point(0, 0),

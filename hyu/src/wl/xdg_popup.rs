@@ -1,7 +1,10 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 pub struct XdgPopup {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	pub xdg_surface: wl::Id<wl::XdgSurface>,
 	pub parent_xdg_surface: wl::Id<wl::XdgSurface>,
 	pub position: Point,
@@ -11,11 +14,13 @@ pub struct XdgPopup {
 impl XdgPopup {
 	pub fn new(
 		object_id: wl::Id<Self>,
+		conn: Rc<Connection>,
 		xdg_surface: wl::Id<wl::XdgSurface>,
 		parent_xdg_surface: wl::Id<wl::XdgSurface>,
 	) -> Self {
 		Self {
 			object_id,
+			conn,
 			xdg_surface,
 			parent_xdg_surface,
 			position: Point(0, 0),
@@ -25,7 +30,7 @@ impl XdgPopup {
 
 	pub fn configure(&mut self, client: &mut Client, position: Point, size: Point) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:configure
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (position.0, position.1, size.0, size.1),
@@ -35,12 +40,12 @@ impl XdgPopup {
 		self.size = size;
 
 		let xdg_surface = client.get_object_mut(self.xdg_surface)?;
-		xdg_surface.configure(client)
+		xdg_surface.configure()
 	}
 
-	pub fn repositioned(&self, client: &mut Client, token: u32) -> Result<()> {
+	pub fn repositioned(&self, token: u32) -> Result<()> {
 		// https://wayland.app/protocols/xdg-shell#xdg_popup:event:repositioned
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: token,
@@ -75,7 +80,7 @@ impl wl::Object for XdgPopup {
 				let (positioner, token): (wl::Id<wl::XdgPositioner>, u32) =
 					wlm::decode::from_slice(params)?;
 
-				self.repositioned(client, token)?;
+				self.repositioned(token)?;
 
 				let positioner = client.get_object(positioner)?;
 				let parent_xdg_surface = client.get_object(self.parent_xdg_surface)?;

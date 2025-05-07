@@ -1,17 +1,20 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct WpPresentationFeedback {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl WpPresentationFeedback {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 
-	pub fn sync_output(&self, client: &mut Client, output: wl::Id<wl::Output>) -> Result<()> {
+	pub fn sync_output(&self, output: wl::Id<wl::Output>) -> Result<()> {
 		// https://wayland.app/protocols/presentation-time#wp_presentation_feedback:event:sync_output
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: output,
@@ -27,7 +30,7 @@ impl WpPresentationFeedback {
 		flags: u32,
 	) -> Result<()> {
 		// https://wayland.app/protocols/presentation-time#wp_presentation_feedback:event:presented
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (

@@ -1,11 +1,14 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
 
-#[derive(Debug)]
-pub struct Compositor {}
+use crate::{Client, Connection, Result, state::HwState, wl};
+
+pub struct Compositor {
+	conn: Rc<Connection>,
+}
 
 impl Compositor {
-	pub fn new() -> Self {
-		Self {}
+	pub fn new(conn: Rc<Connection>) -> Self {
+		Self { conn }
 	}
 }
 
@@ -21,12 +24,12 @@ impl wl::Object for Compositor {
 			0 => {
 				// https://wayland.app/protocols/wayland#wl_compositor:request:create_surface
 				let id: wl::Id<wl::Surface> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::Surface::new(id));
+				client.new_object(id, wl::Surface::new(id, self.conn.clone()));
 			}
 			1 => {
 				// https://wayland.app/protocols/wayland#wl_compositor:request:create_region
 				let id: wl::Id<wl::Region> = wlm::decode::from_slice(params)?;
-				client.new_object(id, wl::Region::new(id));
+				client.new_object(id, wl::Region::new(id, self.conn.clone()));
 			}
 			_ => color_eyre::eyre::bail!("unknown op '{op}' in Compositor"),
 		}
@@ -45,7 +48,7 @@ impl wl::Global for Compositor {
 	}
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
-		client.new_object(wl::Id::new(object_id), Self::new());
+		client.new_object(wl::Id::new(object_id), Self::new(self.conn.clone()));
 		Ok(())
 	}
 }

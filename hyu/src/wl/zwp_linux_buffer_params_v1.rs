@@ -1,4 +1,6 @@
-use crate::{Client, Point, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Point, Result, state::HwState, wl};
 
 #[derive(Debug)]
 pub struct DmabufAttributes {
@@ -18,14 +20,16 @@ pub struct Plane {
 
 pub struct ZwpLinuxBufferParamsV1 {
 	object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 	modifier: Option<u64>,
 	planes: Vec<Plane>,
 }
 
 impl ZwpLinuxBufferParamsV1 {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
 		Self {
 			object_id,
+			conn,
 			modifier: None,
 			planes: Vec::new(),
 		}
@@ -110,6 +114,7 @@ impl wl::Object for ZwpLinuxBufferParamsV1 {
 					buffer_id,
 					wl::Buffer::new(
 						buffer_id,
+						self.conn.clone(),
 						wl::BufferBackingStorage::Dmabuf(wl::DmabufBackingStorage {
 							size: Point(width, height),
 							attributes,

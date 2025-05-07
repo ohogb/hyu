@@ -1,17 +1,19 @@
-use crate::{Client, Result, state::HwState, wl};
+use std::rc::Rc;
+
+use crate::{Client, Connection, Result, state::HwState, wl};
 
 pub struct Output {
 	pub object_id: wl::Id<Self>,
+	conn: Rc<Connection>,
 }
 
 impl Output {
-	pub fn new(object_id: wl::Id<Self>) -> Self {
-		Self { object_id }
+	pub fn new(object_id: wl::Id<Self>, conn: Rc<Connection>) -> Self {
+		Self { object_id, conn }
 	}
 
 	fn geometry(
 		&self,
-		client: &mut Client,
 		x: i32,
 		y: i32,
 		physical_width: i32,
@@ -22,7 +24,7 @@ impl Output {
 		transform: i32,
 	) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:geometry
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 0,
 			args: (
@@ -38,34 +40,27 @@ impl Output {
 		})
 	}
 
-	fn mode(
-		&self,
-		client: &mut Client,
-		flags: u32,
-		width: i32,
-		height: i32,
-		refresh: i32,
-	) -> Result<()> {
+	fn mode(&self, flags: u32, width: i32, height: i32, refresh: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:mode
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 1,
 			args: (flags, width, height, refresh),
 		})
 	}
 
-	pub fn done(&self, client: &mut Client) -> Result<()> {
+	pub fn done(&self) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:done
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 2,
 			args: (),
 		})
 	}
 
-	fn scale(&self, client: &mut Client, factor: i32) -> Result<()> {
+	fn scale(&self, factor: i32) -> Result<()> {
 		// https://wayland.app/protocols/wayland#wl_output:event:scale
-		client.send_message(wlm::Message {
+		self.conn.send_message(wlm::Message {
 			object_id: *self.object_id,
 			op: 3,
 			args: factor,
@@ -105,12 +100,15 @@ impl wl::Global for Output {
 	}
 
 	fn bind(&self, client: &mut Client, object_id: u32, _version: u32) -> Result<()> {
-		let output = client.new_object(wl::Id::new(object_id), Self::new(wl::Id::new(object_id)));
+		let output = client.new_object(
+			wl::Id::new(object_id),
+			Self::new(wl::Id::new(object_id), self.conn.clone()),
+		);
 
-		output.geometry(client, 0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;
-		output.mode(client, 3, 2560, 1440, 270000)?;
-		output.scale(client, 1)?;
-		output.done(client)?;
+		output.geometry(0, 0, 600, 340, 0, "AUS", "ROG XG27AQM", 0)?;
+		output.mode(3, 2560, 1440, 270000)?;
+		output.scale(1)?;
+		output.done()?;
 
 		Ok(())
 	}
